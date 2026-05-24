@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+*.swp
+*.swo
+
+# Runtime artifacts written by council-discussion sessions
+skills/council-discussion/transcripts/
