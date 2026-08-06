@@ -1,7 +1,7 @@
 ---
 name: agent-council
 description: This skill should be used when the user asks to "evaluate", "assess", "audit", "deep-dive", or "review" something comprehensively using multiple independent perspectives. Triggers on phrases like "run the agent council", "agent council evaluation", "run a panel of agents to assess", "multi-agent evaluation", "have agents evaluate and discuss", "comprehensive audit with multiple agents", "independent assessment panel", "get multiple perspectives on", or when the user wants findings that have been cross-validated across specialist agents before being presented. Distinct from basic parallel dispatch — this skill adds a structured cross-panel discussion round where agents review each other's findings and revise their assessments before a synthesized report is produced. Also triggers when the user wants to verify readiness for release, milestone, or merge.
-version: 0.5.0
+version: 0.7.0
 ---
 
 # Agent Council
@@ -131,12 +131,78 @@ In Verification Mode, you can often use fewer agents (3-5) because the scope is 
 
 ## Phase 3 — Parallel Blind Assessment
 
+### Context-exhaustion fallback
+
+An agent killed mid-run with `autocompact is thrashing: the context refilled to the limit
+within 3 turns of the previous compact`. Cause is almost always one oversized read or tool
+output, and broad-scope lenses (a devil's advocate, an "audit everything" brief) are the most
+exposed because their briefs invite reading whole files.
+
+Bound the reads in the prompt rather than hoping. Every agent prompt for a broad lens should
+carry: **prefer `grep`/`rg` with a line budget over reading a file whole; a file over ~1000
+lines should be grepped, never read end to end; use `git log --oneline`/`--stat`, never
+`git log -p`; pipe long command output through `head`.** A lower-cost model has a smaller
+effective window, so a retry on a cheaper tier makes this failure *more* likely, not less —
+if a lens died this way, shrink its scope before you downgrade its model.
+
+### Dispatch failure fallback
+
+If an agent dispatch is rejected by the model service before producing an assessment (for
+example, a quota or model-availability error), retry the same bounded specialization once
+with an explicitly available lower-cost model when the runtime exposes one. Do not treat an
+errored agent as silent agreement, and do not begin the discussion round until at least two
+agents have actually submitted assessments. If all retries fail, continue with a lead-only
+review only if the user asked to proceed, and state clearly in the report that no
+cross-agent consensus exists.
+
+### Idle-without-delivering fallback
+
+An agent that completes its work, emits an idle notification, and never delivers its
+assessment. Symptoms: repeated `idle_notification ... idleReason: "available"` from the same
+agent with no report.
+
+**The usual cause is a missing delivery channel, and it is fixable rather than inevitable.**
+`SendMessage`'s own contract is that an agent's plain text output is not visible to the lead —
+so an agent that writes its report as its final response and goes idle has communicated
+nothing. If the prompt you dispatched did not tell the agent to deliver via `SendMessage`, the
+loss is the prompt's fault, not the agent's. The "How to Deliver Your Assessment" block in
+Phase 3 exists for exactly this and must appear in every agent prompt; earlier versions of this
+skill specified the report *format* without ever naming the *channel*, and lost roughly half of
+all assessments to it. The tell that this is what happened: a nudged agent then delivers
+immediately and in full, because your message gave it both a channel and an addressee.
+
+So before assuming an agent failed, check that its prompt carried the delivery block. If it
+did not, that is the bug. If it did, fall back to the ladder below:
+
+1. **Verify the highest-stakes items yourself, in parallel with the agents.** Do not wait to
+   discover at synthesis time that the only reviewer covering a release blocker never
+   reported. Lead verification is not duplicated effort — the skill already requires the lead
+   to check agent claims rather than take them on faith.
+2. **Escalate down a ladder, not by repeating the same request.** First ask for the full
+   format; if that yields nothing, ask for `Completed / Not completed / highest-severity
+   finding`; if that yields nothing, ask for a single line. Include in each request what the
+   lead has already established, so a responding agent spends its remaining effort on gaps.
+3. **Cap the attempts.** After two escalations per agent, stop. Call `TaskStop` on it and
+   record the lens as unassessed.
+4. **Never infer content from an idle notification.** An agent that went idle without
+   reporting has told you nothing. It is not agreement, and it is not a clean bill of health
+   for its lens.
+5. **Name the unassessed lenses explicitly in the report and checklist**, under a heading a
+   reader cannot miss. A panel that silently covered three of five dimensions while reading
+   like it covered five is worse than an honest partial review, because the reader calibrates
+   trust on the apparent breadth.
+
+A single agent that genuinely delivers a live-reproduced assessment is worth more than four
+that go idle. Weight the report accordingly rather than averaging scores across agents that
+never spoke.
+
 Dispatch all agents simultaneously. Agents must not see each other's findings during this phase — independence prevents anchoring bias.
 
 **Agent prompt structure:**
 1. **Context block** — shared pre-research findings
 2. **Independent verification requirement** — agents MUST re-verify key structural claims from pre-research themselves before citing them as findings (see below)
 3. **Domain intent reminder** — agents must ask "is this behavior consistent with this library/tool's purpose?" before flagging anything as a bug
+3b. **Live-verification nudge** — for any finding about safety, process enforcement, or "does X actually happen," push agents toward live reproduction (run the actual CLI against a scratch fixture, call `gh api`/`gh label list` for repo settings, execute the code path) rather than stopping at static code reading. Live-reproduced findings carry categorically more weight in synthesis and Phase 4 discussion than "I read the code and it looks like it could happen."
 4. **Specialization** — the exact dimension this agent assesses
 5. **Scope** — what files/paths to examine
 6. **In Verification Mode: Checklist items to verify** — list the specific open items this agent is responsible for confirming closed or still open, with their acceptance criteria
@@ -166,9 +232,35 @@ Before flagging any behavior as a bug or design flaw, ask:
 A test harness that creates temp directories is not exhibiting a side effect — it is doing
 its job. A retry mechanism that swallows errors may be intentional resilience design.
 Check the README, CLAUDE.md, or description for stated intent before deciding behavior is wrong.
+
+## Prefer Live Reproduction Over Static Reading
+
+When a finding is about whether something actually happens at runtime (a guard fails to
+fire, a check is skipped, a merge gate doesn't block) — don't stop at "I read the code and
+it looks like X could occur." Build a minimal scratch repro (temp dir, real config, run the
+real built binary) or hit the real external system (`gh api`, `gh label list`) and confirm
+the behavior directly. A live-reproduced finding is strictly stronger evidence than a
+plausible static read, and should be reported as such (note in your finding that you
+reproduced it, and how) so synthesis can weight it correctly.
+
+## How to Deliver Your Assessment — READ THIS OR YOUR WORK IS LOST
+
+When you are done, **call `SendMessage` addressed to `team-lead` with your assessment as the
+message body.**
+
+Your plain text output is NOT visible to the lead. If you finish your analysis, write the
+report as your final response, and go idle without calling `SendMessage`, the lead receives
+an idle notification containing none of your findings, and every hour of your analysis is
+discarded. This is the single most common way an assessment is lost — it has nothing to do
+with the quality of your work.
+
+Send once, when the assessment is complete. Do not send progress updates.
 ```
 
 **Required agent output format:**
+
+Delivered via `SendMessage` to `team-lead` (see the delivery block above — a report written
+only as final text never reaches the lead):
 ```
 ### [Domain] Assessment
 **Overall Rating:** X/10
@@ -377,6 +469,14 @@ For highly consequential evaluations, include one agent explicitly tasked with a
 **One discussion round is usually enough**: A second round rarely surfaces net-new findings.
 
 **Conflating Discovery and Verification mode**: In Verification mode, the primary job is confirming items CLOSED, not finding new things. New findings are still welcomed but shouldn't dominate the report.
+
+**Treating a confirming probe as verified**: a reproduction that agrees with the expected
+answer deserves the same scrutiny as one that contradicts it. In one run the lead's first
+attempt to reproduce a claimed counter race printed exactly the "lost increments" result the
+finding predicted — but it was calling the method with its default `GAUGE` metric type, which
+assigns rather than accumulates. The correct behaviour looked like the bug. Before recording a
+reproduction as confirmation, check that the thing you exercised is the thing the finding is
+about: read the signature and the defaults, not just the call you wrote.
 
 **Pre-research context contamination**: The context block given to all agents is a shared attack surface. One wrong assertion in pre-research — especially a false absence claim — propagates to all N agents simultaneously. The cross-panel structure cannot self-correct this because all agents start from the same poisoned context. Never infer "X doesn't exist" from a search result that may have been truncated or scoped incorrectly. Verify absence with a direct path check before asserting it.
 
