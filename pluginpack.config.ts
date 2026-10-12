@@ -32,6 +32,7 @@ export default defineConfig({
       plugins: {
         scalvert: {
           source: "shared/scalvert",
+          overrides: "overrides/codex/scalvert",
           path: "plugins/codex/scalvert",
           displayName: "scalvert",
           description,
