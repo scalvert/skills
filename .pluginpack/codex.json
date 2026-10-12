@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "target": "codex",
+  "files": [
+    ".agents/plugins/marketplace.json",
+    "plugins/codex/scalvert/.codex-plugin/plugin.json",
+    "plugins/codex/scalvert/skills/agent-council/SKILL.md",
+    "plugins/codex/scalvert/skills/agent-council/examples/package-evaluation.md",
+    "plugins/codex/scalvert/skills/agent-council/references/agent-specializations.md",
+    "plugins/codex/scalvert/skills/agent-council/references/discussion-protocol.md",
+    "plugins/codex/scalvert/skills/agent-council/references/report-format.md",
+    "plugins/codex/scalvert/skills/council-discussion/SKILL.md",
+    "plugins/codex/scalvert/skills/council-discussion/examples/failure-modes.md",
+    "plugins/codex/scalvert/skills/council-discussion/examples/orchestration-layer-debate.md",
+    "plugins/codex/scalvert/skills/council-discussion/references/async-response.md",
+    "plugins/codex/scalvert/skills/council-discussion/references/discussion-patterns.md",
+    "plugins/codex/scalvert/skills/council-discussion/references/epistemic-discipline.md",
+    "plugins/codex/scalvert/skills/council-discussion/references/escalation.md",
+    "plugins/codex/scalvert/skills/council-discussion/references/personas.md",
+    "plugins/codex/scalvert/skills/council-discussion/references/transcript-format.md"
+  ]
+}

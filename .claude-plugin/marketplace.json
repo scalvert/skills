@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "scalvert",
+  "version": "0.1.0",
+  "description": "Workflow skills for coding agents: code review, review feedback, release readiness, decisions and clear writing.",
+  "owner": {
+    "name": "Steve Calvert",
+    "url": "https://github.com/scalvert"
+  },
+  "plugins": [
+    {
+      "name": "scalvert",
+      "source": "./plugins/claude/scalvert",
+      "description": "Workflow skills for coding agents: code review, review feedback, release readiness, decisions and clear writing."
+    }
+  ]
+}

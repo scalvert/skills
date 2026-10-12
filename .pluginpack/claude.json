@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "target": "claude",
+  "files": [
+    ".claude-plugin/marketplace.json",
+    "plugins/claude/scalvert/.claude-plugin/plugin.json",
+    "plugins/claude/scalvert/skills/agent-council/SKILL.md",
+    "plugins/claude/scalvert/skills/agent-council/examples/package-evaluation.md",
+    "plugins/claude/scalvert/skills/agent-council/references/agent-specializations.md",
+    "plugins/claude/scalvert/skills/agent-council/references/discussion-protocol.md",
+    "plugins/claude/scalvert/skills/agent-council/references/report-format.md",
+    "plugins/claude/scalvert/skills/council-discussion/SKILL.md",
+    "plugins/claude/scalvert/skills/council-discussion/examples/failure-modes.md",
+    "plugins/claude/scalvert/skills/council-discussion/examples/orchestration-layer-debate.md",
+    "plugins/claude/scalvert/skills/council-discussion/references/async-response.md",
+    "plugins/claude/scalvert/skills/council-discussion/references/discussion-patterns.md",
+    "plugins/claude/scalvert/skills/council-discussion/references/epistemic-discipline.md",
+    "plugins/claude/scalvert/skills/council-discussion/references/escalation.md",
+    "plugins/claude/scalvert/skills/council-discussion/references/personas.md",
+    "plugins/claude/scalvert/skills/council-discussion/references/transcript-format.md"
+  ]
+}

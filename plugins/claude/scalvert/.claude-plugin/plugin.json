@@ -1,0 +1,12 @@
+{
+  "name": "scalvert",
+  "version": "0.1.0",
+  "description": "Workflow skills for coding agents: code review, review feedback, release readiness, decisions and clear writing.",
+  "author": {
+    "name": "Steve Calvert",
+    "url": "https://github.com/scalvert"
+  },
+  "homepage": "https://github.com/scalvert/skills",
+  "repository": "https://github.com/scalvert/skills",
+  "license": "MIT"
+}
