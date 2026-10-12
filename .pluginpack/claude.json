@@ -4,6 +4,7 @@
   "files": [
     ".claude-plugin/marketplace.json",
     "plugins/claude/scalvert/.claude-plugin/plugin.json",
+    "plugins/claude/scalvert/scripts/permissions.mjs",
     "plugins/claude/scalvert/skills/assess-release-readiness/SKILL.md",
     "plugins/claude/scalvert/skills/assess-release-readiness/examples/package-evaluation.md",
     "plugins/claude/scalvert/skills/assess-release-readiness/references/agent-specializations.md",
