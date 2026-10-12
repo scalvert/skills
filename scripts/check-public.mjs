@@ -30,7 +30,7 @@ export function scan(text) {
   return hits;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const files = process.argv.length > 2
     ? process.argv.slice(2)
     : execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" }).split("\0").filter(Boolean);

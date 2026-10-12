@@ -153,3 +153,14 @@ test("CLI: check, preset and lint", () => {
   assert.match(run("lint", "--settings", settings), /^ok:/);
   assert.throws(() => execFileSync("node", [SCRIPT, "lint", "--settings", repo("{bad")], { stdio: "pipe" }));
 });
+
+// The same fixtures live in gleanwork/configure-agents (test/fixtures), which
+// scaffolds these presets and compiles the same Codex rules. Change both.
+test("presets and compiled Codex rules match the contract shared with configure-agents", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { compileCodex } = await import("../shared/scalvert/scripts/permissions.mjs");
+  const presets = JSON.parse(readFileSync(new URL("./presets.fixture.json", import.meta.url), "utf8"));
+  assert.deepEqual(PRESETS, presets);
+  const rules = readFileSync(new URL("./draft-pr.rules.fixture", import.meta.url), "utf8");
+  assert.equal(compileCodex(PRESETS["draft-pr"], "x").text, rules);
+});

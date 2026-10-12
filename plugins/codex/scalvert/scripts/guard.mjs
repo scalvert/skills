@@ -157,7 +157,7 @@ export function tauCheck(argv, { state, permissions }) {
   return null;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const host = process.argv.includes("--host") ? process.argv[process.argv.indexOf("--host") + 1] : "claude";
   if (host === "tau") {
     const argv = process.argv.slice(process.argv.indexOf("--") + 1);
