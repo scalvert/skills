@@ -1,10 +1,12 @@
 ---
-name: agent-council
-description: This skill should be used when the user asks to "evaluate", "assess", "audit", "deep-dive", or "review" something comprehensively using multiple independent perspectives. Triggers on phrases like "run the agent council", "agent council evaluation", "run a panel of agents to assess", "multi-agent evaluation", "have agents evaluate and discuss", "comprehensive audit with multiple agents", "independent assessment panel", "get multiple perspectives on", or when the user wants findings that have been cross-validated across specialist agents before being presented. Distinct from basic parallel dispatch — this skill adds a structured cross-panel discussion round where agents review each other's findings and revise their assessments before a synthesized report is produced. Also triggers when the user wants to verify readiness for release, milestone, or merge.
+name: assess-release-readiness
+description: Assess whether a release, milestone, merge or package is ready, using a panel of specialist agents that review the same subject independently, cross-check each other, and agree on one prioritized report. Use when asked if something is ready to ship, release or merge, for an audit or deep-dive (security, docs, architecture, packaging), for an assessment from several independent perspectives, or to run the agent council. For quick pushback on a decision or draft, use debate-a-decision.
 version: 0.5.0
 ---
 
-# Agent Council
+# Assess release readiness
+
+Formerly `agent-council`.
 
 A structured protocol for deep assessments that require multiple expert perspectives, cross-validation of findings, and a collective discussion phase before results are presented.
 

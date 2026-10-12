@@ -1,6 +1,6 @@
 ---
-name: council-discussion
-description: Real-time multi-perspective challenge of a position, decision, or draft. Use when the user wants expert pushback before committing, sending, or shipping. Optimized for steerable conversation, not long-running structured eval.
+name: debate-a-decision
+description: Challenge a position, decision or draft with a steerable panel of expert personas before you commit, send or ship it. Use when asked to poke holes, pressure-test, find what is missing, play devil's advocate, or prepare for a meeting. For a structured, cross-checked readiness verdict, use assess-release-readiness.
 triggers:
   - council
   - challenge this
@@ -11,9 +11,11 @@ triggers:
   - adversarial review
 ---
 
-# Council discussion
+# Debate a decision
 
-A steerable roundtable of expert personas that challenges a position with provenance discipline and anti-strawman guards. Distinct from `agent-council`: this skill runs conversationally and yields to the user; `agent-council` runs a structured eval to a verdict.
+Formerly `council-discussion`.
+
+A steerable roundtable of expert personas that challenges a position with provenance discipline and anti-strawman guards. Distinct from `assess-release-readiness`: this skill runs conversationally and yields to the user; `assess-release-readiness` runs a structured eval to a verdict.
 
 ## When to use
 
@@ -25,7 +27,7 @@ A steerable roundtable of expert personas that challenges a position with proven
 ## When NOT to use
 
 - Well-defined coding tasks. Use `executor` or write directly.
-- Long-running structured evals. Use `agent-council`.
+- Long-running structured evals. Use `assess-release-readiness`.
 - A decision the user has already made and just wants executed. Skill should not insert friction the user didn't ask for.
 - Trivial questions. The setup cost is real; don't pay it for a one-line answer.
 

@@ -5,7 +5,7 @@ Every council session writes a transcript file. The transcript is for the user's
 ## Location
 
 ```
-~/.claude/skills/council-discussion/transcripts/YYYY-MM-DD-<topic-slug>/
+~/.local/state/scalvert/debate-a-decision/transcripts/YYYY-MM-DD-<topic-slug>/
 ├── transcript.md          # the discussion itself
 ├── glossary.md            # session glossary of conflation-prone terms
 ├── provenance-log.md      # all artifacts read with provenance levels
@@ -100,7 +100,7 @@ The "Lessons" section in transcript.md is optional but valuable. The user can dr
 
 ## Privacy
 
-Transcripts can contain confidential artifact content (Slack threads, internal docs, customer names). They live in `~/.claude/skills/council-discussion/transcripts/` and are not shared anywhere by the skill itself. The user is responsible for not committing transcripts to public repos.
+Transcripts can contain confidential artifact content (Slack threads, internal docs, customer names). They live in `~/.local/state/scalvert/debate-a-decision/transcripts/` and are not shared anywhere by the skill itself. The user is responsible for not committing transcripts to public repos.
 
 ## Linked references
 

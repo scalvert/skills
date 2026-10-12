@@ -3,7 +3,3 @@ node_modules/
 .worktrees/
 *.swp
 *.swo
-
-# Runtime artifacts written by council-discussion sessions
-shared/scalvert/skills/council-discussion/transcripts/
-plugins/*/scalvert/skills/council-discussion/transcripts/

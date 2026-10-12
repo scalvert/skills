@@ -6,7 +6,7 @@ A walkthrough showing what a council session looks like running end-to-end on a 
 
 **Trigger:** The user is TL of the team that owns a job-orchestration primitive (call it "JobRunner"). Another team owns a higher-level wrapper SDK ("FlowKit") that has been positioned as the recommended integration path for new pipelines. The user has a 30-minute meeting with the FlowKit team. An internal benchmark measured 25–30% latency overhead going through FlowKit on production paths. The user has a doc proposing JobRunner-direct as the default integration path, with FlowKit as opt-in convenience.
 
-**User invocation:** "council-discussion: pre-meeting prep on the JobRunner vs FlowKit decision."
+**User invocation:** "debate-a-decision: pre-meeting prep on the JobRunner vs FlowKit decision."
 
 ## Phase 0: Artifact pre-research
 

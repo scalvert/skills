@@ -4,15 +4,13 @@
 
 ## Skills
 
-### `council-discussion`
+### `assess-release-readiness`
 
-Real-time multi-perspective challenge of a position, decision, or draft. Use when you want expert pushback before committing, sending, or shipping. Optimized for steerable conversation, not long-running structured evaluation.
+Assess whether a release, milestone, merge or package is ready. A panel of specialist agents reviews the same subject independently, then the agents cross-check each other's findings and agree on one prioritized report. Formerly `agent-council`.
 
-Personas (distinguished engineer, system designer, political realist, skeptic) take turns pressure-testing the user's position with provenance-tagged claims. Includes anti-strawman guards, conflation checks, and an output mode that strips LLM-tell phrasing before delivery.
+### `debate-a-decision`
 
-### `agent-council`
-
-Structured protocol for comprehensive evaluations that require multiple expert perspectives, cross-validation of findings, and a collective discussion phase before results are presented. Agents all assess the same subject from different angles, then discuss each other's findings to surface blind spots and converge on a consensus.
+Challenge a position, decision or draft before you commit, send or ship it. Expert personas (distinguished engineer, system designer, political realist, skeptic) take turns pressure-testing the position with sourced claims, and the conversation stays steerable. Formerly `council-discussion`.
 
 ## Install
 
@@ -35,7 +33,7 @@ Any Agent Skills tool, with [skills.sh](https://skills.sh):
 
 ```sh
 npx skills add scalvert/skills
-npx skills add scalvert/skills --skill council-discussion
+npx skills add scalvert/skills --skill debate-a-decision
 ```
 
 ## Layout
