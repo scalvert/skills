@@ -11,10 +11,12 @@ For your own unpushed or unmerged branch, use `review-my-changes`. For a PR you 
 
 ## Steps
 
+In the commands below, `<skill>` is the folder that holds this SKILL.md. Run every command from the repository root, not from the skill folder.
+
 Pin the PR from the repository root:
 
 ```sh
-node scripts/review-context.mjs --pr <number>
+node <skill>/scripts/review-context.mjs --pr <number>
 ```
 
 The key is the PR number. Read the code at the PR head, for example in a read-only worktree: `git worktree add .worktrees/review-<number> <head>`. Remove it when you finish.

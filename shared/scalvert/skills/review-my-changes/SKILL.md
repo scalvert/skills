@@ -11,11 +11,13 @@ For someone else's PR, use `review-pull-request`.
 
 ## Steps
 
+In the commands below, `<skill>` is the folder that holds this SKILL.md. Run every command from the repository root, not from the skill folder.
+
 Pin the branch against its base (the default is `origin/HEAD`):
 
 ```sh
 git fetch -q origin
-node scripts/review-context.mjs [--base origin/main]
+node <skill>/scripts/review-context.mjs [--base origin/main]
 ```
 
 The key is the branch name. Commit or stash your own work first. The review covers committed changes only.
@@ -35,7 +37,7 @@ Put all of these fixes in one commit, separate from the work it reviews, titled 
 Then record each fixed finding:
 
 ```sh
-node scripts/review-ledger.mjs dispose --repo <repo> --key <key> --id F3 --as fixed
+node <skill>/scripts/review-ledger.mjs dispose --repo <repo> --key <key> --id F3 --as fixed
 ```
 
 {{> review-report}}
@@ -48,7 +50,7 @@ Add a **Needs your judgment** section after **Smaller items**. For each needs-ju
 
 Merge only when all of these hold:
 
-- `node scripts/permissions.mjs check -- gh pr merge <number>` returns `allow`, or the user approves the merge in this conversation;
+- `node <skill>/scripts/permissions.mjs check -- gh pr merge <number>` returns `allow`, or it returns `ask` and the user approves the merge in this conversation. A `deny` is final: no approval overrides it;
 - no blockers remain;
 - the needs-judgment list is empty, or the user has answered every item.
 

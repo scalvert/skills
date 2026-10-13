@@ -3,7 +3,7 @@
 This skill never posts, comments, approves, merges, pushes to the default branch, or publishes on its own. Before any command or tool call that does one of those things, check the repo's rules:
 
 ```sh
-node scripts/permissions.mjs check -- <the exact command>
+node <skill>/scripts/permissions.mjs check -- <the exact command>
 ```
 
 - `allow`: the repo's rules permit it. Go ahead.

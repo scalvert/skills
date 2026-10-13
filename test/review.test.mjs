@@ -148,7 +148,7 @@ test("ledger CLI: start, add, decide, report and last-head round-trip through th
   assert.equal(rep.findings.length, 1);
   assert.deepEqual(rep.families, ["anthropic", "openai"]);
   assert.equal(run("last-head", ...base).trim(), "abc123");
-  assert.match(run("path", ...base), /reviews\/o\/cli\/feature_x\.json/);
+  assert.match(run("path", ...base), /reviews\/o\/cli\/feature%2Fx\.json/);
   assert.throws(() => execFileSync("node", [LEDGER, "decide", ...base, "--id", "F1", "--kind", "finding-triage", "--json", '{"label":"x","probability":1}'], { stdio: "pipe" }));
 });
 
