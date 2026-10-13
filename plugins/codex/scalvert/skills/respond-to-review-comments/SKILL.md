@@ -26,7 +26,7 @@ In the commands below, `<skill>` is the folder that holds this SKILL.md. Run eve
 node <skill>/scripts/review-threads.mjs list --pr <number>
 ```
 
-Read every thread in full before you act on any of them. Note outdated threads; the code may already have moved.
+Read every thread in full before you act on any of them. When `commentsTruncated` is true, the thread has more than 100 comments; open its `url` and read the rest there. Note outdated threads (`line` is null): the code has moved, so find it by hand rather than by line number.
 
 ### 2. Verify each claim
 

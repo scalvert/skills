@@ -16,6 +16,14 @@ The same review for your own branch. Fixes that have one clear answer go in a se
 
 Review only the commits since the last review. Each earlier finding gets a status (fixed, not fixed, or answered), labels never change, and a new blocker must come from the new commits.
 
+### `respond-to-review-comments`
+
+Work through a PR's unresolved review threads. Each claim is verified against the code before anything changes. Valid claims are fixed in the PR that introduced the code. Each thread gets a reply naming the commit, or the evidence that nothing needs to change, and is then resolved. Never posts a top-level comment.
+
+### `write-clearly`
+
+Write or rewrite prose that is plain and reads as if a person wrote it. Includes `check-prose.mjs`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports.
+
 ### `assess-release-readiness`
 
 Assess whether a release, milestone, merge or package is ready. A panel of specialist agents reviews the same subject independently, then the agents cross-check each other's findings and agree on one prioritized report. Formerly `agent-council`.

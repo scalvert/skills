@@ -24,7 +24,7 @@ const THREADS_QUERY = `query($owner: String!, $name: String!, $number: Int!, $cu
         pageInfo { hasNextPage endCursor }
         nodes {
           id isResolved isOutdated path line originalLine
-          comments(first: 50) { nodes { id databaseId author { login } body url createdAt } }
+          comments(first: 100) { pageInfo { hasNextPage } nodes { id databaseId author { login } body url createdAt } }
         }
       }
     }
@@ -51,7 +51,11 @@ export function shapeThreads(nodes, { includeResolved = false } = {}) {
       return {
         threadId: t.id,
         path: t.path,
-        line: t.line ?? t.originalLine ?? null,
+        // `line` is on the PR head. An outdated thread has none: its
+        // `originalLine` is on an older commit and must not be blamed at HEAD.
+        line: t.line ?? null,
+        originalLine: t.originalLine ?? null,
+        commentsTruncated: Boolean(t.comments.pageInfo?.hasNextPage),
         outdated: t.isOutdated,
         resolved: t.isResolved,
         author: comments[0]?.author ?? null,
@@ -62,7 +66,7 @@ export function shapeThreads(nodes, { includeResolved = false } = {}) {
     .sort((a, b) => (a.comments[0]?.createdAt ?? "").localeCompare(b.comments[0]?.createdAt ?? ""));
 }
 
-function listThreads({ pr, repo, all }) {
+export function listThreads({ pr, repo, all }) {
   const [owner, name] = repoSlug(repo).split("/");
   const nodes = [];
   let cursor = null;
@@ -82,8 +86,26 @@ export function parseBlame(porcelain) {
   return sha && /^[0-9a-f]{40}$/.test(sha) ? { sha, summary } : null;
 }
 
-function owner({ path, line, repo }) {
-  const blame = parseBlame(run("git", ["blame", "--porcelain", "-L", `${line},${line}`, "HEAD", "--", path]));
+export function owner({ path, line, repo }) {
+  if (!/^\d+$/.test(String(line ?? ""))) {
+    throw new Error("--line must be the thread's current line on the PR head; an outdated thread has none, so find the code by hand");
+  }
+  const blameArgs = ["blame", "--porcelain", "-L", `${line},${line}`, "HEAD", "--", path];
+  let porcelain;
+  try {
+    porcelain = run("git", blameArgs);
+  } catch (err) {
+    // A blame.ignoreRevsFile in the user's global config breaks blame in any
+    // repo that lacks that file, and neither -c nor --ignore-revs-file ""
+    // overrides it. Retry without the global config.
+    if (!/ignore-revs|could not open object name list/.test(String(err.stderr))) throw err;
+    porcelain = execFileSync("git", blameArgs, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null" },
+    }).trim();
+  }
+  const blame = parseBlame(porcelain);
   if (!blame) throw new Error(`could not blame ${path}:${line}`);
   const prs = JSON.parse(
     run("gh", ["pr", "list", "--repo", repoSlug(repo), "--state", "open", "--search", blame.sha, "--json", "number,headRefName,baseRefName,title"]),
