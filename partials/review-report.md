@@ -25,3 +25,5 @@ Rules for the prose:
 - Plain words, short sentences, active voice. No em dashes, no emoji, no "it's worth noting".
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.
 - Leave out the dropped findings. They stay in the ledger.
+
+Save the report and draft comments to a file and run `node scripts/check-prose.mjs <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report.

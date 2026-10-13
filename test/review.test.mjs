@@ -250,3 +250,19 @@ test("lens runner: findings parse from fenced or bare JSON, and the schema is st
   assert.deepEqual([...item.required].sort(), Object.keys(item.properties).sort(), "strict outputs need every property required");
   assert.equal(item.additionalProperties, false);
 });
+
+test("review threads: unresolved first by age, with the first author and line", async () => {
+  const { shapeThreads, parseBlame } = await import("../shared/scalvert/scripts/review-threads.mjs");
+  const node = (id, resolved, at, line = 3) => ({
+    id, isResolved: resolved, isOutdated: false, path: "a.js", line, originalLine: 9,
+    comments: { nodes: [{ id: "c" + id, databaseId: 1, author: { login: "rev" }, body: "b", url: "u" + id, createdAt: at }] },
+  });
+  const shaped = shapeThreads([node("T2", false, "2026-02-01"), node("T1", false, "2026-01-01"), node("T3", true, "2026-01-15")]);
+  assert.deepEqual(shaped.map((t) => t.threadId), ["T1", "T2"]);
+  assert.equal(shaped[0].author, "rev");
+  assert.equal(shapeThreads([node("T4", false, "x", null)])[0].line, 9, "falls back to originalLine");
+  assert.equal(shapeThreads([node("T3", true, "x")], { includeResolved: true }).length, 1);
+  const sha = "a".repeat(40);
+  assert.deepEqual(parseBlame(`${sha} 3 3 1\nauthor x\nsummary add c\n`), { sha, summary: "add c" });
+  assert.equal(parseBlame("fatal: no such path"), null);
+});
