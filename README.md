@@ -45,9 +45,8 @@ Codex:
 
 ```sh
 codex plugin marketplace add https://github.com/scalvert/skills
+codex plugin add scalvert@scalvert
 ```
-
-Then install `scalvert` from the Codex plugin picker.
 
 Any Agent Skills tool, with [skills.sh](https://skills.sh):
 
