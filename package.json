@@ -7,12 +7,13 @@
   "license": "MIT",
   "repository": "github:scalvert/skills",
   "scripts": {
-    "build": "pluginpack build",
+    "build": "node scripts/sync-skill-scripts.mjs && pluginpack build",
     "validate": "pluginpack validate --target claude --dir . && pluginpack validate --target codex --dir .",
     "check:skills": "node scripts/check-skills.mjs shared",
     "check:public": "node scripts/check-public.mjs",
-    "check:fresh": "pluginpack build && git diff --exit-code -- plugins .claude-plugin .agents .pluginpack",
-    "test": "node --test scripts/*.test.mjs test/*.test.mjs && npm run check:skills && npm run check:public && npm run check:fresh && npm run validate"
+    "check:no-overlay": "node scripts/check-no-overlay.mjs plugins/claude/scalvert && node scripts/check-no-overlay.mjs plugins/codex/scalvert",
+    "check:fresh": "npm run -s build && git diff --exit-code -- plugins .claude-plugin .agents .pluginpack shared",
+    "test": "node --test scripts/*.test.mjs test/*.test.mjs && npm run check:skills && npm run check:public && npm run check:no-overlay && npm run check:fresh && npm run validate"
   },
   "devDependencies": {
     "@gleanwork/pluginpack": "^0.11.1"

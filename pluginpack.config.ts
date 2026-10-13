@@ -7,6 +7,8 @@ const description =
 export default defineConfig({
   name: "scalvert",
   version: pkg.version,
+  // {{> name}} fragments shared by the review skills.
+  source: { partials: "partials" },
   metadata: {
     description,
     author: { name: "Steve Calvert", url: "https://github.com/scalvert" },
