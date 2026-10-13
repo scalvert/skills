@@ -172,6 +172,12 @@ Before flagging any behavior as a bug or design flaw, ask:
 A test harness that creates temp directories is not exhibiting a side effect — it is doing
 its job. A retry mechanism that swallows errors may be intentional resilience design.
 Check the README, CLAUDE.md, or description for stated intent before deciding behavior is wrong.
+
+## Read budget
+
+Prefer grep or rg with a line limit over reading whole files. Grep any file over about
+1000 lines instead of reading it end to end. Use `git log --oneline` or `--stat`, never
+`git log -p`. Pipe long command output through `head`.
 ```
 
 **Required agent output format:**
@@ -197,6 +203,13 @@ Check the README, CLAUDE.md, or description for stated intent before deciding be
 ```
 
 Start all panelists at once, in parallel.
+
+### When a panelist fails
+
+- **Out of context.** A panelist that runs out of context almost always made one oversized read. Broad lenses, such as a devil's advocate or an "audit everything" brief, are the most exposed. Narrow its scope and run it again. Don't retry it on a cheaper model first, because a smaller window makes the same failure more likely.
+- **Rejected by the model service** (quota, or the model isn't available). Retry the same brief once on another available model. An errored panelist doesn't count as agreement.
+- **Too few reports.** Don't start the discussion round until at least two panelists have returned assessments. If every retry fails, continue only if the user agrees, and say in the report that there is no cross-panel consensus.
+- **High-stakes items.** Check the release-blocker candidates yourself while the panel runs. Don't find out at synthesis time that the only panelist covering a blocker never reported.
 
 ---
 
