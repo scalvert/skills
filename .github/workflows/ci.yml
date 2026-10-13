@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Unit tests, skill names and layout, public-content scan, generated
+      # output is current, and pluginpack validation for each target.
+      - run: npm test
+      - name: Claude Code plugin validation
+        run: |
+          npx -y @anthropic-ai/claude-code plugin validate plugins/claude/scalvert
+          npx -y @anthropic-ai/claude-code plugin validate .

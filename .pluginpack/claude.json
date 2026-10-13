@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "target": "claude",
+  "files": [
+    ".claude-plugin/marketplace.json",
+    "plugins/claude/scalvert/.claude-plugin/plugin.json",
+    "plugins/claude/scalvert/skills/assess-release-readiness/SKILL.md",
+    "plugins/claude/scalvert/skills/assess-release-readiness/examples/package-evaluation.md",
+    "plugins/claude/scalvert/skills/assess-release-readiness/references/agent-specializations.md",
+    "plugins/claude/scalvert/skills/assess-release-readiness/references/discussion-protocol.md",
+    "plugins/claude/scalvert/skills/assess-release-readiness/references/report-format.md",
+    "plugins/claude/scalvert/skills/debate-a-decision/SKILL.md",
+    "plugins/claude/scalvert/skills/debate-a-decision/examples/failure-modes.md",
+    "plugins/claude/scalvert/skills/debate-a-decision/examples/orchestration-layer-debate.md",
+    "plugins/claude/scalvert/skills/debate-a-decision/references/async-response.md",
+    "plugins/claude/scalvert/skills/debate-a-decision/references/discussion-patterns.md",
+    "plugins/claude/scalvert/skills/debate-a-decision/references/epistemic-discipline.md",
+    "plugins/claude/scalvert/skills/debate-a-decision/references/escalation.md",
+    "plugins/claude/scalvert/skills/debate-a-decision/references/personas.md",
+    "plugins/claude/scalvert/skills/debate-a-decision/references/transcript-format.md"
+  ]
+}

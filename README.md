@@ -1,53 +1,64 @@
 # skills
 
-Personal collection of [Agent Skills](https://agentskills.io) for Claude Code and other compatible agent runtimes.
+[Agent Skills](https://agentskills.io) for coding agents, packaged as the `scalvert` plugin for Claude Code and Codex. Any tool that reads Agent Skills can install the skills directly.
 
 ## Skills
 
-### `council-discussion`
+### `assess-release-readiness`
 
-Real-time multi-perspective challenge of a position, decision, or draft. Use when you want expert pushback before committing, sending, or shipping. Optimized for steerable conversation, not long-running structured evaluation.
+Assess whether a release, milestone, merge or package is ready. A panel of specialist agents reviews the same subject independently, then the agents cross-check each other's findings and agree on one prioritized report. Formerly `agent-council`.
 
-Personas (distinguished engineer, system designer, political realist, skeptic) take turns pressure-testing the user's position with provenance-tagged claims. Includes anti-strawman guards, conflation checks, and an output mode that strips LLM-tell phrasing before delivery.
+### `debate-a-decision`
 
-Triggers: `council`, `challenge this`, `punch holes`, `what am I missing`, `pre-meeting prep`, `adversarial review`.
+Challenge a position, decision or draft before you commit, send or ship it. Expert personas (distinguished engineer, system designer, political realist, skeptic) take turns pressure-testing the position with sourced claims, and the conversation stays steerable. Formerly `council-discussion`.
 
-### `agent-council`
+## Install
 
-Structured protocol for comprehensive evaluations that require multiple expert perspectives, cross-validation of findings, and a collective discussion phase before results are presented. Distinct from basic parallel dispatch: agents all assess the *same* subject from different angles, then discuss each other's findings to surface blind spots and converge on a consensus.
+Claude Code, inside a session:
 
-Triggers: `evaluate`, `assess`, `audit`, `deep-dive`, `review`, `run the agent council`, `multi-agent evaluation`, `independent assessment panel`.
+```text
+/plugin marketplace add https://github.com/scalvert/skills
+/plugin install scalvert@scalvert
+```
 
-## Installation
+Codex:
 
-Install both skills with [skills.sh](https://skills.sh):
+```sh
+codex plugin marketplace add https://github.com/scalvert/skills
+```
+
+Then install `scalvert` from the Codex plugin picker.
+
+Any Agent Skills tool, with [skills.sh](https://skills.sh):
 
 ```sh
 npx skills add scalvert/skills
-```
-
-Or install a single skill:
-
-```sh
-npx skills add scalvert/skills/council-discussion
-npx skills add scalvert/skills/agent-council
+npx skills add scalvert/skills --skill debate-a-decision
 ```
 
 ## Layout
 
 ```
-skills/
-├── council-discussion/
-│   ├── SKILL.md
-│   ├── references/
-│   └── examples/
-└── agent-council/
-    ├── SKILL.md
-    ├── references/
-    └── examples/
+shared/scalvert/skills/<skill>/SKILL.md   authored source; edit here
+plugins/claude/scalvert/                  generated Claude Code plugin
+plugins/codex/scalvert/                   generated Codex plugin
+.claude-plugin/marketplace.json           generated Claude marketplace
+.agents/plugins/marketplace.json          generated Codex marketplace
+pluginpack.config.ts                      build config
+scripts/                                  repo checks
 ```
 
-Each skill follows the canonical [Agent Skills layout](https://agentskills.io/specification): `SKILL.md` is the entry point, `references/` holds progressive-disclosure documentation that gets loaded on demand, and `examples/` holds worked walkthroughs the agent can study.
+[pluginpack](https://github.com/gleanwork/pluginpack) builds everything under `plugins/` and both marketplace files from `shared/`. Do not edit generated files by hand. Run `npm run build` and commit the result.
+
+## Rules for skills
+
+- Names are kebab-case: lowercase letters, digits and single hyphens. Colons, slashes and periods break at least one host.
+- A skill's `name` matches its folder.
+- Skills sit directly under `skills/`. Nested skills and category folders are not discovered.
+- A name reads correctly on its own, without a plugin prefix, because many tools show the bare name.
+- Nothing internal to an employer goes in this repo. It is public.
+
+`npm test` checks all of these, verifies the generated output is current, and validates each target.
 
 ## License
 
