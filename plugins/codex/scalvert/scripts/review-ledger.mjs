@@ -4,9 +4,8 @@
 // decided about each finding. Re-reviews read it to know what was already
 // reviewed, and the pilot reads it to measure the review skills.
 //
-// Location: $SCALVERT_STATE_DIR (default ~/.local/state/scalvert)
-//           /reviews/<owner>/<repo>/<key>.json, where <key> is the PR number
-//           or the branch name.
+// Location: <state dir>/reviews/<owner>/<repo>/<key>.json, where <key> is the
+//           PR number or the branch name. See stateDir() for the state dir.
 //
 // Usage:
 //   review-ledger.mjs path   --repo <owner/repo> --key <pr|branch>
@@ -35,8 +34,20 @@ const REQUIRED_FINDING = ["lens", "file", "title", "precondition", "scenario"];
 
 export class LedgerError extends Error {}
 
+// The state dir, first match wins:
+//   1. $AGENT_REVIEWS_STATE_DIR
+//   2. $SCALVERT_STATE_DIR (the old name, still honored)
+//   3. ~/.local/state/scalvert, if it holds reviews and the new default does not
+//      exist yet, so ledgers from before the rename stay in use
+//   4. $XDG_STATE_HOME/agent-reviews, else ~/.local/state/agent-reviews
 export function stateDir() {
-  return process.env.SCALVERT_STATE_DIR ?? join(homedir(), ".local", "state", "scalvert");
+  const explicit = process.env.AGENT_REVIEWS_STATE_DIR || process.env.SCALVERT_STATE_DIR;
+  if (explicit) return explicit;
+  const base = process.env.XDG_STATE_HOME || join(homedir(), ".local", "state");
+  const current = join(base, "agent-reviews");
+  const legacy = join(homedir(), ".local", "state", "scalvert");
+  if (!existsSync(current) && existsSync(join(legacy, "reviews"))) return legacy;
+  return current;
 }
 
 export function ledgerPath(repo, key) {
