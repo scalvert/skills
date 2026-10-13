@@ -10,7 +10,7 @@ import { chooseLenses, parseNumstat, pin } from "../shared/scalvert/scripts/revi
 import { FINDING_SCHEMA, lensPrompt, parseFindings } from "../shared/scalvert/scripts/run-lens.mjs";
 
 const LEDGER = new URL("../shared/scalvert/scripts/review-ledger.mjs", import.meta.url).pathname;
-process.env.SCALVERT_STATE_DIR = mkdtempSync(join(tmpdir(), "scalvert-state-"));
+process.env.AGENT_REVIEWS_STATE_DIR = mkdtempSync(join(tmpdir(), "scalvert-state-"));
 
 const finding = (over = {}) => ({
   lens: "correctness",
@@ -136,7 +136,7 @@ test("ledger CLI: start, add, decide, report and last-head round-trip through th
   const run = (...a) => execFileSync("node", [LEDGER, ...a], { encoding: "utf8" });
   const base = ["--repo", "o/cli", "--key", "feature/x"];
   run("start", ...base, "--base", "b", "--head", "abc123", "--lenses", "correctness,tests");
-  const file = join(process.env.SCALVERT_STATE_DIR, "f.json");
+  const file = join(process.env.AGENT_REVIEWS_STATE_DIR, "f.json");
   writeFileSync(file, JSON.stringify([finding()]));
   assert.deepEqual(JSON.parse(run("add", ...base, "--file", file)).added, ["F1"]);
   run("decide", ...base, "--id", "F1", "--kind", "finding-verification", "--json", '{"label":"confirmed","probability":0.75}');

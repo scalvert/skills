@@ -9,7 +9,7 @@ import * as ledger from "../shared/scalvert/scripts/review-ledger.mjs";
 import { generatedPaths } from "../shared/scalvert/scripts/review-context.mjs";
 
 const SCRIPTS = new URL("../shared/scalvert/scripts/", import.meta.url).pathname;
-process.env.SCALVERT_STATE_DIR = mkdtempSync(join(tmpdir(), "scalvert-state-"));
+process.env.AGENT_REVIEWS_STATE_DIR = mkdtempSync(join(tmpdir(), "scalvert-state-"));
 
 const finding = (over = {}) => ({ lens: "correctness", model: "anthropic/x", file: "a.js", line: 1, title: "t", precondition: "p", scenario: "s", ...over });
 

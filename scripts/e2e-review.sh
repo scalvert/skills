@@ -17,9 +17,12 @@ set -eu
 here=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
 repo="$work/repo"
+# Set both names: an inherited AGENT_REVIEWS_STATE_DIR would otherwise win and
+# send the fixture's ledgers to the real state directory.
+export AGENT_REVIEWS_STATE_DIR="$work/state"
 export SCALVERT_STATE_DIR="$work/state"
 export LEDGER_MODULE="$here/shared/scalvert/scripts/review-ledger.mjs"
-mkdir -p "$repo" "$SCALVERT_STATE_DIR"
+mkdir -p "$repo" "$AGENT_REVIEWS_STATE_DIR"
 cd "$repo"
 
 git init -q -b main
@@ -130,7 +133,7 @@ for branch in ${*:-seeded clean}; do
   claude -p --permission-mode acceptEdits \
     --allowedTools "Bash Read Edit Write Grep Glob Agent Task" \
     --plugin-dir "$here/plugins/claude/scalvert" "$prompt" > "$work/$branch.out" 2>&1 || true
-  ledger="$SCALVERT_STATE_DIR/reviews/fixture/lib/$branch.json"
+  ledger="$AGENT_REVIEWS_STATE_DIR/reviews/fixture/lib/$branch.json"
   echo "== $branch"
   if [ ! -f "$ledger" ]; then
     echo "FAIL: no ledger at $ledger (see $work/$branch.out)"

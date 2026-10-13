@@ -9,7 +9,7 @@ import { classify } from "../shared/scalvert/scripts/classify.mjs";
 import * as ledger from "../shared/scalvert/scripts/review-ledger.mjs";
 import { pin } from "../shared/scalvert/scripts/review-context.mjs";
 
-process.env.SCALVERT_STATE_DIR = mkdtempSync(join(tmpdir(), "scalvert-state-"));
+process.env.AGENT_REVIEWS_STATE_DIR = mkdtempSync(join(tmpdir(), "scalvert-state-"));
 
 const finding = (over = {}) => ({
   lens: "correctness",
