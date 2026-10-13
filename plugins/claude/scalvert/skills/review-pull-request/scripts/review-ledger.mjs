@@ -37,8 +37,10 @@ export class LedgerError extends Error {}
 // The state dir, first match wins:
 //   1. $AGENT_REVIEWS_STATE_DIR
 //   2. $SCALVERT_STATE_DIR (the old name, still honored)
-//   3. ~/.local/state/scalvert, if it holds reviews and the new default does not
-//      exist yet, so ledgers from before the rename stay in use
+//   3. ~/.local/state/scalvert, if it holds reviews and the new default holds
+//      none yet, so ledgers from before the rename stay in use. It keys on
+//      reviews/ rather than the directory, so an empty agent-reviews directory
+//      made by another tool does not hide the old ledgers.
 //   4. $XDG_STATE_HOME/agent-reviews, else ~/.local/state/agent-reviews
 export function stateDir() {
   const explicit = process.env.AGENT_REVIEWS_STATE_DIR || process.env.SCALVERT_STATE_DIR;
@@ -46,7 +48,7 @@ export function stateDir() {
   const base = process.env.XDG_STATE_HOME || join(homedir(), ".local", "state");
   const current = join(base, "agent-reviews");
   const legacy = join(homedir(), ".local", "state", "scalvert");
-  if (!existsSync(current) && existsSync(join(legacy, "reviews"))) return legacy;
+  if (!existsSync(join(current, "reviews")) && existsSync(join(legacy, "reviews"))) return legacy;
   return current;
 }
 

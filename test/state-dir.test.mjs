@@ -30,11 +30,14 @@ test("AGENT_REVIEWS_STATE_DIR wins, then the old SCALVERT_STATE_DIR", () => {
   assert.equal(stateDir(), "/new");
 });
 
-test("ledgers from before the rename stay in use until the new dir exists", () => {
+test("ledgers from before the rename stay in use until the new dir holds reviews", () => {
   const legacy = join(home, ".local", "state", "scalvert");
   mkdirSync(join(legacy, "reviews"), { recursive: true });
   assert.equal(stateDir(), legacy);
+  // An empty agent-reviews directory, for example made by another tool, changes nothing.
   mkdirSync(join(home, ".local", "state", "agent-reviews"), { recursive: true });
+  assert.equal(stateDir(), legacy);
+  mkdirSync(join(home, ".local", "state", "agent-reviews", "reviews"), { recursive: true });
   assert.equal(stateDir(), join(home, ".local", "state", "agent-reviews"));
 });
 
@@ -55,9 +58,9 @@ test("empty env vars are ignored", () => {
   assert.equal(stateDir(), join(home, ".local", "state", "agent-reviews"));
 });
 
-test("ledgerPath uses the legacy dir until the new dir exists", () => {
+test("ledgerPath uses the legacy dir until the new dir holds reviews", () => {
   mkdirSync(join(home, ".local", "state", "scalvert", "reviews"), { recursive: true });
   assert.ok(ledgerPath("o/r", "7").startsWith(join(home, ".local", "state", "scalvert", "reviews")));
-  mkdirSync(join(home, ".local", "state", "agent-reviews"), { recursive: true });
+  mkdirSync(join(home, ".local", "state", "agent-reviews", "reviews"), { recursive: true });
   assert.ok(ledgerPath("o/r", "7").startsWith(join(home, ".local", "state", "agent-reviews", "reviews")));
 });
