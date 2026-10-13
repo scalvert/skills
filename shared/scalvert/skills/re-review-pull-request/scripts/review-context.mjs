@@ -76,6 +76,18 @@ export function axiomsPath() {
   return process.env.AXIOMS_PATH ?? join(homedir(), ".config", "scalvert", "axioms.md");
 }
 
+export function generatedPaths(paths, head, cwd) {
+  if (paths.length === 0) return new Set();
+  const out = tryRun("git", ["check-attr", "--source", head, "-z", "linguist-generated", "--", ...paths], cwd);
+  const set = new Set();
+  if (!out) return set;
+  const parts = out.split("\0");
+  for (let i = 0; i + 2 < parts.length; i += 3) {
+    if (parts[i + 2] === "true" || parts[i + 2] === "set") set.add(parts[i]);
+  }
+  return set;
+}
+
 function repoSlug() {
   const url = tryRun("git", ["config", "--get", "remote.origin.url"]) ?? "";
   const m = url.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?\/?$/);
@@ -119,8 +131,13 @@ export function pin(o) {
 
   const mergeBase = run("git", ["merge-base", base, head], cwd);
   const from = o.since ?? mergeBase;
-  const diff = run("git", ["diff", "--no-color", "-U5", `${from}..${head}`], cwd);
-  const files = parseNumstat(run("git", ["diff", "--numstat", `${from}..${head}`], cwd));
+  const allFiles = parseNumstat(run("git", ["diff", "--numstat", `${from}..${head}`], cwd));
+  // Files the repo marks as generated (linguist-generated in .gitattributes,
+  // which GitHub also collapses in PR diffs) are left out of the review.
+  const generated = generatedPaths(allFiles.map((f) => f.path), head, cwd);
+  const files = allFiles.filter((f) => !generated.has(f.path));
+  const exclude = [...generated].map((p) => `:(exclude,literal)${p}`);
+  const diff = run("git", ["diff", "--no-color", "-U5", `${from}..${head}`, "--", ".", ...exclude], cwd);
   const commits = run("git", ["log", "--no-color", "--format=%h %s", `${from}..${head}`], cwd);
   writeFileSync(join(out, "diff.patch"), `${diff}\n`);
   writeFileSync(join(out, "files.json"), `${JSON.stringify(files, null, 2)}\n`);
@@ -160,6 +177,7 @@ export function pin(o) {
     mergeBase,
     since: o.since ?? null,
     files: files.length,
+    generatedSkipped: generated.size,
     added: files.reduce((n, f) => n + f.added, 0),
     deleted: files.reduce((n, f) => n + f.deleted, 0),
     has: { spec: Boolean(spec), agents: Boolean(copied["AGENTS.md"]), review: Boolean(copied["REVIEW.md"]), axioms: Boolean(copied["axioms.md"]) },

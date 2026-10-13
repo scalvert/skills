@@ -198,6 +198,9 @@ test("pin: a local branch gets diff, files, commits, repo docs and lenses", () =
   git("commit", "-qam", "change a");
   const first = git("rev-parse", "HEAD").trim();
   writeFileSync(join(repo, "c.js"), "export const c = 4;\n");
+  mkdirSync(join(repo, "dist"));
+  writeFileSync(join(repo, "dist", "c.js"), "generated\n");
+  writeFileSync(join(repo, ".gitattributes"), "dist/** linguist-generated=true\n");
   git("add", "-A");
   git("commit", "-q", "-m", "add c");
 
@@ -208,14 +211,16 @@ test("pin: a local branch gets diff, files, commits, repo docs and lenses", () =
     process.chdir(repo);
     const ctx = pin({ base: "main", out: join(repo, ".ctx") });
     assert.equal(ctx.key, "topic");
-    assert.equal(ctx.files, 2);
+    assert.equal(ctx.files, 3, "a.js, c.js and .gitattributes; dist/ is generated");
+    assert.equal(ctx.generatedSkipped, 1);
+    assert.doesNotMatch(readFileSync(join(ctx.dir, "diff.patch"), "utf8"), /dist\/c\.js/);
     assert.deepEqual(ctx.has, { spec: false, agents: true, review: true, axioms: false });
     assert.ok(ctx.lenses.includes("correctness") && !ctx.lenses.includes("taste"));
     assert.match(readFileSync(join(ctx.dir, "commits.txt"), "utf8"), /add c/);
     assert.ok(existsSync(join(ctx.dir, "REVIEW.md")));
 
     const since = pin({ base: "main", since: first, out: join(repo, ".ctx2") });
-    assert.equal(since.files, 1, "only the commit after --since");
+    assert.equal(since.files, 2, "only the commit after --since (c.js and .gitattributes)");
   } finally {
     process.chdir(cwd);
     if (env === undefined) delete process.env.AXIOMS_PATH;
