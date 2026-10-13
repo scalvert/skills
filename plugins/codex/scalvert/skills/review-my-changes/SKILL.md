@@ -133,7 +133,7 @@ Rules for the prose:
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.
 - Leave out the dropped findings. They stay in the ledger.
 
-Save the report and draft comments to a file and run `node scripts/check-prose.mjs <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report.
+Save the report and draft comments to a file and run `node <skill>/scripts/check-prose.mjs <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report.
 
 Add a **Needs your judgment** section after **Smaller items**. For each needs-judgment finding, give the choice to make and the option you recommend, with one line on why.
 

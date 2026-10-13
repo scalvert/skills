@@ -142,7 +142,7 @@ Rules for the prose:
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.
 - Leave out the dropped findings. They stay in the ledger.
 
-Save the report and draft comments to a file and run `node scripts/check-prose.mjs <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report.
+Save the report and draft comments to a file and run `node <skill>/scripts/check-prose.mjs <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report.
 
 Start the report with an **Earlier findings** list, one line per ID: `F1 fixed in <sha>.`, `F2 not fixed: <why>.`, or `F3 answered: <reason accepted>.` Then give the verdict and the new findings, which the ledger gives new IDs.
 

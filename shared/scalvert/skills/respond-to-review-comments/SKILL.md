@@ -18,17 +18,19 @@ Adapted from `receiving-code-review` in [obra/superpowers](https://github.com/ob
 
 ## Steps
 
+In the commands below, `<skill>` is the folder that holds this SKILL.md. Run every command from the repository root, not from the skill folder.
+
 ### 1. List the unresolved threads
 
 ```sh
-node scripts/review-threads.mjs list --pr <number>
+node <skill>/scripts/review-threads.mjs list --pr <number>
 ```
 
 Read every thread in full before you act on any of them. Note outdated threads; the code may already have moved.
 
 ### 2. Verify each claim
 
-For each thread, decide which of these it is. When the answer is not obvious, start a fresh verifier subagent with the claim and the code, and record its call with the `finding-verification` rubric (`node scripts/classify.mjs rubric finding-verification`).
+For each thread, decide which of these it is. When the answer is not obvious, start a fresh verifier subagent with the claim and the code, and record its call with the `finding-verification` rubric (`node <skill>/scripts/classify.mjs rubric finding-verification`).
 
 - **Valid:** you can show the problem happens (a call path, a failing test, or a repro). Fix it.
 - **Not a problem:** you can show it does not happen: the precondition cannot occur, or the code already handles it. Do not change code. Reply with the evidence: the line that handles it, or the test that covers it.
@@ -40,7 +42,7 @@ For each thread, decide which of these it is. When the answer is not obvious, st
 In a stack of PRs, the fix belongs where the code came from, not on top of the stack:
 
 ```sh
-node scripts/review-threads.mjs owner --path <file> --line <line>
+node <skill>/scripts/review-threads.mjs owner --path <file> --line <line>
 ```
 
 If the line came from a lower PR in the stack, fix it on that branch, then rebase the PRs above it. Make one commit per thread, or one per group of related threads. Name the thread or finding in the commit body. Run the repo's checks from `AGENTS.md` after each fix.
@@ -55,7 +57,7 @@ Reply to the thread itself, never with a top-level PR comment. Keep the reply to
 - Not a problem: `<Why, with the line or test that shows it>. Leaving as is.`
 - Question: `<The specific question>.`
 
-Write replies with `write-clearly` rules, and check them with `node scripts/check-prose.mjs` before posting.
+Write replies with `write-clearly` rules, and check them with `node <skill>/scripts/check-prose.mjs` before posting.
 
 Post a reply, then resolve the thread only when it is fixed or answered with evidence. Leave a question thread open:
 

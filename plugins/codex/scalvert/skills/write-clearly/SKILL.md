@@ -100,10 +100,10 @@ Do not overcorrect. Perfect grammar, technical vocabulary, a formal tone, a sing
 
 ## Script check
 
-Run the mechanical rules on the draft:
+Run the mechanical rules on the draft. `<skill>` is the folder that holds this SKILL.md:
 
 ```sh
-node scripts/check-prose.mjs draft.md      # or pipe text on stdin
+node <skill>/scripts/check-prose.mjs draft.md      # or pipe text on stdin
 ```
 
 It flags em dashes, en dashes, double hyphens used as dashes, emoji, title-case headings, and the listed AI phrases. Code blocks, inline code, URLs and block quotes are exempt. A flag is a prompt to rewrite the sentence, not to delete the word. Fix each flag or leave it on purpose for a stated reason, such as a quoted title.
