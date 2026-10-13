@@ -88,7 +88,7 @@ export function checkSkills(root) {
   return { count: files.length, problems };
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = process.argv[2] ?? "shared";
   const { count, problems } = checkSkills(root);
   if (problems.length) {

@@ -4,6 +4,9 @@
   "files": [
     ".agents/plugins/marketplace.json",
     "plugins/codex/scalvert/.codex-plugin/plugin.json",
+    "plugins/codex/scalvert/hooks/hooks.json",
+    "plugins/codex/scalvert/scripts/guard.mjs",
+    "plugins/codex/scalvert/scripts/permissions.mjs",
     "plugins/codex/scalvert/skills/assess-release-readiness/SKILL.md",
     "plugins/codex/scalvert/skills/assess-release-readiness/examples/package-evaluation.md",
     "plugins/codex/scalvert/skills/assess-release-readiness/references/agent-specializations.md",
