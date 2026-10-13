@@ -73,6 +73,15 @@ export function check(kind, decision) {
   return out;
 }
 
+// The interface every skill calls. The "agent" backend takes the decision
+// that the running agent (or its subagent) made with the rubric for the kind,
+// and validates it. Other backends would compute the decision from `input`.
+export function classify(kind, input, { backend = "agent", decision } = {}) {
+  if (backend !== "agent") throw new ClassifyError(`backend "${backend}" is not available yet`);
+  if (!decision) throw new ClassifyError("the agent backend needs the agent's decision");
+  return check(kind, { ...decision, backend });
+}
+
 function main(argv) {
   const [cmd, kind, json] = argv;
   if (cmd === "kinds") {

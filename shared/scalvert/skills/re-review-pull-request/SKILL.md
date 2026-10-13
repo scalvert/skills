@@ -9,10 +9,12 @@ Input: a PR you reviewed before with `review-pull-request`. Output: a report tha
 
 ## Steps
 
+In the commands below, `<skill>` is the folder that holds this SKILL.md. Run every command from the repository root, not from the skill folder.
+
 Find the commit you last reviewed:
 
 ```sh
-node scripts/review-ledger.mjs last-head --repo <owner/repo> --key <number>
+node <skill>/scripts/review-ledger.mjs last-head --repo <owner/repo> --key <number>
 ```
 
 If it prints nothing, there is no earlier review. Use `review-pull-request` instead.
@@ -20,14 +22,20 @@ If it prints nothing, there is no earlier review. Use `review-pull-request` inst
 Pin only the new commits:
 
 ```sh
-node scripts/review-context.mjs --pr <number> --since <last head>
+node <skill>/scripts/review-context.mjs --pr <number> --since <last head>
 ```
 
-If the author force-pushed and the last head is no longer in the branch history, `--since` fails. In that case, pin the full PR and say in the report that history was rewritten.
+If the author force-pushed, the last head is no longer an ancestor of the PR head and `--since` fails. In that case, pin the full PR without `--since`, and say in the report that history was rewritten.
 
 ### Check the earlier findings
 
-Read the earlier round's reported findings from the ledger file (`review-ledger.mjs path` prints it). For each one, check the new code and decide:
+List every finding that is still open: reported in any earlier round and not yet closed.
+
+```sh
+node <skill>/scripts/review-ledger.mjs open --repo <owner/repo> --key <number>
+```
+
+For each one, check the new code and decide:
 
 - **Fixed:** the scenario no longer happens. Record `dispose --as fixed`.
 - **Not fixed:** the scenario still happens. Keep its ID.

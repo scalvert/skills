@@ -56,7 +56,7 @@ npx skills add scalvert/skills --skill debate-a-decision
 4. **Verify.** A fresh verifier on another model checks each finding against the code and records a calibrated probability.
 5. **Report.** Only confirmed findings above the threshold are reported. The ledger refuses to report while a chosen lens never ran or a finding is unverified.
 
-Every decision goes into a ledger at `~/.local/state/scalvert/reviews/<owner>/<repo>/<pr-or-branch>.json`. Later, the same ledger records what a person decided about each finding. `review-ledger.mjs summary` reports findings per review, dismissal rate, model families, and how well the verification probabilities match those decisions (Brier score).
+Every decision goes into a ledger at `~/.local/state/scalvert/reviews/<owner>/<repo>/<pr-or-branch>.json`. `$SCALVERT_STATE_DIR` replaces `~/.local/state/scalvert`. In a branch name, characters other than letters, digits, `.`, `_` and `-` are percent-encoded, so `feature/x` becomes `feature%2Fx.json`. Later, the same ledger records what a person decided about each finding. `review-ledger.mjs summary` reports findings per review, dismissal rate, model families, and how well the verification probabilities match those decisions (Brier score).
 
 All judgments go through one interface, `classify(kind, input) -> { label, probability }` (`classify.mjs`), so a local or self-hosted classifier can replace the agent's own judgment later.
 

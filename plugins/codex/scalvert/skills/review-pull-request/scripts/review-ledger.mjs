@@ -17,6 +17,7 @@
 //   review-ledger.mjs merge  --repo R --key K --into F1 --ids F4,F7   (same root cause)
 //   review-ledger.mjs report --repo R --key K [--threshold 0.7] [--allow-missing]
 //   review-ledger.mjs dispose --repo R --key K --id F1 --as accepted|fixed|dismissed|wont-fix [--note text]
+//   review-ledger.mjs open   --repo R --key K   (reported in any round, not yet closed)
 //   review-ledger.mjs last-head --repo R --key K
 //   review-ledger.mjs summary [--repo R --key K]   (no key: every ledger)
 
@@ -41,7 +42,20 @@ export function stateDir() {
 export function ledgerPath(repo, key) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? "")) throw new LedgerError(`--repo must be owner/repo, got "${repo}"`);
   if (!key) throw new LedgerError("--key is required (a PR number or branch name)");
-  return join(stateDir(), "reviews", repo, `${String(key).replace(/[^\w.-]+/g, "_")}.json`);
+  return join(stateDir(), "reviews", repo, `${keyFile(key)}.json`);
+}
+
+// Percent-encodes everything except letters, digits, ".", "-" and "_", so
+// distinct keys such as "a/b" and "a_b" never share a file.
+export function keyFile(key) {
+  return [...String(key)]
+    .map((ch) => (/[\w.-]/.test(ch) ? ch : [...Buffer.from(ch)].map((b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("")))
+    .join("");
+}
+
+// Reported findings from earlier rounds that nobody has closed yet.
+export function openFindings(ledger) {
+  return ledger.findings.filter((f) => f.reported && !f.duplicateOf && (!f.disposition || f.disposition.as === "accepted"));
 }
 
 export function load(repo, key) {
@@ -346,6 +360,11 @@ async function main(argv) {
       dispose(l, o.id, o.as, o.note);
       save(l);
       out({ id: o.id, disposition: o.as });
+      return 0;
+    }
+    case "open": {
+      const l = load(o.repo, o.key);
+      out(openFindings(l).map((f) => ({ id: f.id, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario })));
       return 0;
     }
     case "last-head": {

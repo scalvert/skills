@@ -78,7 +78,11 @@ export function axiomsPath() {
 
 export function generatedPaths(paths, head, cwd) {
   if (paths.length === 0) return new Set();
-  const out = tryRun("git", ["check-attr", "--source", head, "-z", "linguist-generated", "--", ...paths], cwd);
+  // --source (git 2.40+) reads .gitattributes at the reviewed commit; older git
+  // falls back to the checked-out tree.
+  const out =
+    tryRun("git", ["check-attr", "--source", head, "-z", "linguist-generated", "--", ...paths], cwd) ??
+    tryRun("git", ["check-attr", "-z", "linguist-generated", "--", ...paths], cwd);
   const set = new Set();
   if (!out) return set;
   const parts = out.split("\0");
@@ -130,27 +134,37 @@ export function pin(o) {
   }
 
   const mergeBase = run("git", ["merge-base", base, head], cwd);
+  if (o.since && tryRun("git", ["merge-base", "--is-ancestor", o.since, head], cwd) === null) {
+    throw new Error(`--since ${o.since} is not an ancestor of ${head}; history was rewritten. Pin the full change without --since.`);
+  }
   const from = o.since ?? mergeBase;
-  const allFiles = parseNumstat(run("git", ["diff", "--numstat", `${from}..${head}`], cwd));
+  // --no-renames keeps each path whole, so a renamed generated file is still
+  // recognized as generated.
+  const allFiles = parseNumstat(run("git", ["diff", "--no-renames", "--numstat", `${from}..${head}`], cwd));
   // Files the repo marks as generated (linguist-generated in .gitattributes,
   // which GitHub also collapses in PR diffs) are left out of the review.
   const generated = generatedPaths(allFiles.map((f) => f.path), head, cwd);
   const files = allFiles.filter((f) => !generated.has(f.path));
   const exclude = [...generated].map((p) => `:(exclude,literal)${p}`);
-  const diff = run("git", ["diff", "--no-color", "-U5", `${from}..${head}`, "--", ".", ...exclude], cwd);
+  const diff = run("git", ["diff", "--no-renames", "--no-color", "-U5", `${from}..${head}`, "--", ".", ...exclude], cwd);
   const commits = run("git", ["log", "--no-color", "--format=%h %s", `${from}..${head}`], cwd);
   writeFileSync(join(out, "diff.patch"), `${diff}\n`);
   writeFileSync(join(out, "files.json"), `${JSON.stringify(files, null, 2)}\n`);
   writeFileSync(join(out, "commits.txt"), `${commits}\n`);
   if (spec) writeFileSync(join(out, "spec.md"), `${spec}\n`);
 
+  // Review rules come from the base, not the change: a PR must not be able to
+  // rewrite the rules it is reviewed against. A change to them is reviewed
+  // like any other file and flagged in context.json.
   const copied = {};
+  const rulesChanged = [];
   for (const name of ["AGENTS.md", "REVIEW.md"]) {
-    const text = tryRun("git", ["show", `${head}:${name}`], cwd);
+    const text = tryRun("git", ["show", `${mergeBase}:${name}`], cwd);
     if (text !== null) {
       writeFileSync(join(out, name), `${text}\n`);
       copied[name] = true;
     }
+    if (allFiles.some((f) => f.path === name)) rulesChanged.push(name);
   }
   const axioms = axiomsPath();
   if (existsSync(axioms)) {
@@ -181,6 +195,7 @@ export function pin(o) {
     added: files.reduce((n, f) => n + f.added, 0),
     deleted: files.reduce((n, f) => n + f.deleted, 0),
     has: { spec: Boolean(spec), agents: Boolean(copied["AGENTS.md"]), review: Boolean(copied["REVIEW.md"]), axioms: Boolean(copied["axioms.md"]) },
+    rulesChanged,
     lenses,
     dir: out,
   };
