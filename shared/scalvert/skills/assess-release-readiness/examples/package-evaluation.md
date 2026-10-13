@@ -23,20 +23,15 @@ Also fetch:
 
 ---
 
-## Team Creation
+## Panel
 
-```
-TeamCreate(
-  team_name: "pkg-eval-[package-name]",
-  description: "10-agent assessment of @scope/package for [use case]"
-)
-```
+Ten panelists, each a subagent with a fresh context, spread across two model families (for example six on the host model and four on another provider).
 
 ---
 
 ## Agent Panel (10 Agents)
 
-Dispatch all agents simultaneously with `run_in_background: true`.
+Start all panelists at once, in parallel.
 
 ### Agent 1: `production-readiness`
 **Focus**: Versioning, stability signals, maintenance health, breaking change risk, dependency conflicts
@@ -132,9 +127,9 @@ Key questions:
 
 ---
 
-## Discussion Broadcast
+## Discussion Round
 
-After all 10 agents report, compile findings and broadcast:
+After all 10 panelists report, start one fresh subagent per panelist with its own report and this prompt:
 
 ```
 All 10 agents have submitted. Review cross-panel findings and respond with:

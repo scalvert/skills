@@ -1,0 +1,5 @@
+{
+  "review-pull-request": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs"],
+  "review-my-changes": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs"],
+  "re-review-pull-request": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs"]
+}

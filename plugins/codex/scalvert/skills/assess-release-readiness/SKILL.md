@@ -116,13 +116,17 @@ doc updates (renames, removals, restructures).
 
 ---
 
-## Phase 2 — Team Creation
+## Phase 2 — Panel
 
-```
-TeamCreate(team_name: "eval-panel-[subject]", description: "N-agent assessment of [subject] for [purpose]")
-```
+Each panelist is a subagent with a fresh context. This works the same way in every host, with no team or messaging tools:
 
-Choose team size based on scope:
+- **Tau:** start the panelists as parallel subagent tasks.
+- **Claude Code:** start them as parallel subagents.
+- **Codex:** start them as parallel subagents.
+
+Spread the panel across at least two model families. In Tau, set `model` (`provider/model-id`) on about half the tasks. In Claude Code, run two or more panelists on another family with `codex exec -s read-only`. In Codex, use `claude -p --permission-mode plan`. Give each panelist the same prompt, whatever its model. If only one family is available, say so in the report.
+
+Choose panel size based on scope:
 - **3-5 agents**: Focused single-domain audit (security review, API design review)
 - **6-8 agents**: Multi-domain assessment (technical + process + risk)
 - **8-12 agents**: Comprehensive deep-dive (all dimensions simultaneously)
@@ -192,7 +196,7 @@ Check the README, CLAUDE.md, or description for stated intent before deciding be
 [Prioritized fixes]
 ```
 
-Set `run_in_background: true` for all agents.
+Start all panelists at once, in parallel.
 
 ---
 
@@ -206,9 +210,9 @@ Set `run_in_background: true` for all agents.
 > the role label rather than evaluate the evidence. Anonymization forces agents
 > to engage with the finding on its merits. Reveal identities only in the final report.
 
-Once all agents have reported, broadcast all findings simultaneously.
+Once all agents have reported, run the discussion as a second round of subagents. Start one fresh subagent per panelist, on the same model as its first round. Give it its own round-one report and the anonymized findings of everyone else, using the template below. A subagent that has already returned cannot receive messages, so the second round must pass in the context that a broadcast would have carried.
 
-**Discussion broadcast format:**
+**Discussion prompt:**
 ```
 All N agents have submitted assessments. Review findings from OTHER agents and respond with:
 
@@ -303,11 +307,7 @@ Generated: [date] | Last updated: [date] | Current panel: [version/context]
 - When an item is closed, move it to the Closed section with a note on how it was closed and which panel verified it.
 - Items discovered for the first time in a Verification Mode panel are still added with new CHK IDs.
 
-Shut down all agents after the discussion round:
-```
-SendMessage(type: "shutdown_request") to each agent
-TeamDelete()
-```
+Subagents end when they return, so there is nothing to shut down.
 
 ---
 
@@ -334,6 +334,13 @@ categories. These lenses catch distinct failure modes:
   scout rule adherence, cleverness debt
 - **architecture-reviewer**: layer boundary discipline, domain/infrastructure
   separation, dependency directionality, replaceability
+
+When an axioms file is present (`$AXIOMS_PATH`, else
+`~/.config/scalvert/axioms.md`), use its principles as the code-structure lenses
+in place of the list above. Give each code-structure panelist a few axioms
+(for example A1 to A3). Each finding must cite the axiom ID and quote the
+principle. The axioms are the reviewer's own beliefs about good code, so they
+outrank the generic lenses wherever the two disagree.
 
 Not every evaluation needs all seven. Pick the lenses most relevant to the
 artifact being reviewed. Add domain-specific lenses on top (e.g., security,
@@ -431,7 +438,7 @@ The goal is that the *next run of this skill* behaves differently because of wha
 ### Reference Files
 
 - **`references/agent-specializations.md`** — Standard specialization templates by domain
-- **`references/discussion-protocol.md`** — Full discussion broadcast template and tension resolution
+- **`references/discussion-protocol.md`** — Full discussion prompt template and tension resolution
 - **`references/report-format.md`** — Complete report structure with section templates
 
 ### Examples

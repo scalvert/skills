@@ -172,7 +172,7 @@ Structure your response as:
 **Recommendations:**
 [Prioritized list of specific, actionable fixes]
 
-When done, send your findings to the team lead via SendMessage.
+Return your findings as your final answer.
 ```
 
 ---

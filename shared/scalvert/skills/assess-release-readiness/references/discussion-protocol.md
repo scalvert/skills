@@ -8,13 +8,13 @@ The cross-panel discussion is the most valuable part of the evaluation panel. It
 
 Run the discussion round once **all** agents have submitted their initial assessments. Do not broadcast cross-panel findings until every agent has reported — premature broadcasting anchors later agents to earlier findings, defeating the purpose of blind parallel assessment.
 
-Watch for agents going idle without sending a message. If an agent idled without submitting, either wait for a potential delayed message or accept their non-submission as silence (note in synthesis that the agent produced no findings).
+If a panelist returns no findings or fails, accept that as silence and note in the synthesis that it produced no findings.
 
 ---
 
-## Discussion Broadcast Template
+## Discussion Prompt Template
 
-Send this as a single `SendMessage(type: "broadcast")` to all agents simultaneously:
+Start one fresh subagent per panelist for the discussion round. Give each one its own round-one report first, then this prompt:
 
 ```
 All N agents have submitted their assessments. Review findings from OTHER agents and respond with:
@@ -45,7 +45,7 @@ All N agents have submitted their assessments. Review findings from OTHER agents
 
 ---
 
-Please respond via SendMessage to team-lead with your discussion contribution.
+Return your discussion contribution as your final answer.
 Keep it focused: agreements, disputes, revised score (if any), and blind spots.
 ```
 
@@ -90,11 +90,9 @@ Run a second round only if:
 
 ---
 
-## Handling Agents That Go Idle Without Discussing
+## Handling Panelists With Nothing to Add
 
-Some agents will go idle without sending a discussion response — this is normal. They may have nothing to add, or they processed the broadcast silently. Accept this and proceed with the responses you have.
-
-Do NOT re-send the broadcast to silent agents. It rarely produces useful new content and wastes tokens.
+Some discussion subagents return nothing new. That is normal. Proceed with the responses you have, and do not rerun them.
 
 ---
 
@@ -130,13 +128,6 @@ This gives readers an at-a-glance view of which findings are most trustworthy.
 
 ---
 
-## Shutting Down Agents
+## Ending the Panel
 
-After the discussion round is complete, send shutdown requests to all agents:
-
-```
-SendMessage(type: "shutdown_request", recipient: "[agent-name]",
-  content: "Discussion complete. Your findings have been recorded. Thank you.")
-```
-
-Send all shutdowns in parallel (one message per agent in a single response turn). Wait for shutdown approvals, then call `TeamDelete()` to clean up team resources.
+Subagents end when they return. Nothing needs to be shut down.
