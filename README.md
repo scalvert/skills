@@ -4,19 +4,15 @@
 
 ## Skills
 
-### `review-pull-request`
+### `self-review`
 
-Review someone else's GitHub pull request. Independent reviewers on at least two model families each look through one lens. Every finding is then verified against the code before it is reported. Returns a verdict, findings labeled F1, F2 and so on, and draft line comments. Never posts anything.
+Review your own branch before anyone else does. Independent reviewers on at least two model families each look through one lens. Every finding is then verified against the code before it is reported. Fixes that have one clear answer go in a separate commit, and the rest are listed for your judgment. Merges only when the repo's rules allow it.
 
-### `review-my-changes`
+### `code-review`
 
-The same review for your own branch. Fixes that have one clear answer go in a separate commit, and the rest are listed for your judgment. Merges only when the repo's rules allow it.
+The same review for someone else's GitHub pull request. Returns a verdict, findings labeled F1, F2 and so on, and draft line comments. Never posts anything. Run it again after the author pushes: it reviews only the new commits, gives each earlier finding a status (fixed, not fixed, or answered), never changes labels, and raises a new blocker only for a problem the new commits introduce.
 
-### `re-review-pull-request`
-
-Review only the commits since the last review. Each earlier finding gets a status (fixed, not fixed, or answered), labels never change, and a new blocker must come from the new commits.
-
-### `respond-to-review-comments`
+### `address-review-comments`
 
 Work through a PR's unresolved review threads. Each claim is verified against the code before anything changes. Valid claims are fixed in the PR that introduced the code. Each thread gets a reply naming the commit, or the evidence that nothing needs to change, and is then resolved. Never posts a top-level comment.
 
@@ -69,7 +65,7 @@ All judgments go through one interface, `classify(kind, input) -> { label, proba
 
 Taste findings need an axioms file: your own engineering principles, at `$AXIOMS_PATH` or `~/.config/scalvert/axioms.md`. Without one, the taste lens does not run.
 
-`scripts/e2e-review.sh` runs `review-my-changes` in Claude Code against a fixture with three planted bugs and a clean control. It checks recall, that the control gets no blockers, that two model families took part, and that nothing merged.
+`scripts/e2e-review.sh` runs `self-review` in Claude Code against a fixture with three planted bugs and a clean control. It checks recall, that the control gets no blockers, that two model families took part, and that nothing merged.
 
 ## Guardrails
 

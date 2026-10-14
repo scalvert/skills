@@ -26,7 +26,7 @@ const PERSONAL = [
 ];
 
 // Skills that act outside the machine, and so must carry the check.
-const WRITERS = ["review-pull-request", "review-my-changes", "re-review-pull-request", "respond-to-review-comments"];
+const WRITERS = ["code-review", "self-review", "address-review-comments"];
 
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {

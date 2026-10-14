@@ -17,7 +17,7 @@ function fixture(files) {
 const skill = (name) => `---\nname: ${name}\ndescription: Does one thing.\n---\n\n# ${name}\n`;
 
 test("accepts kebab-case names", () => {
-  for (const name of ["review-pull-request", "write-clearly", "a1", "x"]) {
+  for (const name of ["code-review", "write-clearly", "a1", "x"]) {
     assert.equal(checkName(name), null, name);
   }
 });
@@ -40,7 +40,7 @@ test("fails a bad name", () => {
 });
 
 test("fails a name that does not match its folder", () => {
-  const root = fixture({ "acme/skills/review/SKILL.md": skill("review-pull-request") });
+  const root = fixture({ "acme/skills/review/SKILL.md": skill("code-review") });
   assert.ok(checkSkills(root).problems.some((p) => p.includes("does not match folder")));
 });
 
