@@ -1,5 +1,5 @@
 #!/bin/sh
-# End-to-end check of review-my-changes against a fixture repo. Not run in CI:
+# End-to-end check of self-review against a fixture repo. Not run in CI:
 # it needs logged-in claude and codex CLIs and takes several minutes.
 #
 # Builds a small library with two branches off main:
@@ -124,7 +124,7 @@ git checkout -q main
 git update-ref refs/remotes/origin/main main
 git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
 
-prompt='Use the review-my-changes skill on the current branch against origin/main. The repo has no GitHub remote, so use repo name "fixture/lib" for the ledger. Do not ask me questions; make reasonable choices and finish the whole skill, including the report.'
+prompt='Use the self-review skill on the current branch against origin/main. The repo has no GitHub remote, so use repo name "fixture/lib" for the ledger. Do not ask me questions; make reasonable choices and finish the whole skill, including the report.'
 status=0
 
 for branch in ${*:-seeded clean}; do

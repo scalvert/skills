@@ -1,7 +1,6 @@
 {
-  "review-pull-request": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs", "check-prose.mjs"],
-  "review-my-changes": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs", "check-prose.mjs"],
-  "re-review-pull-request": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs", "check-prose.mjs"],
-  "respond-to-review-comments": ["review-threads.mjs", "classify.mjs", "permissions.mjs", "check-prose.mjs"],
+  "code-review": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs", "check-prose.mjs"],
+  "self-review": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs", "check-prose.mjs"],
+  "address-review-comments": ["review-threads.mjs", "classify.mjs", "permissions.mjs", "check-prose.mjs"],
   "write-clearly": ["check-prose.mjs"]
 }
