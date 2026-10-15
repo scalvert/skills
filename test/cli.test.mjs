@@ -119,6 +119,15 @@ test("every skill gets an identical copy of the bundle", () => {
   }
 });
 
+test("prose --github exits 1 on code outside backticks and 0 once it is formatted", () => {
+  const bad = cli(["prose", "--github"], { input: "F1: listThreads() in src/page.js:12 is off by one.\n" });
+  assert.equal(bad.status, 1);
+  assert.match(bad.stdout, /finding ID: F1/);
+  assert.match(bad.stdout, /unformatted code \(call\): listThreads\(\)/);
+  const good = cli(["prose", "--github"], { input: "`listThreads()` in `src/page.js:12` is off by one.\n" });
+  assert.equal(good.status, 0, good.stdout);
+});
+
 test("prose reads stdin and exits 1 on a flag", () => {
   mkdirSync(join(tmpdir(), "cli-prose"), { recursive: true });
   assert.equal(cli(["prose"], { input: "Plain words.\n" }).status, 0);

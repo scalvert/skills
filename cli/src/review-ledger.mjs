@@ -158,6 +158,18 @@ export function foundBy(ledger, primary) {
   };
 }
 
+// Records the GitHub review thread that carries a finding, so a follow-up
+// round replies in that thread instead of naming the finding by its ledger ID.
+// Ledger IDs are internal keys and never appear in posted text.
+export function link(ledger, id, { thread, url }) {
+  const finding = ledger.findings.find((f) => f.id === id);
+  if (!finding) throw new LedgerError(`no finding ${id}`);
+  if (finding.duplicateOf) throw new LedgerError(`${id} is a duplicate of ${finding.duplicateOf}; link the primary`);
+  if (!thread) throw new LedgerError("--thread is required");
+  finding.thread = { id: thread, url: url ?? null, at: new Date().toISOString() };
+  return finding.thread;
+}
+
 export function dispose(ledger, id, as, note) {
   if (!DISPOSITIONS.includes(as)) throw new LedgerError(`--as must be one of ${DISPOSITIONS.join(", ")}`);
   const finding = ledger.findings.find((f) => f.id === id);
@@ -242,7 +254,9 @@ export function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = f
   return {
     round,
     threshold,
-    findings: passing.map((f) => ({ ...f, foundBy: foundBy(ledger, f) })),
+    // n is the number a person sees in this report (1, 2, 3). The id is the
+    // ledger key for later commands; it is never shown.
+    findings: passing.map((f, i) => ({ ...f, n: i + 1, foundBy: foundBy(ledger, f) })),
     dropped,
     merged,
     missingLenses,

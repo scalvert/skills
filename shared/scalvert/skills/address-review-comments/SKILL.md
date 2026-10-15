@@ -53,16 +53,18 @@ Order: blockers (wrong behavior, security) first, then simple fixes, then larger
 
 Reply to the thread itself, never with a top-level PR comment. Keep the reply to one or two sentences:
 
-- Fixed: `Fixed in <short sha>: <what changed>.`
+- Fixed: ``Fixed in `<short sha>`: <what changed>.``
 - Not a problem: `<Why, with the line or test that shows it>. Leaving as is.`
 - Question: `<The specific question>.`
 
-Write replies with `write-clearly` rules, and check them with `node <skill>/scripts/agent-review.mjs prose` before posting.
+Write replies with `write-clearly` rules.
+
+{{> github-markdown}}
 
 Post a reply, then resolve the thread only when it is fixed or answered with evidence. Leave a question thread open:
 
 ```sh
-gh api graphql -f query='mutation($id: ID!, $body: String!) { addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $id, body: $body}) { comment { url } } }' -F id=<threadId> -f body='<reply>'
+gh api graphql -f query='mutation($id: ID!, $body: String!) { addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $id, body: $body}) { comment { url } } }' -F id=<threadId> -F body=@<reply file>
 gh api graphql -f query='mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) { thread { isResolved } } }' -F id=<threadId>
 ```
 
