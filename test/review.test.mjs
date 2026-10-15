@@ -4,12 +4,12 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { check, ClassifyError, KINDS } from "../shared/scalvert/scripts/classify.mjs";
-import * as ledger from "../shared/scalvert/scripts/review-ledger.mjs";
-import { chooseLenses, parseNumstat, pin } from "../shared/scalvert/scripts/review-context.mjs";
-import { FINDING_SCHEMA, lensPrompt, parseFindings } from "../shared/scalvert/scripts/run-lens.mjs";
+import { check, ClassifyError, KINDS } from "../cli/src/classify.mjs";
+import * as ledger from "../cli/src/review-ledger.mjs";
+import { chooseLenses, parseNumstat, pin } from "../cli/src/review-context.mjs";
+import { FINDING_SCHEMA, lensPrompt, parseFindings } from "../cli/src/run-lens.mjs";
 
-const LEDGER = new URL("../shared/scalvert/scripts/review-ledger.mjs", import.meta.url).pathname;
+const CLI = new URL("../shared/scalvert/scripts/agent-review.mjs", import.meta.url).pathname;
 process.env.AGENT_REVIEWS_STATE_DIR = mkdtempSync(join(tmpdir(), "scalvert-state-"));
 
 const finding = (over = {}) => ({
@@ -133,14 +133,14 @@ test("ledger: IDs stay stable across rounds and dispositions feed the summary", 
 });
 
 test("ledger CLI: start, add, decide, report and last-head round-trip through the file", () => {
-  const run = (...a) => execFileSync("node", [LEDGER, ...a], { encoding: "utf8" });
+  const run = (...a) => execFileSync("node", [CLI, "ledger", ...a], { encoding: "utf8" });
   const base = ["--repo", "o/cli", "--key", "feature/x"];
   run("start", ...base, "--base", "b", "--head", "abc123", "--lenses", "correctness,tests");
   const file = join(process.env.AGENT_REVIEWS_STATE_DIR, "f.json");
   writeFileSync(file, JSON.stringify([finding()]));
   assert.deepEqual(JSON.parse(run("add", ...base, "--file", file)).added, ["F1"]);
   run("decide", ...base, "--id", "F1", "--kind", "finding-verification", "--json", '{"label":"confirmed","probability":0.75}');
-  assert.throws(() => execFileSync("node", [LEDGER, "report", ...base], { stdio: "pipe" }), /no recorded run/);
+  assert.throws(() => execFileSync("node", [CLI, "ledger", "report", ...base], { stdio: "pipe" }), /no recorded run/);
   assert.equal(JSON.parse(run("report", ...base, "--allow-missing")).missingLenses.length, 2);
   run("ran", ...base, "--lens", "correctness", "--model", "anthropic/claude-x", "--findings", "1");
   run("ran", ...base, "--lens", "tests", "--model", "openai/gpt-x", "--findings", "0");
@@ -149,7 +149,7 @@ test("ledger CLI: start, add, decide, report and last-head round-trip through th
   assert.deepEqual(rep.families, ["anthropic", "openai"]);
   assert.equal(run("last-head", ...base).trim(), "abc123");
   assert.match(run("path", ...base), /reviews\/o\/cli\/feature%2Fx\.json/);
-  assert.throws(() => execFileSync("node", [LEDGER, "decide", ...base, "--id", "F1", "--kind", "finding-triage", "--json", '{"label":"x","probability":1}'], { stdio: "pipe" }));
+  assert.throws(() => execFileSync("node", [CLI, "ledger", "decide", ...base, "--id", "F1", "--kind", "finding-triage", "--json", '{"label":"x","probability":1}'], { stdio: "pipe" }));
 });
 
 test("lens choice: correctness always, taste only with axioms, 3 to 6 lenses", () => {
@@ -252,7 +252,7 @@ test("lens runner: findings parse from fenced or bare JSON, and the schema is st
 });
 
 test("review threads: unresolved first by age, with the first author and line", async () => {
-  const { shapeThreads, parseBlame } = await import("../shared/scalvert/scripts/review-threads.mjs");
+  const { shapeThreads, parseBlame } = await import("../cli/src/review-threads.mjs");
   const node = (id, resolved, at, line = 3) => ({
     id, isResolved: resolved, isOutdated: false, path: "a.js", line, originalLine: 9,
     comments: { nodes: [{ id: "c" + id, databaseId: 1, author: { login: "rev" }, body: "b", url: "u" + id, createdAt: at }] },

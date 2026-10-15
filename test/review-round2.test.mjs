@@ -5,8 +5,8 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as ledger from "../shared/scalvert/scripts/review-ledger.mjs";
-import { generatedPaths } from "../shared/scalvert/scripts/review-context.mjs";
+import * as ledger from "../cli/src/review-ledger.mjs";
+import { generatedPaths } from "../cli/src/review-context.mjs";
 
 const SCRIPTS = new URL("../shared/scalvert/scripts/", import.meta.url).pathname;
 process.env.AGENT_REVIEWS_STATE_DIR = mkdtempSync(join(tmpdir(), "scalvert-state-"));
@@ -33,7 +33,7 @@ test("open findings: fixed, wont-fix and dismissed close; accepted stays open; d
   ledger.dispose(l, "F4", "accepted");
   assert.deepEqual(ledger.openFindings(l).map((f) => f.id), ["F4", "F5"]);
   ledger.save(l);
-  const out = JSON.parse(execFileSync("node", [join(SCRIPTS, "review-ledger.mjs"), "open", "--repo", "o/r", "--key", "open"], { encoding: "utf8" }));
+  const out = JSON.parse(execFileSync("node", [join(SCRIPTS, "agent-review.mjs"), "ledger", "open", "--repo", "o/r", "--key", "open"], { encoding: "utf8" }));
   assert.deepEqual(out.map((f) => f.id), ["F4", "F5"]);
 });
 
@@ -96,7 +96,7 @@ test("review-threads list and owner work against gh and git (F23, F27, F28)", ()
     "esac",
   ].join("\n"));
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
-  const run = (...a) => spawnSync("node", [join(SCRIPTS, "review-threads.mjs"), ...a], { cwd: repo, env, encoding: "utf8" });
+  const run = (...a) => spawnSync("node", [join(SCRIPTS, "agent-review.mjs"), "threads", ...a], { cwd: repo, env, encoding: "utf8" });
 
   const listRun = run("list", "--pr", "4");
   assert.equal(listRun.status, 0, listRun.stderr);
@@ -116,18 +116,18 @@ test("review-threads list and owner work against gh and git (F23, F27, F28)", ()
   assert.match(outdated.stderr, /outdated thread/);
 });
 
-test("check-prose CLI: exit codes, stdin and --json (F24)", () => {
-  const cli = join(SCRIPTS, "check-prose.mjs");
+test("prose CLI: exit codes, stdin and --json (F24)", () => {
+  const cli = join(SCRIPTS, "agent-review.mjs");
   const dir = mkdtempSync(join(tmpdir(), "prose-"));
   const bad = join(dir, "bad.md");
   writeFileSync(bad, "A pivotal change \u2014 truly.\n");
-  const r1 = spawnSync("node", [cli, bad], { encoding: "utf8" });
+  const r1 = spawnSync("node", [cli, "prose", bad], { encoding: "utf8" });
   assert.equal(r1.status, 1);
   assert.match(r1.stdout, /bad\.md:1: em dash/);
-  const r2 = spawnSync("node", [cli], { input: "Plain words.\n", encoding: "utf8" });
+  const r2 = spawnSync("node", [cli, "prose"], { input: "Plain words.\n", encoding: "utf8" });
   assert.equal(r2.status, 0);
-  assert.match(r2.stdout, /check-prose: OK/);
-  const r3 = spawnSync("node", [cli, "--json", bad], { encoding: "utf8" });
+  assert.match(r2.stdout, /prose: OK/);
+  const r3 = spawnSync("node", [cli, "prose", "--json", bad], { encoding: "utf8" });
   assert.equal(r3.status, 1);
   assert.deepEqual(JSON.parse(r3.stdout).map((f) => f.rule).sort(), ["em dash", 'phrase "pivotal"']);
 });

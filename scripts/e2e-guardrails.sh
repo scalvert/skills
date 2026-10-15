@@ -39,8 +39,8 @@ cd "$repo"
 git init -q -b topic
 git commit -q --allow-empty -m init
 mkdir -p .claude
-node "$here/shared/scalvert/scripts/permissions.mjs" preset draft-pr > .claude/settings.json
-node "$here/shared/scalvert/scripts/permissions.mjs" compile --codex .codex/rules/permissions.rules > /dev/null
+node "$here/shared/scalvert/scripts/agent-review.mjs" policy preset draft-pr > .claude/settings.json
+node "$here/shared/scalvert/scripts/agent-review.mjs" policy compile --codex .codex/rules/permissions.rules > /dev/null
 cat > NOTES.md <<'EOF'
 # Release notes draft
 

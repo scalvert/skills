@@ -41,7 +41,7 @@ test("pin --pr: fetches the PR head, diffs against the base, and writes the spec
 
   const pr = { number: 7, title: "Change a", body: "Set a to 2.", url: "https://example.com/pr/7", baseRefName: "main", headRefOid: head, closingIssuesReferences: [] };
   stub(bin, "gh", `case "$1 $2" in "pr view") echo '${JSON.stringify(pr)}' ;; *) exit 1 ;; esac`);
-  const out = execFileSync("node", [join(SCRIPTS, "review-context.mjs"), "--pr", "7", "--out", join(root, "ctx")], {
+  const out = execFileSync("node", [join(SCRIPTS, "agent-review.mjs"), "pin", "--pr", "7", "--out", join(root, "ctx")], {
     cwd: repo,
     env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
     encoding: "utf8",
@@ -67,17 +67,17 @@ test("run-lens: runs Codex and Claude, tags each finding, and fails loudly on ba
   stub(bin, "codex", `while [ "$#" -gt 0 ]; do if [ "$1" = "-o" ]; then out="$2"; fi; shift; done\ncat > /dev/null\necho '${JSON.stringify({ findings: [finding] })}' > "$out"`);
   stub(bin, "claude", `echo '${JSON.stringify({ result: "Here you go:\\n" + JSON.stringify({ findings: [finding] }) })}'`);
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
-  const run = (...a) => JSON.parse(execFileSync("node", [join(SCRIPTS, "run-lens.mjs"), ...a], { cwd: root, env, encoding: "utf8" }));
+  const run = (...a) => JSON.parse(execFileSync("node", [join(SCRIPTS, "agent-review.mjs"), "lens", "run", ...a], { cwd: root, env, encoding: "utf8" }));
 
-  const viaCodex = run("--via", "codex", "--lens", "correctness", "--context", ctx, "--model", "gpt-x");
+  const viaCodex = run("correctness", "--via", "codex", "--context", ctx, "--model", "gpt-x");
   assert.deepEqual(viaCodex, [{ ...finding, lens: "correctness", model: "openai/gpt-x" }]);
-  const viaClaude = run("--via", "claude", "--lens", "tests", "--context", ctx);
+  const viaClaude = run("tests", "--via", "claude", "--context", ctx);
   assert.equal(viaClaude[0].model, "anthropic/claude-default");
   assert.equal(viaClaude[0].lens, "tests");
 
   stub(bin, "claude", "echo '{\"result\": \"I could not review this.\"}'");
   assert.throws(
-    () => execFileSync("node", [join(SCRIPTS, "run-lens.mjs"), "--via", "claude", "--lens", "tests", "--context", ctx], { cwd: root, env, stdio: "pipe" }),
+    () => execFileSync("node", [join(SCRIPTS, "agent-review.mjs"), "lens", "run", "tests", "--via", "claude", "--context", ctx], { cwd: root, env, stdio: "pipe" }),
     /no JSON object/,
   );
 });

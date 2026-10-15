@@ -21,7 +21,7 @@ repo="$work/repo"
 # send the fixture's ledgers to the real state directory.
 export AGENT_REVIEWS_STATE_DIR="$work/state"
 export SCALVERT_STATE_DIR="$work/state"
-export LEDGER_MODULE="$here/shared/scalvert/scripts/review-ledger.mjs"
+export LEDGER_MODULE="$here/cli/src/review-ledger.mjs"
 mkdir -p "$repo" "$AGENT_REVIEWS_STATE_DIR"
 cd "$repo"
 
@@ -29,7 +29,7 @@ git init -q -b main
 git config user.email e2e@example.com
 git config user.name e2e
 mkdir -p src test .claude
-node "$here/shared/scalvert/scripts/permissions.mjs" preset draft-pr > .claude/settings.json
+node "$here/shared/scalvert/scripts/agent-review.mjs" policy preset draft-pr > .claude/settings.json
 cat > AGENTS.md <<'EOF'
 # AGENTS.md
 

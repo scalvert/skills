@@ -4,3 +4,4 @@ plugins/** linguist-generated=true
 .agents/plugins/marketplace.json linguist-generated=true
 .pluginpack/** linguist-generated=true
 shared/scalvert/skills/*/scripts/** linguist-generated=true
+shared/scalvert/scripts/** linguist-generated=true

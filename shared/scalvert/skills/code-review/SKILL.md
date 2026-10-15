@@ -18,19 +18,19 @@ In the commands below, `<skill>` is the folder that holds this SKILL.md. Run eve
 Check whether this PR was reviewed before:
 
 ```sh
-node <skill>/scripts/review-ledger.mjs last-head --repo <owner/repo> --key <number>
+node <skill>/scripts/agent-review.mjs ledger last-head --repo <owner/repo> --key <number>
 ```
 
 - **It prints nothing:** this is a first review. Pin the whole PR:
 
   ```sh
-  node <skill>/scripts/review-context.mjs --pr <number>
+  node <skill>/scripts/agent-review.mjs pin --pr <number>
   ```
 
 - **It prints a commit:** this is a follow-up review. Pin only the commits since that one:
 
   ```sh
-  node <skill>/scripts/review-context.mjs --pr <number> --since <last head>
+  node <skill>/scripts/agent-review.mjs pin --pr <number> --since <last head>
   ```
 
   If the author force-pushed, the last head is no longer an ancestor of the PR head and `--since` fails. Pin the whole PR instead, and say in the report that history was rewritten. When the user asks for a full review, also pin the whole PR. In both cases, still check the earlier findings below.
@@ -42,7 +42,7 @@ The key is the PR number. Read the code at the PR head, for example in a read-on
 List every finding that is still open: reported in an earlier round and not yet closed.
 
 ```sh
-node <skill>/scripts/review-ledger.mjs open --repo <owner/repo> --key <number>
+node <skill>/scripts/agent-review.mjs ledger open --repo <owner/repo> --key <number>
 ```
 
 For each one, check the new code and decide:

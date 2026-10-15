@@ -13,9 +13,9 @@ import {
   splitCommand,
   validate,
   PermissionsError,
-} from "../shared/scalvert/scripts/permissions.mjs";
+} from "../cli/src/permissions.mjs";
 
-const SCRIPT = new URL("../shared/scalvert/scripts/permissions.mjs", import.meta.url).pathname;
+const CLI = new URL("../shared/scalvert/scripts/agent-review.mjs", import.meta.url).pathname;
 
 // Each external action, and what each preset decides for it.
 const MATRIX = [
@@ -145,20 +145,20 @@ test("invalid settings are rejected", () => {
 
 test("CLI: check, preset and lint", () => {
   const settings = repo({ permissions: { allow: ["Bash(gh pr merge *)"] } });
-  const run = (...args) => execFileSync("node", [SCRIPT, ...args], { encoding: "utf8" }).trim();
+  const run = (...args) => execFileSync("node", [CLI, "policy", ...args], { encoding: "utf8" }).trim();
   assert.equal(run("check", "--settings", settings, "--", "gh", "pr", "merge", "1"), "allow");
   assert.equal(JSON.parse(run("check", "--settings", settings, "--json", "--", "gh pr comment 1")).decision, "ask");
   assert.equal(run("check", "--settings", settings, "--tool", "mcp__github__merge_pull_request"), "ask");
   assert.deepEqual(JSON.parse(run("preset", "self-merge")).permissions, PRESETS["self-merge"]);
   assert.match(run("lint", "--settings", settings), /^ok:/);
-  assert.throws(() => execFileSync("node", [SCRIPT, "lint", "--settings", repo("{bad")], { stdio: "pipe" }));
+  assert.throws(() => execFileSync("node", [CLI, "policy", "lint", "--settings", repo("{bad")], { stdio: "pipe" }));
 });
 
 // The same fixtures live in gleanwork/configure-agents (test/fixtures), which
 // scaffolds these presets and compiles the same Codex rules. Change both.
 test("presets and compiled Codex rules match the contract shared with configure-agents", async () => {
   const { readFileSync } = await import("node:fs");
-  const { compileCodex } = await import("../shared/scalvert/scripts/permissions.mjs");
+  const { compileCodex } = await import("../cli/src/permissions.mjs");
   const presets = JSON.parse(readFileSync(new URL("./presets.fixture.json", import.meta.url), "utf8"));
   assert.deepEqual(PRESETS, presets);
   const rules = readFileSync(new URL("./draft-pr.rules.fixture", import.meta.url), "utf8");

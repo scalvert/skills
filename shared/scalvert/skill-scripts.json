@@ -1,6 +1,6 @@
 {
-  "code-review": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs", "check-prose.mjs"],
-  "self-review": ["review-context.mjs", "review-ledger.mjs", "classify.mjs", "run-lens.mjs", "lenses", "permissions.mjs", "check-prose.mjs"],
-  "address-review-comments": ["review-threads.mjs", "classify.mjs", "permissions.mjs", "check-prose.mjs"],
-  "write-clearly": ["check-prose.mjs"]
+  "code-review": ["agent-review.mjs", "lenses"],
+  "self-review": ["agent-review.mjs", "lenses"],
+  "address-review-comments": ["agent-review.mjs"],
+  "write-clearly": ["agent-review.mjs"]
 }

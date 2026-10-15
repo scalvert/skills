@@ -5,9 +5,9 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { classify } from "../shared/scalvert/scripts/classify.mjs";
-import * as ledger from "../shared/scalvert/scripts/review-ledger.mjs";
-import { pin } from "../shared/scalvert/scripts/review-context.mjs";
+import { classify } from "../cli/src/classify.mjs";
+import * as ledger from "../cli/src/review-ledger.mjs";
+import { pin } from "../cli/src/review-context.mjs";
 
 process.env.AGENT_REVIEWS_STATE_DIR = mkdtempSync(join(tmpdir(), "scalvert-state-"));
 

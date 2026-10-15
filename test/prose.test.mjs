@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { check } from "../shared/scalvert/scripts/check-prose.mjs";
+import { check } from "../cli/src/check-prose.mjs";
 
 const rules = (text) => check(text).map((f) => f.rule);
 
