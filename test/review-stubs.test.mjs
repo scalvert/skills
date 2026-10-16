@@ -55,6 +55,43 @@ test("pin --pr: fetches the PR head, diffs against the base, and writes the spec
   assert.match(readFileSync(join(root, "ctx", "diff.patch"), "utf8"), /^\+2$/m);
 });
 
+test("pin on a branch: uses the open PR's description as the spec, and nothing otherwise", () => {
+  const root = mkdtempSync(join(tmpdir(), "pinbranch-"));
+  const repo = join(root, "repo");
+  const bin = join(root, "bin");
+  mkdirSync(bin);
+  const git = (...a) => execFileSync("git", a, { cwd: repo, encoding: "utf8" }).trim();
+  execFileSync("git", ["init", "-q", "-b", "main", repo]);
+  git("config", "user.email", "t@example.com");
+  git("config", "user.name", "t");
+  writeFileSync(join(repo, "a.js"), "1\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "base");
+  git("checkout", "-q", "-b", "feature");
+  writeFileSync(join(repo, "a.js"), "2\n");
+  git("commit", "-qam", "change a");
+
+  const pin = (state) => {
+    const pr = { number: 9, title: "Change a", body: "Set a to 2.", url: "https://example.com/pr/9", state, closingIssuesReferences: [] };
+    stub(bin, "gh", state ? `case "$1 $2" in "pr view") echo '${JSON.stringify(pr)}' ;; *) exit 1 ;; esac` : "exit 1");
+    const out = join(root, `ctx-${state ?? "none"}`);
+    const ctx = JSON.parse(
+      execFileSync("node", [join(SCRIPTS, "agent-review.mjs"), "pin", "--base", "main", "--out", out], {
+        cwd: repo,
+        env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+        encoding: "utf8",
+      }),
+    );
+    return { ctx, out };
+  };
+  const open = pin("OPEN");
+  assert.equal(open.ctx.key, "feature");
+  assert.equal(open.ctx.has.spec, true);
+  assert.match(readFileSync(join(open.out, "spec.md"), "utf8"), /# Change a[\s\S]*Set a to 2\./);
+  assert.equal(pin("MERGED").ctx.has.spec, false, "a merged PR is not this branch's intent any more");
+  assert.equal(pin(null).ctx.has.spec, false, "no gh or no PR leaves the spec empty");
+});
+
 test("run-lens: runs Codex and Claude, tags each finding, and fails loudly on bad output (F5)", () => {
   const root = mkdtempSync(join(tmpdir(), "lens-"));
   const bin = join(root, "bin");

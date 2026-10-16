@@ -83,9 +83,16 @@ export function buildProgram(state = { exitCode: 0 }) {
     .requiredOption("--head <sha>", "reviewed head")
     .option("--lenses <a,b>", "lenses chosen for this round")
     .option("--models <m1,m2>", "models planned for this round")
+    .option("--past-cap", `start a round past ${ledger.MAX_ROUNDS}, only when a person asks for it`)
     .action(
       withLedger((l, o) => ({
-        round: ledger.startRound(l, { base: o.base, head: o.head, lenses: list(o.lenses), models: list(o.models) }),
+        round: ledger.startRound(l, {
+          base: o.base,
+          head: o.head,
+          lenses: list(o.lenses),
+          models: list(o.models),
+          pastCap: o.pastCap === true,
+        }),
         path: ledger.ledgerPath(o.repo, o.key),
       })),
     );
@@ -117,10 +124,15 @@ export function buildProgram(state = { exitCode: 0 }) {
   keyed("report", "Gate and print the confirmed findings for the current round.")
     .option("--threshold <p>", "minimum verification probability", String(ledger.DEFAULT_THRESHOLD))
     .option("--allow-missing", "report even when a chosen lens has no recorded run")
-    .action(withLedger((l, o) => ledger.report(l, Number(o.threshold), { allowMissing: o.allowMissing === true })));
+    .option("--keep <F9,F10>", "new findings that look like earlier ones but are different bugs")
+    .action(
+      withLedger((l, o) =>
+        ledger.report(l, Number(o.threshold), { allowMissing: o.allowMissing === true, keep: list(o.keep) }),
+      ),
+    );
   keyed("dispose", "Record what a person decided about a finding.")
     .requiredOption("--id <F1>", "finding ID")
-    .addOption(new Option("--as <disposition>", "disposition").choices(["accepted", "fixed", "dismissed", "wont-fix"]).makeOptionMandatory())
+    .requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it")
     .option("--note <text>", "why")
     .action(
       withLedger((l, o) => {
@@ -149,10 +161,16 @@ export function buildProgram(state = { exitCode: 0 }) {
   keyed("last-head", "Print the head reviewed in the last round.").action((o) => print(ledger.load(o.repo, o.key).rounds.at(-1)?.head ?? ""));
   led
     .command("summary")
-    .description("Summarize dispositions and calibration for one ledger, or every ledger.")
+    .description("Summarize dispositions, noise, rounds and repeated bug classes for one ledger, one repo, or every ledger.")
     .option("--repo <owner/repo>", "repository")
-    .option("--key <pr|branch>", "PR number or branch name")
-    .action((o) => print(ledger.summarize(o.repo ? [ledger.load(o.repo, o.key)] : ledger.allLedgers())));
+    .option("--key <pr|branch>", "PR number or branch name (needs --repo)")
+    .action((o) => {
+      if (o.key && !o.repo) throw new ledger.LedgerError("--key needs --repo");
+      const ledgers = o.key
+        ? [ledger.load(o.repo, o.key)]
+        : ledger.allLedgers().filter((l) => !o.repo || l.repo === o.repo);
+      print(ledger.summarize(ledgers));
+    });
 
   const rubric = program.command("rubric").description("Rubrics for the judgments the review skills make, and a validator for the answers.");
   rubric

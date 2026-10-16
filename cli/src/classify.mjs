@@ -39,6 +39,16 @@ export const KINDS = {
       "should-fix: changed behavior without a test, an unclear name in a public API, or a likely future bug. " +
       "nit: anything else. A repo's REVIEW.md severity rules override these. probability is your confidence.",
   },
+  "finding-origin": {
+    labels: ["introduced", "missed", "pre-existing"],
+    rubric:
+      "Decide where the problem came from. " +
+      "introduced: the commits under review cause it: it is on a line they change, or a line they change makes other code wrong. " +
+      "In a follow-up round, the commits under review are only the new ones. " +
+      "missed (follow-up rounds only): this PR caused it, but it was already there at the last reviewed head. Check the code at that head. " +
+      "pre-existing: it happens at the merge base too, so this PR did not cause it. Check with git show <mergeBase>:<file>. " +
+      "Only an introduced finding can be a blocker. probability is your confidence in the label.",
+  },
   "tool-effect": {
     labels: ["external-write", "read-only", "unclear"],
     rubric:

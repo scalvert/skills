@@ -20,7 +20,7 @@ git fetch -q origin
 node <skill>/scripts/agent-review.mjs pin [--base origin/main]
 ```
 
-The key is the branch name. Commit or stash your own work first. The review covers committed changes only.
+The key is the branch name. Commit or stash your own work first. The review covers committed changes only. When the branch has an open PR, `pin` uses its description as the spec.
 
 {{> review-pipeline}}
 
@@ -43,6 +43,18 @@ node <skill>/scripts/agent-review.mjs ledger dispose --repo <repo> --key <key> -
 {{> review-report}}
 
 Add a **Needs your judgment** section after **Smaller items**. For each needs-judgment finding, give the choice to make and the option you recommend, with one line on why.
+
+{{> suggest-rules}}
+
+### Draft the PR description
+
+When the branch has no PR yet, draft three sections for its description, from what you ran:
+
+- **Testing:** the commands you ran and what they returned.
+- **Risk:** what could break, and how someone would notice.
+- **How to revert:** the one step that undoes the change, such as a revert, a flag, or a config value.
+
+Draft only. Opening the PR follows the repo's rules below.
 
 {{> no-external-writes}}
 

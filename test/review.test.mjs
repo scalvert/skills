@@ -53,6 +53,7 @@ test("ledger: report keeps confirmed findings above the threshold, sorted by sev
   v("F4", "refuted", 0.95);
   ledger.decide(l, "F1", "finding-severity", { label: "nit", probability: 0.8 });
   ledger.decide(l, "F2", "finding-severity", { label: "blocker", probability: 0.9 });
+  ledger.decide(l, "F2", "finding-origin", { label: "introduced", probability: 0.9 });
   assert.throws(() => ledger.report(l), /no recorded run for lens\(es\) correctness/);
   ledger.recordRun(l, { lens: "correctness", model: "anthropic/claude-x", findings: 4 });
   const r = ledger.report(l);
@@ -119,13 +120,17 @@ test("ledger: IDs stay stable across rounds and dispositions feed the summary", 
   ledger.decide(l, "F2", "finding-verification", { label: "confirmed", probability: 0.8 });
   ledger.report(l);
   ledger.dispose(l, "F1", "fixed");
-  ledger.dispose(l, "F2", "dismissed", "not reachable");
+  assert.throws(() => ledger.dispose(l, "F2", "dismissed"), /--as dismissed was split; use wrong/);
+  assert.throws(() => ledger.dispose(l, "F2", "wont-fix"), /use intended or not-worth-it/);
+  ledger.dispose(l, "F2", "wrong", "not reachable");
   ledger.startRound(l, { base: "b", head: "h2" });
   assert.deepEqual(ledger.addFindings(l, [finding()]), ["F3"]);
   const s = ledger.summarize([l]);
   assert.equal(s.rounds, 2);
+  assert.equal(s.roundsPerLedger, 2);
   assert.equal(s.reported, 2);
-  assert.equal(s.dismissalRate, 0.5);
+  assert.equal(s.noiseRate, 0.5);
+  assert.deepEqual(s.dispositions, { fixed: 1, wrong: 1 });
   assert.deepEqual(s.modelFamilies, ["anthropic", "openai"]);
   // (0.9 - 1)^2 and (0.8 - 0)^2, averaged
   assert.ok(Math.abs(s.verificationBrier - (0.01 + 0.64) / 2) < 1e-9);

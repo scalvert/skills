@@ -90,6 +90,15 @@ export function generatedPaths(paths, head, cwd) {
   return set;
 }
 
+// The spec for a PR: its title, URL and description, then each issue it
+// closes.
+function prSpec(pr, cwd) {
+  const issues = (pr.closingIssuesReferences ?? [])
+    .map((i) => tryRun("gh", ["issue", "view", String(i.number), "--json", "number,title,body", "-q", '"#\\(.number) \\(.title)\\n\\n\\(.body)"'], cwd))
+    .filter(Boolean);
+  return [`# ${pr.title}`, "", pr.url, "", pr.body || "(no description)", ...issues.map((t) => `\n---\n\n${t}`)].join("\n");
+}
+
 function repoSlug() {
   const url = tryRun("git", ["config", "--get", "remote.origin.url"]) ?? "";
   const m = url.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?\/?$/);
@@ -114,15 +123,23 @@ export function pin(o) {
     head = pr.headRefOid;
     base = run("git", ["rev-parse", `origin/${pr.baseRefName}`], cwd);
     key = String(pr.number);
-    const issues = (pr.closingIssuesReferences ?? [])
-      .map((i) => tryRun("gh", ["issue", "view", String(i.number), "--json", "number,title,body", "-q", '"#\\(.number) \\(.title)\\n\\n\\(.body)"'], cwd))
-      .filter(Boolean);
-    spec = [`# ${pr.title}`, "", pr.url, "", pr.body || "(no description)", ...issues.map((t) => `\n---\n\n${t}`)].join("\n");
+    spec = prSpec(pr, cwd);
   } else {
     const ref = o.base ?? (tryRun("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd) || "origin/main");
     base = run("git", ["rev-parse", ref], cwd);
     head = run("git", ["rev-parse", "HEAD"], cwd);
     key = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+    // A branch with an open PR has a stated intent: use its description, so
+    // the spec-fit lens has more than commit messages. No gh, no auth, or no
+    // PR leaves spec empty.
+    const text = tryRun("gh", ["pr", "view", "--json", "number,title,body,url,state,closingIssuesReferences"], cwd);
+    let pr = null;
+    try {
+      pr = text ? JSON.parse(text) : null;
+    } catch {
+      pr = null;
+    }
+    if (pr?.state === "OPEN") spec = prSpec(pr, cwd);
   }
 
   const mergeBase = run("git", ["merge-base", base, head], cwd);

@@ -83,6 +83,7 @@ test("ledger: report numbers findings for people, and link records their threads
   ledger.recordRun(l, { lens: "correctness", model: "anthropic/claude-x" });
   for (const id of ["F1", "F2"]) ledger.decide(l, id, "finding-verification", { label: "confirmed", probability: 0.9 });
   ledger.decide(l, "F2", "finding-severity", { label: "blocker", probability: 0.9 });
+  ledger.decide(l, "F2", "finding-origin", { label: "introduced", probability: 0.9 });
   const r = ledger.report(l);
   assert.deepEqual(r.findings.map((f) => [f.n, f.id]), [[1, "F2"], [2, "F1"]]);
 
