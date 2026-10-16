@@ -30,7 +30,7 @@ Rules for the prose:
 - Put each finding in the section the report output gives it. Leave out a section that has no findings. A finding in `unrated` has no severity: record one and run the report again.
 - Number the findings 1, 2, 3 in report order, across sections, using `n` from the report output. Never show ledger IDs (F1, F2): they mean nothing to anyone else. Keep the map from number to ledger ID for later commands in this conversation, so the user can say "fix 2".
 - One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item. Leave out praise and summaries of the diff.
-- Mark a finding whose origin is `missed` with "missed in an earlier round".
+- Mark a finding whose origin is `missed` with "missed in an earlier round". Mark a finding with a non-empty `recurs` with "came back after an earlier fix".
 - Put code in backticks: identifiers, calls, paths, `file:line`, commands, flags and values.
 - Plain words, short sentences, active voice. No em dashes, no emoji, no "it's worth noting".
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.

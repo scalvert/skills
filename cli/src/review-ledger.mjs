@@ -241,7 +241,34 @@ export function recordRun(ledger, { lens, model, findings = 0 }) {
   return current.runs.length;
 }
 
-const family = (model) => (model ? String(model).split("/")[0].toLowerCase() : null);
+// Gateways that serve models from many providers under one prefix, as Glean
+// Tau does with glean/CLAUDE_5_5_OPUS and glean/GPT6_1_SOL. For these, the
+// family comes from the model name, so Claude and GPT behind one gateway
+// still count as two families.
+const GATEWAYS = new Set(["glean", "openrouter", "bedrock", "vertex"]);
+const NAMED_FAMILIES = [
+  [/^(anthropic[.:/-])?claude/i, "anthropic"],
+  [/^(openai[.:/-])?(gpt|o\d|chatgpt|codex)/i, "openai"],
+  [/^(google[.:/-])?gemini/i, "google"],
+  [/^(x-?ai[.:/-])?grok/i, "xai"],
+  [/^(meta[.:/-])?llama/i, "meta"],
+  [/^(mistral|mixtral|codestral)/i, "mistral"],
+  [/^deepseek/i, "deepseek"],
+  [/^(glm|zhipu)/i, "zhipu"],
+  [/^(kimi|moonshot)/i, "moonshot"],
+  [/^qwen/i, "alibaba"],
+  [/^nemotron/i, "nvidia"],
+];
+
+export function family(model) {
+  if (!model) return null;
+  const [provider, ...rest] = String(model).split("/");
+  const p = provider.toLowerCase();
+  if (!GATEWAYS.has(p)) return p;
+  const name = rest.join("/");
+  const hit = NAMED_FAMILIES.find(([re]) => re.test(name));
+  return hit ? hit[1] : `${p}:${name.toLowerCase()}`;
+}
 
 // Model families that reviewed or verified in a round.
 export function roundFamilies(ledger, round) {
@@ -296,7 +323,21 @@ const locations = (ledger, f) => [{ file: f.file, line: f.line ?? null }, ...all
 // Earlier-round findings that a new finding may repeat: some place of one
 // (its location or an instance) is in the same file as some place of the
 // other, and the lines are close or the bug class is the same.
+//
+// An earlier finding marked fixed is left out: if the same problem turns up
+// again, the fix did not hold, and the new finding must be reported. See
+// recurrences().
 export function possibleRepeats(ledger, finding) {
+  return matchingEarlier(ledger, finding).filter((e) => e.disposition?.as !== "fixed");
+}
+
+// Earlier findings marked fixed that a new finding matches: the problem came
+// back after a fix.
+export function recurrences(ledger, finding) {
+  return matchingEarlier(ledger, finding).filter((e) => e.disposition?.as === "fixed");
+}
+
+function matchingEarlier(ledger, finding) {
   const mine = locations(ledger, finding);
   return ledger.findings.filter((e) => {
     if (!(e.round < finding.round && e.reported && !e.duplicateOf)) return false;
@@ -372,6 +413,8 @@ export function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = f
     n: i + 1,
     ...placed.get(f),
     instances: allInstances(ledger, f),
+    // Earlier findings marked fixed that this one matches: the fix did not hold.
+    recurs: recurrences(ledger, f).map((e) => ({ id: e.id, round: e.round, file: e.file, line: e.line ?? null })),
     foundBy: foundBy(ledger, f),
   }));
   const tally = (list) => {

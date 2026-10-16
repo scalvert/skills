@@ -20,7 +20,7 @@ git fetch -q origin
 node <skill>/scripts/agent-review.mjs pin [--base origin/main]
 ```
 
-The key is the branch name. Commit or stash your own work first. The review covers committed changes only.
+The key is the branch name. Commit or stash your own work first. The review covers committed changes only. When the branch has an open PR, `pin` uses its description as the spec.
 
 {{> review-pipeline}}
 

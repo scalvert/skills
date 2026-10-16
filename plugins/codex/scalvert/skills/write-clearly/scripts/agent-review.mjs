@@ -3972,6 +3972,13 @@ function generatedPaths(paths, head, cwd) {
   }
   return set;
 }
+function prSpec(pr, cwd) {
+  const issues = (pr.closingIssuesReferences ?? []).map((i) => tryRun("gh", ["issue", "view", String(i.number), "--json", "number,title,body", "-q", '"#\\(.number) \\(.title)\\n\\n\\(.body)"'], cwd)).filter(Boolean);
+  return [`# ${pr.title}`, "", pr.url, "", pr.body || "(no description)", ...issues.map((t) => `
+---
+
+${t}`)].join("\n");
+}
 function repoSlug() {
   const url = tryRun("git", ["config", "--get", "remote.origin.url"]) ?? "";
   const m = url.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?\/?$/);
@@ -3994,16 +4001,20 @@ function pin(o) {
     head = pr.headRefOid;
     base = run("git", ["rev-parse", `origin/${pr.baseRefName}`], cwd);
     key = String(pr.number);
-    const issues = (pr.closingIssuesReferences ?? []).map((i) => tryRun("gh", ["issue", "view", String(i.number), "--json", "number,title,body", "-q", '"#\\(.number) \\(.title)\\n\\n\\(.body)"'], cwd)).filter(Boolean);
-    spec = [`# ${pr.title}`, "", pr.url, "", pr.body || "(no description)", ...issues.map((t) => `
----
-
-${t}`)].join("\n");
+    spec = prSpec(pr, cwd);
   } else {
     const ref = o.base ?? (tryRun("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd) || "origin/main");
     base = run("git", ["rev-parse", ref], cwd);
     head = run("git", ["rev-parse", "HEAD"], cwd);
     key = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+    const text = tryRun("gh", ["pr", "view", "--json", "number,title,body,url,state,closingIssuesReferences"], cwd);
+    let pr = null;
+    try {
+      pr = text ? JSON.parse(text) : null;
+    } catch {
+      pr = null;
+    }
+    if (pr?.state === "OPEN") spec = prSpec(pr, cwd);
   }
   const mergeBase = run("git", ["merge-base", base, head], cwd);
   if (o.since && tryRun("git", ["merge-base", "--is-ancestor", o.since, head], cwd) === null) {
@@ -4240,7 +4251,29 @@ function recordRun(ledger, { lens, model, findings = 0 }) {
   current.runs.push({ lens, model, findings: Number(findings) || 0, at: (/* @__PURE__ */ new Date()).toISOString() });
   return current.runs.length;
 }
-var family = (model) => model ? String(model).split("/")[0].toLowerCase() : null;
+var GATEWAYS = /* @__PURE__ */ new Set(["glean", "openrouter", "bedrock", "vertex"]);
+var NAMED_FAMILIES = [
+  [/^(anthropic[.:/-])?claude/i, "anthropic"],
+  [/^(openai[.:/-])?(gpt|o\d|chatgpt|codex)/i, "openai"],
+  [/^(google[.:/-])?gemini/i, "google"],
+  [/^(x-?ai[.:/-])?grok/i, "xai"],
+  [/^(meta[.:/-])?llama/i, "meta"],
+  [/^(mistral|mixtral|codestral)/i, "mistral"],
+  [/^deepseek/i, "deepseek"],
+  [/^(glm|zhipu)/i, "zhipu"],
+  [/^(kimi|moonshot)/i, "moonshot"],
+  [/^qwen/i, "alibaba"],
+  [/^nemotron/i, "nvidia"]
+];
+function family(model) {
+  if (!model) return null;
+  const [provider, ...rest] = String(model).split("/");
+  const p = provider.toLowerCase();
+  if (!GATEWAYS.has(p)) return p;
+  const name = rest.join("/");
+  const hit = NAMED_FAMILIES.find(([re]) => re.test(name));
+  return hit ? hit[1] : `${p}:${name.toLowerCase()}`;
+}
 function roundFamilies(ledger, round) {
   const r = ledger.rounds.find((x) => x.round === round);
   const models = [
@@ -4277,6 +4310,12 @@ function allInstances(ledger, primary) {
 }
 var locations = (ledger, f) => [{ file: f.file, line: f.line ?? null }, ...allInstances(ledger, f)];
 function possibleRepeats(ledger, finding) {
+  return matchingEarlier(ledger, finding).filter((e) => e.disposition?.as !== "fixed");
+}
+function recurrences(ledger, finding) {
+  return matchingEarlier(ledger, finding).filter((e) => e.disposition?.as === "fixed");
+}
+function matchingEarlier(ledger, finding) {
   const mine = locations(ledger, finding);
   return ledger.findings.filter((e) => {
     if (!(e.round < finding.round && e.reported && !e.duplicateOf)) return false;
@@ -4335,6 +4374,8 @@ function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = false, k
     n: i + 1,
     ...placed.get(f),
     instances: allInstances(ledger, f),
+    // Earlier findings marked fixed that this one matches: the fix did not hold.
+    recurs: recurrences(ledger, f).map((e) => ({ id: e.id, round: e.round, file: e.file, line: e.line ?? null })),
     foundBy: foundBy(ledger, f)
   }));
   const tally = (list2) => {

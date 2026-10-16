@@ -97,6 +97,48 @@ test("no repeats: an earlier finding's instances count, and so do a merged dupli
   assert.doesNotMatch(err, /F6/);
 });
 
+test("a problem that comes back after it was marked fixed is reported again, pointing to the old finding", () => {
+  const l = fresh();
+  round(l);
+  ledger.addFindings(l, [finding({ line: 10, class: "off-by-one" }), finding({ file: "src/w.ts", line: 5 })]);
+  confirm(l, "F1");
+  confirm(l, "F2");
+  ledger.report(l);
+  ledger.dispose(l, "F1", "fixed");
+  ledger.dispose(l, "F2", "wrong");
+
+  round(l);
+  ledger.addFindings(l, [finding({ line: 11, class: "off-by-one" }), finding({ file: "src/w.ts", line: 6 })]);
+  confirm(l, "F3");
+  confirm(l, "F4");
+  assert.throws(() => ledger.report(l), /F4 .*may repeat F2/, "a finding called wrong still may not come back");
+  const r = ledger.report(l, undefined, { keep: ["F4"] });
+  const f3 = r.findings.find((f) => f.id === "F3");
+  assert.deepEqual(f3.recurs, [{ id: "F1", round: 1, file: "src/a.ts", line: 10 }]);
+  assert.deepEqual(r.findings.find((f) => f.id === "F4").recurs, []);
+});
+
+test("model families: gateway IDs such as glean/... count by provider", () => {
+  assert.equal(ledger.family("glean/CLAUDE_5_5_OPUS"), "anthropic");
+  assert.equal(ledger.family("glean/GPT6_1_SOL"), "openai");
+  assert.equal(ledger.family("glean/GROK_4_7"), "xai");
+  assert.equal(ledger.family("glean/GEMINI_3_PRO"), "google");
+  assert.equal(ledger.family("glean/SOMETHING_NEW"), "glean:something_new", "an unknown gateway model is its own family, never merged with another");
+  assert.equal(ledger.family("anthropic/claude-x"), "anthropic");
+  assert.equal(ledger.family("openai/gpt-x"), "openai");
+
+  const l = fresh();
+  ledger.startRound(l, { base: "b", head: "h", lenses: ["correctness", "tests"] });
+  ledger.recordRun(l, { lens: "correctness", model: "glean/GPT6_1_SOL" });
+  ledger.recordRun(l, { lens: "tests", model: "glean/CLAUDE_5_5_OPUS" });
+  ledger.addFindings(l, [finding({ model: "glean/GPT6_1_SOL" }), finding({ model: "glean/CLAUDE_5_5_OPUS", lens: "tests" })]);
+  ledger.mergeFindings(l, "F1", ["F2"]);
+  confirm(l, "F1");
+  const r = ledger.report(l);
+  assert.deepEqual(r.families, ["anthropic", "openai"]);
+  assert.deepEqual(r.findings[0].foundBy.families, ["anthropic", "openai"]);
+});
+
 test("verdict: ready only when nothing new or still open holds the PR back", () => {
   const l = fresh();
   round(l);

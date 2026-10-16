@@ -22,7 +22,7 @@ node <skill>/scripts/agent-review.mjs lens prompt <lens> --context <dir>
 
 Spread the lenses across at least two model families:
 
-- **Tau:** start the reviewers as parallel subagent tasks. Give about half of them a model from another provider (set `model` to `provider/model-id`).
+- **Tau:** start the reviewers as parallel subagent tasks. Give about half of them a model from another provider (set `model` to `provider/model-id`). Record each model ID as Tau gives it, such as `glean/GPT6_1_SOL`. The ledger reads the provider from the model name, so Claude and GPT behind the `glean/` prefix count as two families.
 - **Claude Code:** start the reviewers as parallel subagents. Run correctness and one other lens on a second family with `node <skill>/scripts/agent-review.mjs lens run <lens> --via codex --context <dir> --repo-dir <repo>`.
 - **Codex:** start the reviewers as subagents. Run correctness and one other lens with `--via claude`.
 
@@ -47,7 +47,7 @@ node <skill>/scripts/agent-review.mjs ledger merge --repo <repo> --key <key> --i
 
 The duplicates stay in the ledger, and the report shows how many reviewers and model families found the problem. Merge only true duplicates. Two different bugs on the same line stay separate.
 
-In a follow-up round, also merge a new finding into an earlier finding it repeats, from `ledger open` or the ledger file. That covers earlier findings that were closed, too: a finding the author called wrong or intended must not come back. `ledger report` refuses while a new finding sits in the same file as an earlier one, on nearby lines or with the same class. Merge it, or pass `--keep <id>` when it is a different bug.
+In a follow-up round, also merge a new finding into an earlier finding it repeats, from `ledger open` or the ledger file. That covers earlier findings that were closed, too: a finding the author called wrong or intended must not come back. A finding marked fixed is the exception. If the same problem turns up again, the fix did not hold, so the report keeps the new finding and points to the old one in `recurs`. `ledger report` refuses while a new finding sits in the same file as an earlier one, on nearby lines or with the same class. Merge it, or pass `--keep <id>` when it is a different bug.
 
 ### Verify every finding
 

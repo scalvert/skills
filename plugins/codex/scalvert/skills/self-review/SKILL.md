@@ -20,7 +20,7 @@ git fetch -q origin
 node <skill>/scripts/agent-review.mjs pin [--base origin/main]
 ```
 
-The key is the branch name. Commit or stash your own work first. The review covers committed changes only.
+The key is the branch name. Commit or stash your own work first. The review covers committed changes only. When the branch has an open PR, `pin` uses its description as the spec.
 
 ### Pin the change
 
@@ -46,7 +46,7 @@ node <skill>/scripts/agent-review.mjs lens prompt <lens> --context <dir>
 
 Spread the lenses across at least two model families:
 
-- **Tau:** start the reviewers as parallel subagent tasks. Give about half of them a model from another provider (set `model` to `provider/model-id`).
+- **Tau:** start the reviewers as parallel subagent tasks. Give about half of them a model from another provider (set `model` to `provider/model-id`). Record each model ID as Tau gives it, such as `glean/GPT6_1_SOL`. The ledger reads the provider from the model name, so Claude and GPT behind the `glean/` prefix count as two families.
 - **Claude Code:** start the reviewers as parallel subagents. Run correctness and one other lens on a second family with `node <skill>/scripts/agent-review.mjs lens run <lens> --via codex --context <dir> --repo-dir <repo>`.
 - **Codex:** start the reviewers as subagents. Run correctness and one other lens with `--via claude`.
 
@@ -71,7 +71,7 @@ node <skill>/scripts/agent-review.mjs ledger merge --repo <repo> --key <key> --i
 
 The duplicates stay in the ledger, and the report shows how many reviewers and model families found the problem. Merge only true duplicates. Two different bugs on the same line stay separate.
 
-In a follow-up round, also merge a new finding into an earlier finding it repeats, from `ledger open` or the ledger file. That covers earlier findings that were closed, too: a finding the author called wrong or intended must not come back. `ledger report` refuses while a new finding sits in the same file as an earlier one, on nearby lines or with the same class. Merge it, or pass `--keep <id>` when it is a different bug.
+In a follow-up round, also merge a new finding into an earlier finding it repeats, from `ledger open` or the ledger file. That covers earlier findings that were closed, too: a finding the author called wrong or intended must not come back. A finding marked fixed is the exception. If the same problem turns up again, the fix did not hold, so the report keeps the new finding and points to the old one in `recurs`. `ledger report` refuses while a new finding sits in the same file as an earlier one, on nearby lines or with the same class. Merge it, or pass `--keep <id>` when it is a different bug.
 
 ### Verify every finding
 
@@ -143,7 +143,7 @@ Rules for the prose:
 - Put each finding in the section the report output gives it. Leave out a section that has no findings. A finding in `unrated` has no severity: record one and run the report again.
 - Number the findings 1, 2, 3 in report order, across sections, using `n` from the report output. Never show ledger IDs (F1, F2): they mean nothing to anyone else. Keep the map from number to ledger ID for later commands in this conversation, so the user can say "fix 2".
 - One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item. Leave out praise and summaries of the diff.
-- Mark a finding whose origin is `missed` with "missed in an earlier round".
+- Mark a finding whose origin is `missed` with "missed in an earlier round". Mark a finding with a non-empty `recurs` with "came back after an earlier fix".
 - Put code in backticks: identifiers, calls, paths, `file:line`, commands, flags and values.
 - Plain words, short sentences, active voice. No em dashes, no emoji, no "it's worth noting".
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.
