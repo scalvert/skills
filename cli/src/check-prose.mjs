@@ -24,24 +24,91 @@ const SMALL_WORDS = new Set([
 
 const EMOJI = /\p{Extended_Pictographic}/u;
 
-// Code spans on one line, as CommonMark reads them: a run of k backticks
-// opens a span that the next run of exactly k backticks closes. Returns the
-// spans as [start, end) ranges, and the runs that nothing closes, which
-// GitHub shows as literal backticks.
-export function codeSpans(line) {
-  const runs = [...line.matchAll(/(?<!\\)`+/g)].map((m) => ({ start: m.index, end: m.index + m[0].length, size: m[0].length }));
+// Code spans as CommonMark reads them: a run of k backticks opens a span
+// that the next run of exactly k backticks closes. Outside a span, a
+// backslash escapes the backtick right after it, which GitHub then shows as
+// a literal backtick. Inside a span, a backslash is literal, so `C:\temp\`
+// is one span. Returns the spans as [start, end) ranges, the opening runs
+// that nothing closes, and the positions of escaped backticks.
+export function codeSpans(text) {
+  const runs = [...text.matchAll(/`+/g)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
   const spans = [];
   const unmatched = [];
+  const escaped = [];
   for (let i = 0; i < runs.length; i++) {
-    const close = runs.findIndex((r, j) => j > i && r.size === runs[i].size);
+    let { start, end } = runs[i];
+    let slashes = 0;
+    while (text[start - 1 - slashes] === "\\") slashes += 1;
+    if (slashes % 2 === 1) {
+      escaped.push(start);
+      start += 1;
+      if (start === end) continue;
+    }
+    const size = end - start;
+    const close = runs.findIndex((r, j) => j > i && r.end - r.start === size);
     if (close === -1) {
-      unmatched.push(runs[i]);
+      unmatched.push({ start, end, size });
       continue;
     }
-    spans.push([runs[i].start, runs[close].end]);
+    spans.push([start, runs[close].end]);
     i = close;
   }
-  return { spans, unmatched };
+  return { spans, unmatched, escaped };
+}
+
+// A line that starts a new Markdown block, so a code span cannot continue
+// into it from the line above: a heading, a list item, a table row, or a
+// thematic break.
+const BLOCK_START = /^\s{0,3}(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|\||(?:[-*_]\s*){3,}$)/;
+
+// Code spans for each line of a document. Spans pair within a paragraph,
+// across its lines, as GitHub renders them. Fenced code and block quotes
+// get null: no rule looks inside them.
+export function spanMap(lines) {
+  const out = lines.map(() => null);
+  let fence = null;
+  let block = [];
+  const flush = () => {
+    if (!block.length) return;
+    const offsets = [];
+    let pos = 0;
+    for (const i of block) {
+      offsets.push(pos);
+      pos += lines[i].length + 1;
+    }
+    const { spans, unmatched, escaped } = codeSpans(block.map((i) => lines[i]).join("\n"));
+    block.forEach((i, k) => {
+      const from = offsets[k];
+      const to = from + lines[i].length;
+      const inLine = (p) => p >= from && p < to;
+      out[i] = {
+        spans: spans.filter(([s, e]) => s < to && e > from).map(([s, e]) => [Math.max(s, from) - from, Math.min(e, to) - from]),
+        unmatched: unmatched.filter((u) => inLine(u.start)).length,
+        escaped: escaped.filter(inLine).length,
+      };
+    });
+    block = [];
+  };
+  lines.forEach((line, i) => {
+    const open = line.match(/^\s*(```+|~~~+)/);
+    if (fence) {
+      if (open && open[1][0] === fence[0] && open[1].length >= fence.length) fence = null;
+      return;
+    }
+    if (open) {
+      flush();
+      fence = open[1];
+      return;
+    }
+    if (/^\s*>/.test(line) || !line.trim()) {
+      flush();
+      return;
+    }
+    if (BLOCK_START.test(line)) flush();
+    block.push(i);
+  });
+  flush();
+  return out;
 }
 
 const blank = (line, ranges) => {
@@ -55,21 +122,15 @@ const blank = (line, ranges) => {
 // [src/page.js](url) is a link, not code that needs backticks.
 export function maskExempt(text, { links = false } = {}) {
   const lines = text.split(/\r?\n/);
-  let fence = null;
-  return lines.map((line) => {
-    const open = line.match(/^\s*(```+|~~~+)/);
-    if (fence) {
-      if (open && open[1][0] === fence[0] && open[1].length >= fence.length) fence = null;
-      return "";
-    }
-    if (open) {
-      fence = open[1];
-      return "";
-    }
-    if (/^\s*>/.test(line)) return "";
-    return blank(line, codeSpans(line).spans)
+  const map = spanMap(lines);
+  const label = (m, text) => (links ? " ".repeat(m.length) : text + " ".repeat(m.length - text.length));
+  return lines.map((line, i) => {
+    if (!map[i]) return "";
+    return blank(line, map[i].spans)
       // Links before bare URLs: the URL pattern would also eat the link's ")".
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, (m, label) => (links ? " ".repeat(m.length) : label + " ".repeat(m.length - label.length)))
+      // Inline links [label](url), then reference links [label][ref] and [label][].
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, label)
+      .replace(/\[([^\]]*)\]\[[^\]]*\]/g, label)
       .replace(/\bhttps?:\/\/\S+/g, (m) => " ".repeat(m.length));
   });
 }
@@ -177,13 +238,12 @@ export function checkGithub(text) {
     if (open) {
       fence = open[1];
       if (!open[2]) add(i + 1, "fence without language", line);
-      return;
     }
-    if (/^\s*>/.test(line)) return;
-    const { spans, unmatched } = codeSpans(line);
-    const outside = blank(line, spans);
-    if (/\\`/.test(outside)) add(i + 1, "escaped backtick (post the body from a file, not a shell string)", line);
-    else if (unmatched.length) add(i + 1, "unbalanced backticks", line);
+  });
+  spanMap(raw).forEach((m, i) => {
+    if (!m) return;
+    if (m.escaped) add(i + 1, "escaped backtick (post the body from a file, not a shell string)", raw[i]);
+    else if (m.unmatched) add(i + 1, "unbalanced backticks", raw[i]);
   });
   // HTML tags and comments (badges, <details>, bot markers) are markup, not prose.
   // Reference-link definitions ([vc]: #...) never render.

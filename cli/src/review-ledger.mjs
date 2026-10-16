@@ -14,9 +14,9 @@
 //   agent-review ledger ran    --repo R --key K --lens <lens> --model <provider/model> [--findings N]
 //   agent-review ledger merge  --repo R --key K --into F1 --ids F4,F7   (same root cause)
 //   agent-review ledger report --repo R --key K [--threshold 0.7] [--allow-missing] [--keep F9,F10]
-//   agent-review ledger dispose --repo R --key K --id F1 --as fixed|accepted|wrong|intended|not-worth-it [--note text]
+//   agent-review ledger dispose --repo R --key K --id F1 --as fixed|accepted|wrong|intended|not-worth-it [--note text | --note-file file|-]
 //   agent-review ledger link   --repo R --key K --id F1 --thread <threadId> [--url <url>]
-//   agent-review ledger open   --repo R --key K   (reported in any round, not yet closed)
+//   agent-review ledger open   --repo R --key K   (reported in any round, not yet closed, with each one's linked thread)
 //   agent-review ledger last-head --repo R --key K
 //   agent-review ledger summary [--repo R [--key K]]   (no repo: every ledger)
 

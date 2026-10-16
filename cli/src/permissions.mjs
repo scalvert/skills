@@ -305,7 +305,7 @@ export function compileCodex(permissions, source) {
   return { text: `${lines.join("\n")}\n`, skipped };
 }
 
-// Writes gh, git and npm wrappers for Tau. Each one checks the repo rules only
+// Writes wrappers for Tau, one per command in SHIMMED. Each one checks the repo rules only
 // when PI_SESSION_ID is set (a Tau agent shell) and leaves a person's terminal
 // alone. An agent can bypass a PATH shim by using an absolute path, so this is
 // a speed bump until Tau's authority layer reads repo rules.
