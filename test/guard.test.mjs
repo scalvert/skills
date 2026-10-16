@@ -4,8 +4,8 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PRESETS, compileCodex, toCodexPrefix, writeShims } from "../shared/scalvert/scripts/permissions.mjs";
-import { defaultBranchPush, evaluate, ghApiWrite, render, tauCheck } from "../shared/scalvert/scripts/guard.mjs";
+import { PRESETS, compileCodex, toCodexPrefix, writeShims } from "../cli/src/permissions.mjs";
+import { defaultBranchPush, evaluate, ghApiWrite, render, tauCheck } from "../cli/src/guard.mjs";
 
 const GUARD = new URL("../shared/scalvert/scripts/guard.mjs", import.meta.url).pathname;
 const onMain = { branch: "main", defaultBranch: "main" };

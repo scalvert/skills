@@ -103,7 +103,7 @@ Do not overcorrect. Perfect grammar, technical vocabulary, a formal tone, a sing
 Run the mechanical rules on the draft. `<skill>` is the folder that holds this SKILL.md:
 
 ```sh
-node <skill>/scripts/check-prose.mjs draft.md      # or pipe text on stdin
+node <skill>/scripts/agent-review.mjs prose draft.md      # or pipe text on stdin
 ```
 
 It flags em dashes, en dashes, double hyphens used as dashes, emoji, title-case headings, and the listed AI phrases. Code blocks, inline code, URLs and block quotes are exempt. A flag is a prompt to rewrite the sentence, not to delete the word. Fix each flag or leave it on purpose for a stated reason, such as a quoted title.
@@ -117,7 +117,7 @@ Before returning the prose, confirm:
 - The wording is plain without losing precision, and terms are used consistently.
 - The structure fits the audience and purpose.
 - The text contains no unsupported factual claims, filler, hype, AI-pattern phrasing, or meta-commentary.
-- `check-prose.mjs` passes, or each remaining flag is deliberate.
+- The prose check passes, or each remaining flag is deliberate.
 - The output is only the reader-facing prose unless the user asked for analysis.
 
 ## Audit mode

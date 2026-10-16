@@ -17,7 +17,7 @@ Pin the branch against its base (the default is `origin/HEAD`):
 
 ```sh
 git fetch -q origin
-node <skill>/scripts/review-context.mjs [--base origin/main]
+node <skill>/scripts/agent-review.mjs pin [--base origin/main]
 ```
 
 The key is the branch name. Commit or stash your own work first. The review covers committed changes only.
@@ -37,7 +37,7 @@ Put all of these fixes in one commit, separate from the work it reviews, titled 
 Then record each fixed finding:
 
 ```sh
-node <skill>/scripts/review-ledger.mjs dispose --repo <repo> --key <key> --id F3 --as fixed
+node <skill>/scripts/agent-review.mjs ledger dispose --repo <repo> --key <key> --id F3 --as fixed
 ```
 
 {{> review-report}}
@@ -50,7 +50,7 @@ Add a **Needs your judgment** section after **Smaller items**. For each needs-ju
 
 Merge only when all of these hold:
 
-- `node <skill>/scripts/permissions.mjs check -- gh pr merge <number>` returns `allow`, or it returns `ask` and the user approves the merge in this conversation. A `deny` is final: no approval overrides it;
+- `node <skill>/scripts/agent-review.mjs policy check -- gh pr merge <number>` returns `allow`, or it returns `ask` and the user approves the merge in this conversation. A `deny` is final: no approval overrides it;
 - no blockers remain;
 - the needs-judgment list is empty, or the user has answered every item.
 

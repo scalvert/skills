@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { stateDir, ledgerPath } from "../shared/scalvert/scripts/review-ledger.mjs";
+import { stateDir, ledgerPath } from "../cli/src/review-ledger.mjs";
 
 let home;
 beforeEach(() => {

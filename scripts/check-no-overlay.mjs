@@ -49,7 +49,7 @@ for (const file of walk(root)) {
 
 for (const skill of WRITERS) {
   const text = readFileSync(join(root, "skills", skill, "SKILL.md"), "utf8");
-  if (!text.includes("scripts/permissions.mjs check")) {
+  if (!text.includes("scripts/agent-review.mjs policy check")) {
     problems.push(`skills/${skill}/SKILL.md: can act outside the machine but never runs the permission check`);
   }
 }
