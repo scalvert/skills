@@ -3599,6 +3599,10 @@ var KINDS = {
     labels: ["blocker", "should-fix", "nit"],
     rubric: "blocker: wrong behavior, data loss, a security problem, or a broken public contract. should-fix: changed behavior without a test, an unclear name in a public API, or a likely future bug. nit: anything else. A repo's REVIEW.md severity rules override these. probability is your confidence."
   },
+  "finding-origin": {
+    labels: ["introduced", "missed", "pre-existing"],
+    rubric: "Decide where the problem came from. introduced: the commits under review cause it: it is on a line they change, or a line they change makes other code wrong. In a follow-up round, the commits under review are only the new ones. missed (follow-up rounds only): this PR caused it, but it was already there at the last reviewed head. Check the code at that head. pre-existing: it happens at the merge base too, so this PR did not cause it. Check with git show <mergeBase>:<file>. Only an introduced finding can be a blocker. probability is your confidence in the label."
+  },
   "tool-effect": {
     labels: ["external-write", "read-only", "unclear"],
     rubric: "external-write: the call changes state outside this machine (posts, merges, sends, publishes, deletes). read-only: it only reads. unclear: you cannot tell from the tool name, description and arguments."
@@ -4070,9 +4074,14 @@ import { homedir as homedir2 } from "node:os";
 import { dirname as dirname2, join as join3 } from "node:path";
 var SCHEMA = "scalvert.review/v1";
 var DEFAULT_THRESHOLD = 0.7;
-var DISPOSITIONS = ["accepted", "fixed", "dismissed", "wont-fix"];
-var SEVERITY_ORDER = { blocker: 0, "should-fix": 1, nit: 2 };
+var DISPOSITIONS = ["fixed", "accepted", "wrong", "intended", "not-worth-it"];
+var REAL = /* @__PURE__ */ new Set(["fixed", "accepted", "not-worth-it"]);
+var NOISE = /* @__PURE__ */ new Set(["wrong", "intended", "not-worth-it", "dismissed", "wont-fix"]);
+var RETIRED = { dismissed: "wrong", "wont-fix": "intended or not-worth-it" };
 var REQUIRED_FINDING = ["lens", "file", "title", "precondition", "scenario"];
+var CLASS_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+var MAX_ROUNDS = 3;
+var REPEAT_WINDOW = 3;
 var LedgerError = class extends Error {
 };
 function stateDir() {
@@ -4111,8 +4120,13 @@ function save(ledger) {
   renameSync(tmp, path2);
   return path2;
 }
-function startRound(ledger, { base, head, lenses = [], models = [] }) {
+function startRound(ledger, { base, head, lenses = [], models = [], pastCap = false }) {
   if (!base || !head) throw new LedgerError("start needs --base and --head");
+  if (ledger.rounds.length >= MAX_ROUNDS && !pastCap) {
+    throw new LedgerError(
+      `this has had ${ledger.rounds.length} review rounds. Another round mostly finds older problems. Ask the author to step back and reconsider the approach. Start one more round only when a person asks for it, with --past-cap.`
+    );
+  }
   const round = ledger.rounds.length + 1;
   ledger.rounds.push({ round, base, head, lenses, models, startedAt: (/* @__PURE__ */ new Date()).toISOString() });
   return round;
@@ -4126,6 +4140,13 @@ function addFindings(ledger, findings) {
     const missing = REQUIRED_FINDING.filter((k) => !f[k]);
     if (missing.length) throw new LedgerError(`finding "${f.title ?? "?"}" is missing ${missing.join(", ")}`);
     if (f.model != null) checkModel(f.model, `finding "${f.title}" model`);
+    if (f.class != null && !CLASS_NAME.test(f.class)) {
+      throw new LedgerError(`finding "${f.title}" class must be kebab-case, such as unescaped-shell-arg, got "${f.class}"`);
+    }
+    const instances = f.instances ?? [];
+    if (!Array.isArray(instances) || instances.some((x) => !x || typeof x.file !== "string")) {
+      throw new LedgerError(`finding "${f.title}" instances must be a list of {file, line}`);
+    }
     const id = `F${ledger.findings.length + 1}`;
     ledger.findings.push({
       id,
@@ -4139,6 +4160,8 @@ function addFindings(ledger, findings) {
       scenario: f.scenario,
       evidence: f.evidence ?? null,
       axiom: f.axiom ?? null,
+      class: f.class ?? null,
+      instances: instances.map((x) => ({ file: x.file, line: x.line ?? null })),
       decisions: {},
       reported: false,
       disposition: null
@@ -4152,6 +4175,9 @@ function decide(ledger, id, kind, decision) {
   if (!finding) throw new LedgerError(`no finding ${id}`);
   if (decision?.model != null) checkModel(decision.model, "decision model");
   const checked = check2(kind, decision);
+  if (kind === "finding-origin" && checked.label === "missed" && finding.round === 1) {
+    throw new LedgerError(`${id} is from round 1; "missed" needs an earlier round. Use introduced or pre-existing.`);
+  }
   finding.decisions[kind] = { ...checked, at: (/* @__PURE__ */ new Date()).toISOString() };
   return finding.decisions[kind];
 }
@@ -4185,6 +4211,7 @@ function link(ledger, id, { thread, url }) {
   return finding.thread;
 }
 function dispose(ledger, id, as, note) {
+  if (RETIRED[as]) throw new LedgerError(`--as ${as} was split; use ${RETIRED[as]}`);
   if (!DISPOSITIONS.includes(as)) throw new LedgerError(`--as must be one of ${DISPOSITIONS.join(", ")}`);
   const finding = ledger.findings.find((f) => f.id === id);
   if (!finding) throw new LedgerError(`no finding ${id}`);
@@ -4222,7 +4249,24 @@ function roundFamilies(ledger, round) {
   ];
   return [...new Set(models.map(family).filter(Boolean))].sort();
 }
-function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = false } = {}) {
+function placement(f) {
+  const severity = f.decisions["finding-severity"]?.label ?? null;
+  const origin = f.decisions["finding-origin"]?.label ?? "introduced";
+  const capped = severity === "blocker" && origin !== "introduced";
+  const effective = capped ? "should-fix" : severity;
+  let section = "smaller";
+  if (effective === "blocker") section = "blockers";
+  else if (effective === "should-fix") section = origin === "pre-existing" ? "pre-existing" : "should-fix";
+  else if (effective === null) section = "unrated";
+  return { severity: effective, origin, cappedFrom: capped ? "blocker" : null, section };
+}
+var SECTION_ORDER = { blockers: 0, "should-fix": 1, "pre-existing": 2, smaller: 3, unrated: 4 };
+function possibleRepeats(ledger, finding) {
+  return ledger.findings.filter(
+    (e) => e.round < finding.round && e.reported && !e.duplicateOf && e.file === finding.file && (e.line != null && finding.line != null && Math.abs(e.line - finding.line) <= REPEAT_WINDOW || e.class != null && e.class === finding.class)
+  );
+}
+function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = false, keep = [] } = {}) {
   const current = ledger.rounds.at(-1);
   const round = current?.round;
   const ran = new Set((current?.runs ?? []).map((r) => r.lens));
@@ -4241,47 +4285,113 @@ function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = false } 
     const v = f.decisions["finding-verification"];
     return v && v.label === "confirmed" && v.probability >= threshold;
   });
+  const noOrigin = passing.filter((f) => f.decisions["finding-severity"]?.label === "blocker" && !f.decisions["finding-origin"]).map((f) => f.id);
+  if (noOrigin.length) {
+    throw new LedgerError(`blocker(s) ${noOrigin.join(", ")} have no finding-origin decision. Only an introduced finding can be a blocker; record its origin first.`);
+  }
+  const kept = new Set(keep);
+  const repeats = passing.filter((f) => !kept.has(f.id)).map((f) => ({ f, earlier: possibleRepeats(ledger, f) })).filter((r) => r.earlier.length);
+  if (repeats.length) {
+    const lines = repeats.map(
+      ({ f, earlier }) => `${f.id} (${f.file}:${f.line ?? "?"}) may repeat ${earlier.map((e) => `${e.id} from round ${e.round} (${e.file}:${e.line ?? "?"}, ${e.disposition?.as ?? "open"})`).join(", ")}`
+    );
+    throw new LedgerError(
+      `${lines.join("; ")}. Merge each into the earlier finding with "ledger merge --into <earlier> --ids <new>", or pass --keep <new> when it is a different bug.`
+    );
+  }
+  const placed = new Map(passing.map((f) => [f, placement(f)]));
   passing.sort(
-    (a, b) => (SEVERITY_ORDER[a.decisions["finding-severity"]?.label] ?? 3) - (SEVERITY_ORDER[b.decisions["finding-severity"]?.label] ?? 3) || a.file.localeCompare(b.file) || (a.line ?? 0) - (b.line ?? 0)
+    (a, b) => SECTION_ORDER[placed.get(a).section] - SECTION_ORDER[placed.get(b).section] || a.file.localeCompare(b.file) || (a.line ?? 0) - (b.line ?? 0)
   );
   for (const f of passing) f.reported = true;
   const dropped = primaries.filter((f) => !passing.includes(f)).map((f) => f.id);
   const merged = ledger.findings.filter((f) => f.round === round && f.duplicateOf).map((f) => f.id);
+  const findings = passing.map((f, i) => ({
+    ...f,
+    // n is the number a person sees in this report (1, 2, 3). The id is the
+    // ledger key for later commands; it is never shown.
+    n: i + 1,
+    ...placed.get(f),
+    foundBy: foundBy(ledger, f)
+  }));
+  const counts = Object.fromEntries(Object.keys(SECTION_ORDER).map((s) => [s, 0]));
+  for (const f of findings) counts[f.section] += 1;
   return {
     round,
     threshold,
-    // n is the number a person sees in this report (1, 2, 3). The id is the
-    // ledger key for later commands; it is never shown.
-    findings: passing.map((f, i) => ({ ...f, n: i + 1, foundBy: foundBy(ledger, f) })),
+    counts,
+    findings,
     dropped,
     merged,
     missingLenses,
     families: roundFamilies(ledger, round)
   };
 }
+var rate = (part, whole) => whole ? part / whole : null;
+var REPEAT_MIN_FINDINGS = 3;
+var REPEAT_MIN_LEDGERS = 2;
+function repeatedClasses(reported) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const f of reported) {
+    if (!f.class) continue;
+    const k = `${f.repo}\0${f.class}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(f);
+  }
+  return [...groups.values()].map((g) => {
+    const disposed = g.filter((f) => f.disposition);
+    const fixed = disposed.filter((f) => ["fixed", "accepted"].includes(f.disposition.as)).length;
+    const noise = disposed.filter((f) => NOISE.has(f.disposition.as)).length;
+    return {
+      repo: g[0].repo,
+      class: g[0].class,
+      findings: g.length,
+      ledgers: new Set(g.map((f) => f.ledger)).size,
+      fixed,
+      noise,
+      suggest: fixed >= noise ? "prevent it: an AGENTS.md convention or a lint rule" : "stop raising it: a REVIEW.md line",
+      titles: [...new Set(g.map((f) => f.title))].slice(0, 3)
+    };
+  }).filter((c) => c.findings >= REPEAT_MIN_FINDINGS && c.ledgers >= REPEAT_MIN_LEDGERS).sort((a, b) => b.findings - a.findings);
+}
 function summarize(ledgers) {
-  const all = ledgers.flatMap((l) => l.findings.map((f) => ({ ...f, ledger: `${l.repo}#${l.key}` })));
-  const reported = all.filter((f) => f.reported);
+  const all = ledgers.flatMap((l) => l.findings.map((f) => ({ ...f, repo: l.repo, ledger: `${l.repo}#${l.key}` })));
+  const reported = all.filter((f) => f.reported && !f.duplicateOf);
   const disposed = reported.filter((f) => f.disposition);
-  const dismissed = disposed.filter((f) => ["dismissed", "wont-fix"].includes(f.disposition.as));
+  const noise = disposed.filter((f) => NOISE.has(f.disposition.as));
   const scored = all.filter((f) => f.disposition && f.decisions["finding-verification"]);
   const brier = scored.length ? scored.reduce((sum, f) => {
-    const real = ["accepted", "fixed"].includes(f.disposition.as) ? 1 : 0;
+    const real = REAL.has(f.disposition.as) ? 1 : 0;
     return sum + (f.decisions["finding-verification"].probability - real) ** 2;
   }, 0) / scored.length : null;
-  const families = new Set(
-    ledgers.flatMap((l) => l.rounds.flatMap((r) => roundFamilies(l, r.round)))
-  );
+  const families = new Set(ledgers.flatMap((l) => l.rounds.flatMap((r) => roundFamilies(l, r.round))));
+  const dispositions = {};
+  for (const f of disposed) dispositions[f.disposition.as] = (dispositions[f.disposition.as] ?? 0) + 1;
+  const byLens = {};
+  for (const f of reported) {
+    const s = byLens[f.lens] ??= { reported: 0, disposed: 0, noise: 0 };
+    s.reported += 1;
+    if (f.disposition) s.disposed += 1;
+    if (f.disposition && NOISE.has(f.disposition.as)) s.noise += 1;
+  }
+  for (const s of Object.values(byLens)) s.noiseRate = rate(s.noise, s.disposed);
+  const rounds = ledgers.map((l) => l.rounds.length).filter(Boolean);
   return {
     ledgers: ledgers.length,
-    rounds: ledgers.reduce((n, l) => n + l.rounds.length, 0),
+    rounds: rounds.reduce((n, r) => n + r, 0),
+    roundsPerLedger: rounds.length ? rounds.reduce((n, r) => n + r, 0) / rounds.length : null,
+    oneRoundShare: rate(rounds.filter((r) => r === 1).length, rounds.length),
+    pastCapShare: rate(rounds.filter((r) => r > MAX_ROUNDS).length, rounds.length),
     findings: all.length,
     reported: reported.length,
     reportedPerLedger: ledgers.length ? reported.length / ledgers.length : 0,
     disposed: disposed.length,
-    dismissalRate: disposed.length ? dismissed.length / disposed.length : null,
+    dispositions,
+    noiseRate: rate(noise.length, disposed.length),
+    byLens,
     verificationBrier: brier,
-    modelFamilies: [...families].sort()
+    modelFamilies: [...families].sort(),
+    repeatedClasses: repeatedClasses(reported)
   };
 }
 function allLedgers() {
@@ -4405,7 +4515,7 @@ var FINDING_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["file", "line", "title", "precondition", "scenario", "evidence", "axiom"],
+        required: ["file", "line", "title", "precondition", "scenario", "evidence", "axiom", "class", "instances"],
         properties: {
           file: { type: "string" },
           line: { type: ["integer", "null"] },
@@ -4413,7 +4523,17 @@ var FINDING_SCHEMA = {
           precondition: { type: "string" },
           scenario: { type: "string" },
           evidence: { type: "string" },
-          axiom: { type: ["string", "null"] }
+          axiom: { type: ["string", "null"] },
+          class: { type: "string" },
+          instances: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["file", "line"],
+              properties: { file: { type: "string" }, line: { type: ["integer", "null"] } }
+            }
+          }
         }
       }
     }
@@ -4424,7 +4544,9 @@ var GATE = `Report a finding only when all of these are true:
 2. You can describe a concrete scenario in which the change behaves wrongly or breaks a stated rule.
 3. You can point to a file and line in the diff, or in code the diff calls.
 4. The author would want to know before merging.
-Do not report formatting, speculation, pre-existing problems the change does not touch, or praise. Report at most 8 findings. An empty list is a good answer when nothing meets the bar.`;
+Do not report formatting, speculation, pre-existing problems the change does not touch, or praise. Report at most 8 findings. An empty list is a good answer when nothing meets the bar.
+
+Report the class of bug, not one line. Give each finding a short kebab-case class, such as unescaped-shell-arg or missing-empty-check. When the same mistake appears in more than one place, report it once: put the clearest place in file and line, and list every other place in instances, so the author fixes them all in one pass.`;
 function lensPrompt(lens, contextDir) {
   const file = join4(here, "lenses", `${lens}.md`);
   if (!existsSync4(file)) throw new Error(`unknown lens "${lens}"`);
@@ -4438,7 +4560,7 @@ ${present}
 
 ${GATE}
 
-Answer with JSON only, matching: {"findings": [{"file", "line", "title", "precondition", "scenario", "evidence", "axiom"}]}. Use null for an unknown line and for axiom unless the lens is taste.`;
+Answer with JSON only, matching: {"findings": [{"file", "line", "title", "precondition", "scenario", "evidence", "axiom", "class", "instances": [{"file", "line"}]}]}. Use null for an unknown line and for axiom unless the lens is taste. Use [] for instances when there is one place.`;
 }
 function parseFindings(text) {
   const start = text.indexOf("{");
@@ -4500,9 +4622,15 @@ function buildProgram(state = { exitCode: 0 }) {
     print(result);
   };
   keyed("path", "Print the ledger file path.").action((o) => print(ledgerPath(o.repo, o.key)));
-  keyed("start", "Start a review round.").requiredOption("--base <sha>", "merge base").requiredOption("--head <sha>", "reviewed head").option("--lenses <a,b>", "lenses chosen for this round").option("--models <m1,m2>", "models planned for this round").action(
+  keyed("start", "Start a review round.").requiredOption("--base <sha>", "merge base").requiredOption("--head <sha>", "reviewed head").option("--lenses <a,b>", "lenses chosen for this round").option("--models <m1,m2>", "models planned for this round").option("--past-cap", `start a round past ${MAX_ROUNDS}, only when a person asks for it`).action(
     withLedger((l, o) => ({
-      round: startRound(l, { base: o.base, head: o.head, lenses: list(o.lenses), models: list(o.models) }),
+      round: startRound(l, {
+        base: o.base,
+        head: o.head,
+        lenses: list(o.lenses),
+        models: list(o.models),
+        pastCap: o.pastCap === true
+      }),
       path: ledgerPath(o.repo, o.key)
     }))
   );
@@ -4518,8 +4646,12 @@ function buildProgram(state = { exitCode: 0 }) {
     })
   );
   keyed("merge", "Merge duplicate findings into one primary (same root cause).").requiredOption("--into <F1>", "primary finding").requiredOption("--ids <F4,F7>", "duplicates").action(withLedger((l, o) => ({ into: o.into, foundBy: mergeFindings(l, o.into, list(o.ids)) })));
-  keyed("report", "Gate and print the confirmed findings for the current round.").option("--threshold <p>", "minimum verification probability", String(DEFAULT_THRESHOLD)).option("--allow-missing", "report even when a chosen lens has no recorded run").action(withLedger((l, o) => report(l, Number(o.threshold), { allowMissing: o.allowMissing === true })));
-  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").addOption(new Option("--as <disposition>", "disposition").choices(["accepted", "fixed", "dismissed", "wont-fix"]).makeOptionMandatory()).option("--note <text>", "why").action(
+  keyed("report", "Gate and print the confirmed findings for the current round.").option("--threshold <p>", "minimum verification probability", String(DEFAULT_THRESHOLD)).option("--allow-missing", "report even when a chosen lens has no recorded run").option("--keep <F9,F10>", "new findings that look like earlier ones but are different bugs").action(
+    withLedger(
+      (l, o) => report(l, Number(o.threshold), { allowMissing: o.allowMissing === true, keep: list(o.keep) })
+    )
+  );
+  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").action(
     withLedger((l, o) => {
       dispose(l, o.id, o.as, o.note);
       return { id: o.id, disposition: o.as };
@@ -4540,7 +4672,11 @@ function buildProgram(state = { exitCode: 0 }) {
     )
   );
   keyed("last-head", "Print the head reviewed in the last round.").action((o) => print(load2(o.repo, o.key).rounds.at(-1)?.head ?? ""));
-  led.command("summary").description("Summarize dispositions and calibration for one ledger, or every ledger.").option("--repo <owner/repo>", "repository").option("--key <pr|branch>", "PR number or branch name").action((o) => print(summarize(o.repo ? [load2(o.repo, o.key)] : allLedgers())));
+  led.command("summary").description("Summarize dispositions, noise, rounds and repeated bug classes for one ledger, one repo, or every ledger.").option("--repo <owner/repo>", "repository").option("--key <pr|branch>", "PR number or branch name (needs --repo)").action((o) => {
+    if (o.key && !o.repo) throw new LedgerError("--key needs --repo");
+    const ledgers = o.key ? [load2(o.repo, o.key)] : allLedgers().filter((l) => !o.repo || l.repo === o.repo);
+    print(summarize(ledgers));
+  });
   const rubric = program2.command("rubric").description("Rubrics for the judgments the review skills make, and a validator for the answers.");
   rubric.command("list").description("List decision kinds and their labels.").action(() => {
     for (const [name, spec] of Object.entries(KINDS)) console.log(`${name}: ${spec.labels.join(" | ")}`);

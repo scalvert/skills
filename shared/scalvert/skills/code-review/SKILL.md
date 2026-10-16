@@ -56,21 +56,23 @@ Read the thread: the author may have replied there. Then check the new code and 
 
 - **Fixed:** the scenario no longer happens. Record `dispose --as fixed`, and draft a reply for its thread: ``Fixed in `<short sha>`.``
 - **Not fixed:** the scenario still happens. Keep it open, and draft a reply for its thread that says why.
-- **Answered:** the author replied with a reason, and the reason holds. Record `dispose --as wont-fix --note "<reason>"`. When the reason does not hold, keep the finding open and say why in its thread.
+- **Answered:** the author replied with a reason, and the reason holds. Record what they said, with `--note "<reason>"`: `dispose --as wrong` when the problem cannot happen, `--as intended` when the behavior is on purpose, or `--as not-worth-it` when it is real but not worth fixing. When the reason does not hold, keep the finding open and say why in its thread.
 
 The ledger keeps each finding's ID across rounds. The ID is an internal key for these commands: never show it. Name a finding by its title and location.
 
 {{> review-pipeline}}
 
-In a follow-up review, a new **blocker** must come from a problem the new commits introduce. A problem that was already present in an earlier round, and that you missed then, goes under **Should fix** with the note "missed in round 1". Raising new blockers late, for old code, keeps a PR from converging.
+In a follow-up review, a new **blocker** must come from a problem the new commits introduce. The verifier labels a problem that was already there at the last reviewed head `missed`, and the report puts it under **Should fix**. Raising new blockers late, for old code, keeps a PR from converging.
 
 {{> review-report}}
 
 Start every report with the round: `First review at <short head SHA>.` or `Follow-up review since <short last head>.` In a follow-up, add an **Earlier findings** list next, one line per finding, by location and title: ``- `src/page.js:12` Extra item per page: fixed in `<sha>`.``, ``...: not fixed, <why>.``, or ``...: answered, <reason accepted>.`` Then give the verdict and the new findings, numbered from 1.
 
+{{> suggest-rules}}
+
 ### Draft line comments
 
-After the report, give one draft comment per new reported finding, and one draft reply per earlier finding whose thread needs an answer. Use this form, with the location on the first line and the body after it:
+After the report, give one draft comment per new finding in **Blockers**, **Should fix** and **Pre-existing**, and one draft reply per earlier finding whose thread needs an answer. Do not draft comments for **Smaller items**. They stay in the report unless the user asks for them: an agent author fixes every nit it gets, and each fix costs another round. Use this form, with the location on the first line and the body after it:
 
 ````text
 path/file.ts:42
@@ -81,7 +83,7 @@ path/file.ts:42
 ```
 ````
 
-Write them the way a colleague would: direct, specific, no "consider maybe". Do not start with a number or a label: the comment sits on the line it is about.
+Write them the way a colleague would: direct, specific, no "consider maybe". Do not start with a number or a ledger label: the comment sits on the line it is about. Start a pre-existing finding with "Pre-existing, not from this PR:", so it does not read as the author's mistake. When the finding has other `instances`, list them in the comment, so the author fixes every place at once.
 
 {{> github-markdown}}
 

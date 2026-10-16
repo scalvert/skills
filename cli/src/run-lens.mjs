@@ -32,7 +32,7 @@ export const FINDING_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["file", "line", "title", "precondition", "scenario", "evidence", "axiom"],
+        required: ["file", "line", "title", "precondition", "scenario", "evidence", "axiom", "class", "instances"],
         properties: {
           file: { type: "string" },
           line: { type: ["integer", "null"] },
@@ -41,6 +41,16 @@ export const FINDING_SCHEMA = {
           scenario: { type: "string" },
           evidence: { type: "string" },
           axiom: { type: ["string", "null"] },
+          class: { type: "string" },
+          instances: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["file", "line"],
+              properties: { file: { type: "string" }, line: { type: ["integer", "null"] } },
+            },
+          },
         },
       },
     },
@@ -52,7 +62,9 @@ export const GATE = `Report a finding only when all of these are true:
 2. You can describe a concrete scenario in which the change behaves wrongly or breaks a stated rule.
 3. You can point to a file and line in the diff, or in code the diff calls.
 4. The author would want to know before merging.
-Do not report formatting, speculation, pre-existing problems the change does not touch, or praise. Report at most 8 findings. An empty list is a good answer when nothing meets the bar.`;
+Do not report formatting, speculation, pre-existing problems the change does not touch, or praise. Report at most 8 findings. An empty list is a good answer when nothing meets the bar.
+
+Report the class of bug, not one line. Give each finding a short kebab-case class, such as unescaped-shell-arg or missing-empty-check. When the same mistake appears in more than one place, report it once: put the clearest place in file and line, and list every other place in instances, so the author fixes them all in one pass.`;
 
 export function lensPrompt(lens, contextDir) {
   const file = join(here, "lenses", `${lens}.md`);
@@ -70,7 +82,7 @@ ${present}
 
 ${GATE}
 
-Answer with JSON only, matching: {"findings": [{"file", "line", "title", "precondition", "scenario", "evidence", "axiom"}]}. Use null for an unknown line and for axiom unless the lens is taste.`;
+Answer with JSON only, matching: {"findings": [{"file", "line", "title", "precondition", "scenario", "evidence", "axiom", "class", "instances": [{"file", "line"}]}]}. Use null for an unknown line and for axiom unless the lens is taste. Use [] for instances when there is one place.`;
 }
 
 export function parseFindings(text) {

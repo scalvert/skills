@@ -19,7 +19,7 @@ function stub(dir, name, body) {
   chmodSync(file, 0o755);
 }
 
-test("open findings: fixed, wont-fix and dismissed close; accepted stays open; duplicates never count (F20)", () => {
+test("open findings: fixed, intended and wrong close; accepted stays open; duplicates never count (F20)", () => {
   const l = ledger.load("o/r", "open");
   ledger.startRound(l, { base: "b", head: "h", lenses: ["correctness"] });
   ledger.recordRun(l, { lens: "correctness", model: "anthropic/x" });
@@ -28,8 +28,8 @@ test("open findings: fixed, wont-fix and dismissed close; accepted stays open; d
   for (const id of ["F1", "F2", "F3", "F4", "F5"]) ledger.decide(l, id, "finding-verification", { label: "confirmed", probability: 0.9 });
   ledger.report(l);
   ledger.dispose(l, "F1", "fixed");
-  ledger.dispose(l, "F2", "wont-fix", "by design");
-  ledger.dispose(l, "F3", "dismissed");
+  ledger.dispose(l, "F2", "intended", "by design");
+  ledger.dispose(l, "F3", "wrong");
   ledger.dispose(l, "F4", "accepted");
   assert.deepEqual(ledger.openFindings(l).map((f) => f.id), ["F4", "F5"]);
   ledger.save(l);
