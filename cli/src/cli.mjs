@@ -7,7 +7,7 @@
 
 import { readFileSync } from "node:fs";
 import { Command, CommanderError, Option } from "commander";
-import { check as checkProse } from "./check-prose.mjs";
+import { check as checkProse, checkGithub } from "./check-prose.mjs";
 import { KINDS, check as checkDecision, rubricText } from "./classify.mjs";
 import { PRESETS, checkCommand, checkTool, load as loadPermissions, writeCodexRules, writeShims } from "./permissions.mjs";
 import { pin } from "./review-context.mjs";
@@ -96,7 +96,7 @@ export function buildProgram(state = { exitCode: 0 }) {
       withLedger((l) => ({ added: ledger.addFindings(l, JSON.parse(text)) }))(o);
     });
   keyed("decide", "Record a classifier decision for a finding.")
-    .requiredOption("--id <F1>", "finding ID")
+    .requiredOption("--id <id>", "finding ID")
     .requiredOption("--kind <kind>", `decision kind: ${Object.keys(KINDS).join(", ")}`)
     .requiredOption("--json <decision>", "the decision as JSON")
     .action(withLedger((l, o) => ledger.decide(l, o.id, o.kind, JSON.parse(o.json))));
@@ -128,11 +128,22 @@ export function buildProgram(state = { exitCode: 0 }) {
         return { id: o.id, disposition: o.as };
       }),
     );
+  keyed("link", "Record the GitHub review thread that carries a finding.")
+    .requiredOption("--id <id>", "finding ID (internal; never posted)")
+    .requiredOption("--thread <threadId>", "review thread node ID, from threads list")
+    .option("--url <url>", "comment URL")
+    .action(withLedger((l, o) => ({ id: o.id, thread: ledger.link(l, o.id, { thread: o.thread, url: o.url }) })));
   keyed("open", "List findings reported in any round and not yet closed.").action((o) =>
     print(
-      ledger
-        .openFindings(ledger.load(o.repo, o.key))
-        .map((f) => ({ id: f.id, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario })),
+      ledger.openFindings(ledger.load(o.repo, o.key)).map((f) => ({
+        id: f.id,
+        round: f.round,
+        file: f.file,
+        line: f.line,
+        title: f.title,
+        scenario: f.scenario,
+        thread: f.thread ?? null,
+      })),
     ),
   );
   keyed("last-head", "Print the head reviewed in the last round.").action((o) => print(ledger.load(o.repo, o.key).rounds.at(-1)?.head ?? ""));
@@ -227,9 +238,11 @@ export function buildProgram(state = { exitCode: 0 }) {
     .command("prose [files...]")
     .description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.")
     .option("--json", "print findings as JSON")
+    .option("--github", "also check text bound for GitHub: finding IDs, code outside backticks, broken Markdown")
     .action(async (files, o) => {
       const inputs = files.length ? files.map((f) => [f, readFileSync(f, "utf8")]) : [["<stdin>", await readStdin()]];
-      const all = inputs.flatMap(([file, text]) => checkProse(text).map((f) => ({ file, ...f })));
+      const run = o.github ? checkGithub : checkProse;
+      const all = inputs.flatMap(([file, text]) => run(text).map((f) => ({ file, ...f })));
       if (o.json) console.log(JSON.stringify(all, null, 2));
       else for (const f of all) console.log(`${f.file}:${f.line}: ${f.rule}: ${f.excerpt}`);
       if (!o.json && all.length === 0) console.log("prose: OK");

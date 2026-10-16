@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review a GitHub pull request with independent reviewers on at least two model families, verify every finding against the code, and return a verdict with numbered blockers and draft line comments. On a pull request it reviewed before, it reviews only the new commits, keeps the earlier finding IDs, and says whether each one was fixed. Never posts anything. Use when asked to review a PR, do a code review, re-review, take another look, or check whether review feedback was addressed.
+description: Review a GitHub pull request with independent reviewers on at least two model families, verify every finding against the code, and return a verdict with numbered blockers and draft line comments. On a pull request it reviewed before, it reviews only the new commits, checks each earlier finding in its review thread, and says whether it was fixed. Never posts anything. Use when asked to review a PR, do a code review, re-review, take another look, or check whether review feedback was addressed.
 ---
 
 # Code review
@@ -45,13 +45,20 @@ List every finding that is still open: reported in an earlier round and not yet 
 node <skill>/scripts/agent-review.mjs ledger open --repo <owner/repo> --key <number>
 ```
 
-For each one, check the new code and decide:
+A finding from a posted review has a GitHub thread. For each open finding whose `thread` is empty, list the threads and find the one at its file and line:
 
-- **Fixed:** the scenario no longer happens. Record `dispose --as fixed`.
-- **Not fixed:** the scenario still happens. Keep its ID.
-- **Answered:** the author replied with a reason, and the reason holds. Record `dispose --as wont-fix --note "<reason>"`. When the reason does not hold, keep the finding open and say why.
+```sh
+node <skill>/scripts/agent-review.mjs threads list --pr <number> --all
+node <skill>/scripts/agent-review.mjs ledger link --repo <owner/repo> --key <number> --id <id> --thread <threadId> --url <url>
+```
 
-Do not relabel. F2 stays F2 in every round.
+Read the thread: the author may have replied there. Then check the new code and decide:
+
+- **Fixed:** the scenario no longer happens. Record `dispose --as fixed`, and draft a reply for its thread: ``Fixed in `<short sha>`.``
+- **Not fixed:** the scenario still happens. Keep it open, and draft a reply for its thread that says why.
+- **Answered:** the author replied with a reason, and the reason holds. Record `dispose --as wont-fix --note "<reason>"`. When the reason does not hold, keep the finding open and say why in its thread.
+
+The ledger keeps each finding's ID across rounds. The ID is an internal key for these commands: never show it. Name a finding by its title and location.
 
 {{> review-pipeline}}
 
@@ -59,26 +66,33 @@ In a follow-up review, a new **blocker** must come from a problem the new commit
 
 {{> review-report}}
 
-Start every report with the round: `First review at <short head SHA>.` or `Follow-up review since <short last head>.` In a follow-up, add an **Earlier findings** list next, one line per ID: `F1 fixed in <sha>.`, `F2 not fixed: <why>.`, or `F3 answered: <reason accepted>.` Then give the verdict and the new findings, which the ledger gives new IDs.
+Start every report with the round: `First review at <short head SHA>.` or `Follow-up review since <short last head>.` In a follow-up, add an **Earlier findings** list next, one line per finding, by location and title: ``- `src/page.js:12` Extra item per page: fixed in `<sha>`.``, ``...: not fixed, <why>.``, or ``...: answered, <reason accepted>.`` Then give the verdict and the new findings, numbered from 1.
 
 ### Draft line comments
 
-After the report, give one draft comment per new reported finding, in this form:
+After the report, give one draft comment per new reported finding, and one draft reply per earlier finding whose thread needs an answer. Use this form, with the location on the first line and the body after it:
 
-```text
+````text
 path/file.ts:42
 <The problem in one sentence.> <The scenario.> <A suggested fix, if one is clear.>
-```
 
-Write them the way a colleague would: direct, specific, no "consider maybe". Start each with the finding ID from the report.
+```suggestion
+<replacement lines, when the fix is a few lines>
+```
+````
+
+Write them the way a colleague would: direct, specific, no "consider maybe". Do not start with a number or a label: the comment sits on the line it is about.
+
+{{> github-markdown}}
 
 {{> no-external-writes}}
 
-If the user asks you to post the comments, post them as one pending review, so they can read it before it goes out. Check `gh api` writes with the command above first.
+If the user asks you to post the comments, post them as one pending review, so they can read it before it goes out. Post replies to earlier findings in their threads, never as new comments. Check `gh api` writes with the command above first. After the review is submitted, record each new finding's thread with `ledger link`, as above, so the next round can answer in place.
 
 ## Done when
 
 - The report starts with the round, and the draft comments are in the conversation.
 - The ledger has this round, every finding, a verification decision for each, and severity and triage for each confirmed finding.
-- In a follow-up, every earlier reported finding has a status in the report and a disposition in the ledger when it is closed, and the original IDs did not change.
+- In a follow-up, every earlier reported finding has a status in the report, a thread reply drafted when its thread needs one, and a disposition in the ledger when it is closed.
+- No ledger ID appears in the report, the comments or the replies, and `prose --github` passes on everything drafted for GitHub.
 - Nothing was posted unless the user approved that exact action.

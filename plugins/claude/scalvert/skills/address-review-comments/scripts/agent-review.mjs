@@ -3441,7 +3441,27 @@ var SMALL_WORDS = /* @__PURE__ */ new Set([
   "yet"
 ]);
 var EMOJI = new RegExp("\\p{Extended_Pictographic}", "u");
-function maskExempt(text) {
+function codeSpans(line) {
+  const runs = [...line.matchAll(/(?<!\\)`+/g)].map((m) => ({ start: m.index, end: m.index + m[0].length, size: m[0].length }));
+  const spans = [];
+  const unmatched = [];
+  for (let i = 0; i < runs.length; i++) {
+    const close = runs.findIndex((r, j) => j > i && r.size === runs[i].size);
+    if (close === -1) {
+      unmatched.push(runs[i]);
+      continue;
+    }
+    spans.push([runs[i].start, runs[close].end]);
+    i = close;
+  }
+  return { spans, unmatched };
+}
+var blank = (line, ranges) => {
+  let out = line;
+  for (const [s, e] of ranges) out = out.slice(0, s) + " ".repeat(e - s) + out.slice(e);
+  return out;
+};
+function maskExempt(text, { links = false } = {}) {
   const lines = text.split(/\r?\n/);
   let fence = null;
   return lines.map((line) => {
@@ -3455,7 +3475,7 @@ function maskExempt(text) {
       return "";
     }
     if (/^\s*>/.test(line)) return "";
-    return line.replace(/`[^`]*`/g, (m) => " ".repeat(m.length)).replace(/\bhttps?:\/\/\S+/g, (m) => " ".repeat(m.length)).replace(/\[([^\]]*)\]\([^)]*\)/g, (m, label) => label + " ".repeat(m.length - label.length));
+    return blank(line, codeSpans(line).spans).replace(/\[([^\]]*)\]\([^)]*\)/g, (m, label) => links ? " ".repeat(m.length) : label + " ".repeat(m.length - label.length)).replace(/\bhttps?:\/\/\S+/g, (m) => " ".repeat(m.length));
   });
 }
 function isTitleCase(heading) {
@@ -3484,6 +3504,85 @@ function check(text) {
     }
   });
   return findings;
+}
+var CODE_PATTERNS = [
+  // listThreads(), opts.load(x). Not plural hints such as "lens(es)".
+  { kind: "call", re: /\b[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\((?!s\)|es\))[^()\s]*\)/g },
+  // src/page.js:42
+  { kind: "file and line", re: /(?<![\w/.-])[\w./-]*\.[A-Za-z][\w]{0,5}:\d+\b/g },
+  // src/page.js, cli/src/, ./scripts
+  { kind: "path", re: /(?<![\w/.-])(?:\.{0,2}\/)?(?:[\w.-]+\/)+[\w.-]*(?![\w/])/g },
+  // package.json, SKILL.md, guard.mjs
+  {
+    kind: "file name",
+    re: /(?<![\w/.-])[\w-]+\.(?:m?js|cjs|tsx?|jsx|json|ya?ml|toml|md|py|go|rs|rb|java|kt|swift|sh|css|scss|html|sql|lock|env)\b/g
+  },
+  // --since, --dry-run
+  { kind: "flag", re: /(?<![\w-])--[a-z][\w-]*/g },
+  // opts.repoDir, ledger.rounds
+  { kind: "member access", re: /\b[a-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+\b/g },
+  // finding_id, AGENT_REVIEWS_STATE_DIR
+  { kind: "identifier", re: /\b[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+\b/g },
+  // repoDir, listThreads
+  { kind: "identifier", re: /\b[a-z]+[A-Z][A-Za-z0-9]*\b/g }
+];
+var NOT_CODE = [
+  /^(?:i|mac|watch|tv|vision|ipad)OS$/,
+  /^i(?:Phone|Pad|Pod|Cloud|Message|Mac|Tunes)$/,
+  /^(?:eBay|gRPC)$/,
+  /^(?:e\.g|i\.e|a\.m|p\.m|vs|etc)\.?$/i,
+  /^[A-Z][a-z]+\.js$/
+  // Node.js, Next.js
+];
+var TLD = /\.(?:com|org|net|io|dev|ai|co|app|gov|edu|us|uk)$/i;
+function notCode(token, kind) {
+  if (NOT_CODE.some((re) => re.test(token))) return true;
+  if (kind === "member access" && TLD.test(token)) return true;
+  if (kind === "path" && /^[a-z]+\/[a-z]+$/i.test(token)) return true;
+  if (kind === "path" && /^[\d/]+$/.test(token)) return true;
+  return false;
+}
+function checkGithub(text) {
+  const findings = check(text);
+  const add = (line, rule, excerpt) => findings.push({ line, rule, excerpt: excerpt.trim().slice(0, 80) });
+  const raw = text.split(/\r?\n/);
+  let fence = null;
+  raw.forEach((line, i) => {
+    const open = line.match(/^\s*(```+|~~~+)\s*(\S*)/);
+    if (fence) {
+      if (open && open[1][0] === fence[0] && open[1].length >= fence.length && !open[2]) fence = null;
+      return;
+    }
+    if (open) {
+      fence = open[1];
+      if (!open[2]) add(i + 1, "fence without language", line);
+      return;
+    }
+    if (/^\s*>/.test(line)) return;
+    const { spans, unmatched } = codeSpans(line);
+    const outside = blank(line, spans);
+    if (/\\`/.test(outside)) add(i + 1, "escaped backtick (post the body from a file, not a shell string)", line);
+    else if (unmatched.length) add(i + 1, "unbalanced backticks", line);
+  });
+  const html = (line) => /^\s{0,3}\[[^\]]+\]:\s/.test(line) ? "" : line.replace(/<!--.*?-->|<\/?[A-Za-z][^<>]*>/g, (m) => " ".repeat(m.length));
+  maskExempt(text, { links: true }).map(html).forEach((line, i) => {
+    const n = i + 1;
+    for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
+    const covered = [];
+    for (const { kind, re } of CODE_PATTERNS) {
+      for (const m of line.matchAll(re)) {
+        const token = m[0].replace(/[.,;:!?*_]+$/, "");
+        const start = m.index;
+        const end = start + token.length;
+        if (!token || notCode(token, kind)) continue;
+        if (kind === "member access" && !token.includes(".")) continue;
+        if (covered.some(([s, e]) => start >= s && end <= e)) continue;
+        covered.push([start, end]);
+        add(n, `unformatted code (${kind})`, token);
+      }
+    }
+  });
+  return findings.sort((a, b) => a.line - b.line);
 }
 
 // cli/src/classify.mjs
@@ -4077,6 +4176,14 @@ function foundBy(ledger, primary) {
     families: [...new Set(group.map((f) => family(f.model)).filter(Boolean))].sort()
   };
 }
+function link(ledger, id, { thread, url }) {
+  const finding = ledger.findings.find((f) => f.id === id);
+  if (!finding) throw new LedgerError(`no finding ${id}`);
+  if (finding.duplicateOf) throw new LedgerError(`${id} is a duplicate of ${finding.duplicateOf}; link the primary`);
+  if (!thread) throw new LedgerError("--thread is required");
+  finding.thread = { id: thread, url: url ?? null, at: (/* @__PURE__ */ new Date()).toISOString() };
+  return finding.thread;
+}
 function dispose(ledger, id, as, note) {
   if (!DISPOSITIONS.includes(as)) throw new LedgerError(`--as must be one of ${DISPOSITIONS.join(", ")}`);
   const finding = ledger.findings.find((f) => f.id === id);
@@ -4143,7 +4250,9 @@ function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = false } 
   return {
     round,
     threshold,
-    findings: passing.map((f) => ({ ...f, foundBy: foundBy(ledger, f) })),
+    // n is the number a person sees in this report (1, 2, 3). The id is the
+    // ledger key for later commands; it is never shown.
+    findings: passing.map((f, i) => ({ ...f, n: i + 1, foundBy: foundBy(ledger, f) })),
     dropped,
     merged,
     missingLenses,
@@ -4401,7 +4510,7 @@ function buildProgram(state = { exitCode: 0 }) {
     const text = o.file ? readFileSync4(o.file, "utf8") : await readStdin();
     withLedger((l) => ({ added: addFindings(l, JSON.parse(text)) }))(o);
   });
-  keyed("decide", "Record a classifier decision for a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--kind <kind>", `decision kind: ${Object.keys(KINDS).join(", ")}`).requiredOption("--json <decision>", "the decision as JSON").action(withLedger((l, o) => decide(l, o.id, o.kind, JSON.parse(o.json))));
+  keyed("decide", "Record a classifier decision for a finding.").requiredOption("--id <id>", "finding ID").requiredOption("--kind <kind>", `decision kind: ${Object.keys(KINDS).join(", ")}`).requiredOption("--json <decision>", "the decision as JSON").action(withLedger((l, o) => decide(l, o.id, o.kind, JSON.parse(o.json))));
   keyed("ran", "Record that a lens ran on a model.").requiredOption("--lens <lens>", "lens name").requiredOption("--model <provider/model>", "model that ran it").option("--findings <n>", "findings it reported").action(
     withLedger((l, o) => {
       recordRun(l, { lens: o.lens, model: o.model, findings: o.findings });
@@ -4416,9 +4525,18 @@ function buildProgram(state = { exitCode: 0 }) {
       return { id: o.id, disposition: o.as };
     })
   );
+  keyed("link", "Record the GitHub review thread that carries a finding.").requiredOption("--id <id>", "finding ID (internal; never posted)").requiredOption("--thread <threadId>", "review thread node ID, from threads list").option("--url <url>", "comment URL").action(withLedger((l, o) => ({ id: o.id, thread: link(l, o.id, { thread: o.thread, url: o.url }) })));
   keyed("open", "List findings reported in any round and not yet closed.").action(
     (o) => print(
-      openFindings(load2(o.repo, o.key)).map((f) => ({ id: f.id, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario }))
+      openFindings(load2(o.repo, o.key)).map((f) => ({
+        id: f.id,
+        round: f.round,
+        file: f.file,
+        line: f.line,
+        title: f.title,
+        scenario: f.scenario,
+        thread: f.thread ?? null
+      }))
     )
   );
   keyed("last-head", "Print the head reviewed in the last round.").action((o) => print(load2(o.repo, o.key).rounds.at(-1)?.head ?? ""));
@@ -4454,9 +4572,10 @@ function buildProgram(state = { exitCode: 0 }) {
   const threads = program2.command("threads").description("Read-only helpers for answering PR review threads.");
   threads.command("list").description("Unresolved review threads, oldest first.").requiredOption("--pr <number>", "pull request").option("--repo <owner/repo>", "repository (default: the current one)").option("--all", "include resolved threads").action((o) => print(listThreads(o)));
   threads.command("owner").description("The commit that last changed a line, and the open PR that contains it.").requiredOption("--path <file>", "file").requiredOption("--line <n>", "line").option("--repo <owner/repo>", "repository (default: the current one)").action((o) => print(owner(o)));
-  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").action(async (files, o) => {
+  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding IDs, code outside backticks, broken Markdown").action(async (files, o) => {
     const inputs = files.length ? files.map((f) => [f, readFileSync4(f, "utf8")]) : [["<stdin>", await readStdin()]];
-    const all = inputs.flatMap(([file, text]) => check(text).map((f) => ({ file, ...f })));
+    const run4 = o.github ? checkGithub : check;
+    const all = inputs.flatMap(([file, text]) => run4(text).map((f) => ({ file, ...f })));
     if (o.json) console.log(JSON.stringify(all, null, 2));
     else for (const f of all) console.log(`${f.file}:${f.line}: ${f.rule}: ${f.excerpt}`);
     if (!o.json && all.length === 0) console.log("prose: OK");

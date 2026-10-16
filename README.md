@@ -10,7 +10,7 @@ Review your own branch before anyone else does. Independent reviewers on at leas
 
 ### `code-review`
 
-The same review for someone else's GitHub pull request. Returns a verdict, findings labeled F1, F2 and so on, and draft line comments. Never posts anything. Run it again after the author pushes: it reviews only the new commits, gives each earlier finding a status (fixed, not fixed, or answered), never changes labels, and raises a new blocker only for a problem the new commits introduce.
+The same review for someone else's GitHub pull request. Returns a verdict, numbered findings, and draft line comments in GitHub Markdown. Never posts anything. Run it again after the author pushes: it reviews only the new commits, gives each earlier finding a status (fixed, not fixed, or answered) with a reply for its review thread, and raises a new blocker only for a problem the new commits introduce. The ledger tracks findings by internal IDs that never appear in posted text.
 
 ### `address-review-comments`
 
@@ -18,7 +18,7 @@ Work through a PR's unresolved review threads. Each claim is verified against th
 
 ### `write-clearly`
 
-Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports.
+Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, ledger IDs, unbalanced backticks and code blocks with no language.
 
 ### `assess-release-readiness`
 
