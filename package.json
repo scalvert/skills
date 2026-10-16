@@ -1,6 +1,6 @@
 {
   "name": "scalvert-skills",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Source for the scalvert agent plugin.",
   "type": "module",

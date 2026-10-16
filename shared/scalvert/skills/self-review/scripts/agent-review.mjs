@@ -4674,7 +4674,7 @@ function runLens(lens, { via, context, model, repoDir = process.cwd() }) {
 }
 
 // cli/src/cli.mjs
-var VERSION = true ? "0.2.0" : JSON.parse(readFileSync4(new URL("../../package.json", import.meta.url), "utf8")).version;
+var VERSION = true ? "0.3.0" : JSON.parse(readFileSync4(new URL("../../package.json", import.meta.url), "utf8")).version;
 var print = (v) => console.log(typeof v === "string" ? v : JSON.stringify(v, null, 2));
 var list = (s) => s ? String(s).split(",").filter(Boolean) : [];
 async function readStdin() {
