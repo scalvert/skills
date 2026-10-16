@@ -119,16 +119,20 @@ Use this shape, and nothing longer than the content needs:
 **Verdict:** Needs changes: 1 blocker, 2 should fix. <One sentence that says why.>
 
 **Blockers**
+
 1. `path/file.ts:42` <title>. <scenario in one or two sentences>. <evidence: the call path or repro>. Also at `path/other.ts:7`. (Found by 3 reviewers on 2 model families.)
 
 **Should fix**
+
 2. ...
 
 **Pre-existing** (not from this change)
+
 3. ...
 
 **Smaller items** (at most 5; drop the rest)
-- ...
+
+4. ...
 
 **Checked:** <lenses run>, on <model families>, at <short head SHA>. <What you ran, such as tests or a repro, or "Read only.">
 **Not checked:** <anything a reader might assume you covered but you did not>.
@@ -141,7 +145,7 @@ Rules for the prose:
   - `ready` with findings: `**Verdict:** Ready to merge.`, then the counts of what is left, such as `1 pre-existing item, 2 smaller items.`
   - `ready` with no findings: `**Verdict:** Ready to merge. Nothing to fix.` Leave out the finding sections.
 - Put each finding in the section the report output gives it. Leave out a section that has no findings. A finding in `unrated` has no severity: record one and run the report again.
-- Number the findings 1, 2, 3 in report order, across sections, using `n` from the report output. Never show ledger IDs (F1, F2): they mean nothing to anyone else. Keep the map from number to ledger ID for later commands in this conversation, so the user can say "fix 2".
+- Number the findings 1, 2, 3 in report order, across sections, using `n` from the report output. Leave a blank line between each section heading and its list: without it, a list that starts above 1 renders as plain text. Never show ledger IDs (F1, F2): they mean nothing to anyone else. Keep the map from number to ledger ID for later commands in this conversation, so the user can say "fix 2".
 - One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item. Leave out praise and summaries of the diff.
 - Mark a finding whose origin is `missed` with "missed in an earlier round". Mark a finding with a non-empty `recurs` with "came back after an earlier fix".
 - Put code in backticks: identifiers, calls, paths, `file:line`, commands, flags and values.

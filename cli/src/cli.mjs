@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { Command, CommanderError, Option } from "commander";
 import { check as checkProse, checkGithub } from "./check-prose.mjs";
 import { KINDS, check as checkDecision, rubricText } from "./classify.mjs";
-import { PRESETS, checkCommand, checkTool, load as loadPermissions, writeCodexRules, writeShims } from "./permissions.mjs";
+import { PRESETS, SHIMMED, checkCommand, checkTool, load as loadPermissions, writeCodexRules, writeShims } from "./permissions.mjs";
 import { pin } from "./review-context.mjs";
 import * as ledger from "./review-ledger.mjs";
 import { listThreads, owner } from "./review-threads.mjs";
@@ -134,12 +134,15 @@ export function buildProgram(state = { exitCode: 0 }) {
     .requiredOption("--id <F1>", "finding ID")
     .requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it")
     .option("--note <text>", "why")
-    .action(
-      withLedger((l, o) => {
-        ledger.dispose(l, o.id, o.as, o.note);
+    .option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub")
+    .action(async (o) => {
+      if (o.note != null && o.noteFile != null) throw new ledger.LedgerError("use --note or --note-file, not both");
+      const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync(o.noteFile, "utf8")).trim() : o.note;
+      withLedger((l) => {
+        ledger.dispose(l, o.id, o.as, note);
         return { id: o.id, disposition: o.as };
-      }),
-    );
+      })(o);
+    });
   keyed("link", "Record the GitHub review thread that carries a finding.")
     .requiredOption("--id <id>", "finding ID (internal; never posted)")
     .requiredOption("--thread <threadId>", "review thread node ID, from threads list")
@@ -231,7 +234,7 @@ export function buildProgram(state = { exitCode: 0 }) {
     });
   policy
     .command("shim <dir>")
-    .description("Write gh, git and npm PATH shims for Tau that call the guard.")
+    .description(`Write PATH shims for Tau (${SHIMMED.join(", ")}) that call the guard.`)
     .action((dir) => {
       for (const f of writeShims(dir)) console.log(f);
     });

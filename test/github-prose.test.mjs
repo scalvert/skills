@@ -58,10 +58,27 @@ test("flags a backtick run that nothing closes, as CommonMark reads it", () => {
   assert.deepEqual(rules("A ``double `inner` span`` is fine."), []);
 });
 
+test("code spans read like GitHub: backslashes are literal inside, and spans wrap within a paragraph", () => {
+  assert.deepEqual(rules("Use `C:\\temp\\` as the output directory."), []);
+  assert.deepEqual(rules("The loop in `listThreads(\nopts)` drops a page."), []);
+  // A span never crosses into another block.
+  assert.deepEqual(rules("- one `a\n- two b`").map((r) => r.split(":")[0]), ["unbalanced backticks", "unbalanced backticks"]);
+  assert.deepEqual(rules("one `a\n\ntwo b`").map((r) => r.split(":")[0]), ["unbalanced backticks", "unbalanced backticks"]);
+  // An escape outside a span still flags, even when the rest of the line is fine.
+  assert.ok(rules("Fine `code`, then \\`oops\\`.").some((r) => r.startsWith("escaped backtick")));
+});
+
+test("reference-style link labels are links, not code", () => {
+  assert.deepEqual(rules("See [src/page.js][source].\n\n[source]: https://example.com/a"), []);
+  assert.deepEqual(rules("See [src/page.js][].\n\n[src/page.js]: https://example.com/a"), []);
+});
+
 test("codeSpans pairs runs of equal length", () => {
   assert.deepEqual(codeSpans("a `b` c").spans, [[2, 5]]);
   assert.deepEqual(codeSpans("``x `y` z``").spans, [[0, 11]]);
   assert.equal(codeSpans("a ` b").unmatched.length, 1);
+  assert.deepEqual(codeSpans("a \\`b").escaped, [3]);
+  assert.deepEqual(codeSpans("`a\\`").spans, [[0, 4]], "a backslash inside a span does not escape the closing run");
 });
 
 test("flags a multi-line code block with no language, but not its closing fence", () => {

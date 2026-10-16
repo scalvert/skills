@@ -2,11 +2,11 @@
 // Copies shared scripts into each skill folder that needs them.
 //
 // Agent Skills installers such as `npx skills add` copy only a skill's own
-// folder, so a skill cannot reach plugin-level scripts. The authored scripts
-// live once in shared/scalvert/scripts/; this writes the copies listed in
+// folder, so a skill cannot reach plugin-level scripts. scripts/build-cli.mjs
+// builds shared/scalvert/scripts/ from cli/; this writes the copies listed in
 // shared/scalvert/skill-scripts.json into shared/scalvert/skills/<skill>/scripts/.
-// Edit the shared copy, never a skill's copy. `npm run check:fresh` fails when
-// a copy is stale.
+// Edit cli/, never shared/scalvert/scripts/ or a skill's copy: both are
+// rebuilt. `npm run check:fresh` fails when a copy is stale.
 
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";

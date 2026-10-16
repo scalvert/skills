@@ -108,6 +108,14 @@ node <skill>/scripts/agent-review.mjs prose draft.md      # or pipe text on stdi
 
 It flags em dashes, en dashes, double hyphens used as dashes, emoji, title-case headings, and the listed AI phrases. Code blocks, inline code, URLs and block quotes are exempt. A flag is a prompt to rewrite the sentence, not to delete the word. Fix each flag or leave it on purpose for a stated reason, such as a quoted title.
 
+For text that will be posted to GitHub, such as a PR description, a review comment or a reply, add `--github`:
+
+```sh
+node <skill>/scripts/agent-review.mjs prose --github draft.md
+```
+
+It also flags code outside backticks, escaped backticks, ledger IDs such as F1, unclosed backticks, and code blocks with no language.
+
 ## Final check
 
 Before returning the prose, confirm:
