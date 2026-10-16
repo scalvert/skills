@@ -131,7 +131,7 @@ For every confirmed finding, also record `finding-severity` (blocker, should-fix
 node <skill>/scripts/agent-review.mjs ledger report --repo <repo> --key <key>
 ```
 
-This keeps confirmed findings at or above the verification threshold (0.7). It gives each one a `section` (blockers, should-fix, pre-existing, smaller) and a number `n` in report order, and it gives `counts` per section. It lists the IDs it dropped and the model families that took part. It refuses to run while a chosen lens has no recorded run or a finding has no verification. Fix the gap; do not work around it. Use `--allow-missing` only when a lens truly could not run, and name the skipped lenses under **Not checked**. Report only what it returns.
+This keeps confirmed findings at or above the verification threshold (0.7). It gives each one a `section` (blockers, should-fix, pre-existing, smaller) and a number `n` in report order. Each finding's `instances` include the places its duplicates found. The output also gives `counts` per section, `earlierOpen` (earlier findings still open, per section) and a `verdict` (`ready` or `needs-changes`). It lists the IDs it dropped and the model families that took part. It refuses to run while a chosen lens has no recorded run or a finding has no verification. Fix the gap; do not work around it. Use `--allow-missing` only when a lens truly could not run, and name the skipped lenses under **Not checked**. Report only what it returns.
 
 In a follow-up review, a new **blocker** must come from a problem the new commits introduce. The verifier labels a problem that was already there at the last reviewed head `missed`, and the report puts it under **Should fix**. Raising new blockers late, for old code, keeps a PR from converging.
 
@@ -160,7 +160,10 @@ Use this shape, and nothing longer than the content needs:
 
 Rules for the prose:
 
-- Lead with the verdict, and start it with the counts from `counts`. When the report has no findings, write `**Verdict:** Ready to merge. Nothing to fix.` and leave out the finding sections.
+- Lead with the verdict that `verdict` gives. It counts findings from earlier rounds that are still open (`earlierOpen`), as well as new ones. Pre-existing and smaller items never hold a PR back.
+  - `needs-changes`: `**Verdict:** Needs changes: <blockers> blocker, <should fix> should fix.`, with `counts` and `earlierOpen` added together, then one sentence that says why.
+  - `ready` with findings: `**Verdict:** Ready to merge.`, then the counts of what is left, such as `1 pre-existing item, 2 smaller items.`
+  - `ready` with no findings: `**Verdict:** Ready to merge. Nothing to fix.` Leave out the finding sections.
 - Put each finding in the section the report output gives it. Leave out a section that has no findings. A finding in `unrated` has no severity: record one and run the report again.
 - Number the findings 1, 2, 3 in report order, across sections, using `n` from the report output. Never show ledger IDs (F1, F2): they mean nothing to anyone else. Keep the map from number to ledger ID for later commands in this conversation, so the user can say "fix 2".
 - One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item. Leave out praise and summaries of the diff.
@@ -186,7 +189,7 @@ node <skill>/scripts/agent-review.mjs ledger summary --repo <repo>
 - People fixed it: a rule that prevents it, as an `AGENTS.md` convention or a lint rule.
 - People called it wrong, intended or not worth fixing: a `REVIEW.md` line that tells reviewers not to raise it.
 
-Suggest only. Do not edit those files unless the user asks.
+Skip a class whose `suggest` is null: people's decisions on it do not lean either way yet. Suggest only. Do not edit those files unless the user asks.
 
 ### Draft line comments
 

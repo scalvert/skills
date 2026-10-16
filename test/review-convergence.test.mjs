@@ -65,6 +65,58 @@ test("no repeats: a new finding near an earlier one, even a closed one, must be 
   assert.equal(l.findings.find((f) => f.id === "F2").reported, false, "a merged repeat is never reported again");
 });
 
+test("no repeats: an earlier finding's instances count, and so do a merged duplicate's", () => {
+  const l = fresh();
+  round(l);
+  ledger.addFindings(l, [
+    finding({ file: "src/a.ts", line: 10, class: "off-by-one", instances: [{ file: "src/b.ts", line: 20 }] }),
+    finding({ file: "src/a.ts", line: 10, class: "off-by-one", instances: [{ file: "src/c.ts", line: 30 }] }),
+  ]);
+  ledger.mergeFindings(l, "F1", ["F2"]);
+  confirm(l, "F1");
+  const r1 = ledger.report(l);
+  assert.deepEqual(r1.findings[0].instances, [{ file: "src/b.ts", line: 20 }, { file: "src/c.ts", line: 30 }], "a merge keeps every place");
+  ledger.dispose(l, "F1", "intended");
+
+  round(l);
+  ledger.addFindings(l, [
+    finding({ file: "src/b.ts", line: 21 }), // an instance of F1, nearby line
+    finding({ file: "src/c.ts", line: 300, class: "off-by-one" }), // the duplicate's instance file, same class
+    finding({ file: "src/z.ts", line: 1, instances: [{ file: "src/a.ts", line: 11 }] }), // its own instance hits F1
+    finding({ file: "src/d.ts", line: 20 }), // unrelated
+  ]);
+  for (const id of ["F3", "F4", "F5", "F6"]) confirm(l, id);
+  const err = (() => {
+    try {
+      ledger.report(l);
+    } catch (e) {
+      return e.message;
+    }
+  })();
+  for (const id of ["F3", "F4", "F5"]) assert.match(err, new RegExp(`${id} \\([^)]*\\) may repeat F1`));
+  assert.doesNotMatch(err, /F6/);
+});
+
+test("verdict: ready only when nothing new or still open holds the PR back", () => {
+  const l = fresh();
+  round(l);
+  ledger.addFindings(l, [finding({ file: "src/a.ts" })]);
+  confirm(l, "F1", { severity: "blocker" });
+  assert.equal(ledger.report(l).verdict, "needs-changes");
+
+  round(l); // the blocker is not fixed, and nothing new turns up
+  const r2 = ledger.report(l);
+  assert.deepEqual([r2.verdict, r2.counts.blockers, r2.earlierOpen.blockers], ["needs-changes", 0, 1]);
+
+  ledger.dispose(l, "F1", "fixed");
+  round(l);
+  ledger.addFindings(l, [finding({ file: "src/n.ts" }), finding({ file: "src/p.ts" })]);
+  confirm(l, "F2", { severity: "nit" });
+  confirm(l, "F3", { severity: "should-fix", origin: "pre-existing" });
+  const r3 = ledger.report(l);
+  assert.deepEqual([r3.verdict, r3.counts.smaller, r3.counts["pre-existing"]], ["ready", 1, 1], "pre-existing and smaller items never hold a PR back");
+});
+
 test("origin: only introduced findings block; missed and pre-existing drop to should-fix", () => {
   const l = fresh();
   round(l);
@@ -166,6 +218,12 @@ test("summary: noise by lens, rounds per review, and repeated classes with the k
     ],
     "x/y has one finding of the class, below the bar; repos never mix",
   );
+  const undecided = [1, 2, 3].map((k) => reviewed("u/v", String(k), 1, [["correctness", "no-signal", null]]));
+  assert.deepEqual(
+    ledger.summarize(undecided).repeatedClasses.map((c) => [c.class, c.suggest]),
+    [["no-signal", null]],
+    "no suggestion until people's decisions lean one way",
+  );
   // not-worth-it counts as a real finding when scoring the verifier.
   const brier = ledger.summarize([ledgers[0]]).verificationBrier;
   assert.ok(Math.abs(brier - 0.04) < 1e-9, `got ${brier}`);
@@ -189,6 +247,19 @@ test("ledger CLI: --past-cap, --keep and summary --repo", () => {
   assert.equal(run("summary", "--repo", "cli/conv").ledgers, 1);
   assert.equal(run("summary", "--repo", "nobody/here").ledgers, 0);
   assert.match(runFails("summary", "--key", "7"), /--key needs --repo/);
-  const keepHelp = execFileSync("node", [CLI, "ledger", "report", "--help"], { encoding: "utf8" });
-  assert.match(keepHelp, /--keep/);
+
+  // --keep reaches the repeat gate through the CLI.
+  const k2 = ["--repo", "cli/conv", "--key", "8"];
+  const add = (json) => execFileSync("node", [CLI, "ledger", "add", ...k2], { input: JSON.stringify([json]), encoding: "utf8" });
+  const confirmCli = (id) =>
+    run("decide", ...k2, "--id", id, "--kind", "finding-verification", "--json", '{"label":"confirmed","probability":0.9}');
+  for (const h of ["h1", "h2"]) {
+    run("start", ...k2, "--base", "b", "--head", h, "--lenses", "correctness");
+    run("ran", ...k2, "--lens", "correctness", "--model", "anthropic/claude-x");
+    add(finding({ line: h === "h1" ? 10 : 11 }));
+    confirmCli(h === "h1" ? "F1" : "F2");
+    if (h === "h1") run("report", ...k2);
+  }
+  assert.match(runFails("report", ...k2), /F2 \(src\/a\.ts:11\) may repeat F1/);
+  assert.deepEqual(run("report", ...k2, "--keep", "F2").findings.map((f) => f.id), ["F2"]);
 });

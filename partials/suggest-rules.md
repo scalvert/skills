@@ -9,4 +9,4 @@ node <skill>/scripts/agent-review.mjs ledger summary --repo <repo>
 - People fixed it: a rule that prevents it, as an `AGENTS.md` convention or a lint rule.
 - People called it wrong, intended or not worth fixing: a `REVIEW.md` line that tells reviewers not to raise it.
 
-Suggest only. Do not edit those files unless the user asks.
+Skip a class whose `suggest` is null: people's decisions on it do not lean either way yet. Suggest only. Do not edit those files unless the user asks.

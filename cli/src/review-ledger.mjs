@@ -272,18 +272,43 @@ function placement(f) {
 }
 const SECTION_ORDER = { blockers: 0, "should-fix": 1, "pre-existing": 2, smaller: 3, unrated: 4 };
 
-// Earlier-round findings that a new finding may repeat: the same file, and
-// either nearby lines or the same bug class.
+const locKey = (x) => `${x.file}:${x.line ?? ""}`;
+
+// Every other place a finding covers: its own instances, and the location
+// and instances of each duplicate merged into it, without the primary's own
+// location and without repeats.
+export function allInstances(ledger, primary) {
+  const seen = new Set([locKey(primary)]);
+  const out = [];
+  const group = [primary, ...ledger.findings.filter((f) => f.duplicateOf === primary.id)];
+  for (const f of group) {
+    for (const loc of [{ file: f.file, line: f.line ?? null }, ...(f.instances ?? [])]) {
+      if (seen.has(locKey(loc))) continue;
+      seen.add(locKey(loc));
+      out.push({ file: loc.file, line: loc.line ?? null });
+    }
+  }
+  return out;
+}
+
+const locations = (ledger, f) => [{ file: f.file, line: f.line ?? null }, ...allInstances(ledger, f)];
+
+// Earlier-round findings that a new finding may repeat: some place of one
+// (its location or an instance) is in the same file as some place of the
+// other, and the lines are close or the bug class is the same.
 export function possibleRepeats(ledger, finding) {
-  return ledger.findings.filter(
-    (e) =>
-      e.round < finding.round &&
-      e.reported &&
-      !e.duplicateOf &&
-      e.file === finding.file &&
-      ((e.line != null && finding.line != null && Math.abs(e.line - finding.line) <= REPEAT_WINDOW) ||
-        (e.class != null && e.class === finding.class)),
-  );
+  const mine = locations(ledger, finding);
+  return ledger.findings.filter((e) => {
+    if (!(e.round < finding.round && e.reported && !e.duplicateOf)) return false;
+    const sameClass = e.class != null && e.class === finding.class;
+    return locations(ledger, e).some((a) =>
+      mine.some(
+        (b) =>
+          a.file === b.file &&
+          (sameClass || (a.line != null && b.line != null && Math.abs(a.line - b.line) <= REPEAT_WINDOW)),
+      ),
+    );
+  });
 }
 
 // Findings that pass the verification gate, in report order. Marks them
@@ -346,14 +371,27 @@ export function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = f
     // ledger key for later commands; it is never shown.
     n: i + 1,
     ...placed.get(f),
+    instances: allInstances(ledger, f),
     foundBy: foundBy(ledger, f),
   }));
-  const counts = Object.fromEntries(Object.keys(SECTION_ORDER).map((s) => [s, 0]));
-  for (const f of findings) counts[f.section] += 1;
+  const tally = (list) => {
+    const out = Object.fromEntries(Object.keys(SECTION_ORDER).map((s) => [s, 0]));
+    for (const f of list) out[f.section] += 1;
+    return out;
+  };
+  const counts = tally(findings);
+  // Findings from earlier rounds that are still open (not fixed, or accepted
+  // but not yet fixed). They hold the PR back as much as new ones do.
+  const earlierOpen = tally(openFindings(ledger).filter((f) => f.round < round).map(placement));
+  const holding = (c) => c.blockers + c["should-fix"] + c.unrated;
   return {
     round,
     threshold,
+    // ready: nothing new or still open is a blocker, should-fix or unrated.
+    // Pre-existing and smaller items never hold a PR back.
+    verdict: holding(counts) + holding(earlierOpen) === 0 ? "ready" : "needs-changes",
     counts,
+    earlierOpen,
     findings,
     dropped,
     merged,
@@ -390,7 +428,13 @@ function repeatedClasses(reported) {
         ledgers: new Set(g.map((f) => f.ledger)).size,
         fixed,
         noise,
-        suggest: fixed >= noise ? "prevent it: an AGENTS.md convention or a lint rule" : "stop raising it: a REVIEW.md line",
+        // No suggestion until people's decisions lean one way.
+        suggest:
+          fixed > noise
+            ? "prevent it: an AGENTS.md convention or a lint rule"
+            : noise > fixed
+              ? "stop raising it: a REVIEW.md line"
+              : null,
         titles: [...new Set(g.map((f) => f.title))].slice(0, 3),
       };
     })
