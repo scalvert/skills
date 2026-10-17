@@ -11,6 +11,7 @@ import { check as checkProse, checkGithub } from "./check-prose.mjs";
 import { KINDS, check as checkDecision, rubricText } from "./classify.mjs";
 import { PRESETS, SHIMMED, checkCommand, checkTool, load as loadPermissions, writeCodexRules, writeShims } from "./permissions.mjs";
 import { pin } from "./review-context.mjs";
+import { DEPTHS, HOSTS, loadUserConfig, pickTiebreak, pickVerifier } from "./review-plan.mjs";
 import * as ledger from "./review-ledger.mjs";
 import { listThreads, owner } from "./review-threads.mjs";
 import { VIAS, lensPrompt, runLens } from "./run-lens.mjs";
@@ -46,7 +47,37 @@ export function buildProgram(state = { exitCode: 0 }) {
     .option("--base <ref>", "base ref for a local branch (default: origin/HEAD)")
     .option("--since <sha>", "pin only the commits after this one (a follow-up round)")
     .option("--out <dir>", "output directory (default: a new temp dir)")
+    .addOption(new Option("--depth <depth>", "review depth (default: repo, then user config, then suggested from the diff)").choices(DEPTHS))
+    .addOption(new Option("--host <host>", "host that runs the reviewers, for the model plan (default: detected)").choices(HOSTS))
     .action((o) => print(pin(o)));
+
+  const plan = program.command("plan").description("The model plan that pin writes: which model and thinking level each review role gets.");
+  const planOf = (dir) => {
+    const context = JSON.parse(readFileSync(`${dir}/context.json`, "utf8"));
+    if (!context.plan) throw new ledger.LedgerError(`${dir}/context.json has no plan; pin it again with this version`);
+    return context.plan;
+  };
+  plan
+    .command("show")
+    .description("Print the plan for a pinned change.")
+    .requiredOption("--context <dir>", "directory written by pin")
+    .action((o) => print(planOf(o.context)));
+  plan
+    .command("verifier")
+    .description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.")
+    .requiredOption("--context <dir>", "directory written by pin")
+    .requiredOption("--author <provider/model>", "model that wrote the finding")
+    .action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config)));
+  plan
+    .command("tiebreak")
+    .description("Pick a tie-break model from a family no earlier model on the finding used.")
+    .requiredOption("--context <dir>", "directory written by pin")
+    .requiredOption("--exclude <m1,m2>", "models that already judged the finding")
+    .action((o) => print(pickTiebreak(planOf(o.context), list(o.exclude), loadUserConfig().config)));
+  plan
+    .command("config")
+    .description("Print the user config path and its checked contents.")
+    .action(() => print(loadUserConfig()));
 
   const lens = program.command("lens").description("Review lens prompts, and running a lens on another model family.");
   lens
@@ -84,6 +115,7 @@ export function buildProgram(state = { exitCode: 0 }) {
     .option("--lenses <a,b>", "lenses chosen for this round")
     .option("--models <m1,m2>", "models planned for this round")
     .option("--past-cap", `start a round past ${ledger.MAX_ROUNDS}, only when a person asks for it`)
+    .addOption(new Option("--depth <depth>", "review depth, from context.json").choices(DEPTHS))
     .action(
       withLedger((l, o) => ({
         round: ledger.startRound(l, {
@@ -92,6 +124,7 @@ export function buildProgram(state = { exitCode: 0 }) {
           lenses: list(o.lenses),
           models: list(o.models),
           pastCap: o.pastCap === true,
+          depth: o.depth ?? null,
         }),
         path: ledger.ledgerPath(o.repo, o.key),
       })),

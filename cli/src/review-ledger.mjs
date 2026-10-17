@@ -103,8 +103,9 @@ export function save(ledger) {
   return path;
 }
 
-export function startRound(ledger, { base, head, lenses = [], models = [], pastCap = false }) {
+export function startRound(ledger, { base, head, lenses = [], models = [], pastCap = false, depth = null }) {
   if (!base || !head) throw new LedgerError("start needs --base and --head");
+  if (depth != null && !["quick", "standard", "deep"].includes(depth)) throw new LedgerError(`--depth must be quick, standard or deep, got "${depth}"`);
   if (ledger.rounds.length >= MAX_ROUNDS && !pastCap) {
     throw new LedgerError(
       `this has had ${ledger.rounds.length} review rounds. Another round mostly finds older problems. ` +
@@ -112,7 +113,7 @@ export function startRound(ledger, { base, head, lenses = [], models = [], pastC
     );
   }
   const round = ledger.rounds.length + 1;
-  ledger.rounds.push({ round, base, head, lenses, models, startedAt: new Date().toISOString() });
+  ledger.rounds.push({ round, base, head, depth, lenses, models, startedAt: new Date().toISOString() });
   return round;
 }
 
@@ -513,6 +514,24 @@ export function summarize(ledgers) {
     if (f.disposition && NOISE.has(f.disposition.as)) s.noise += 1;
   }
   for (const s of Object.values(byLens)) s.noiseRate = rate(s.noise, s.disposed);
+  // By depth and by the model that wrote each finding, so the defaults for
+  // each depth can be tuned from what people decided.
+  const tally = (key) => {
+    const out = {};
+    for (const f of reported) {
+      const k = key(f) ?? "unknown";
+      const s = (out[k] ??= { reported: 0, disposed: 0, fixed: 0, noise: 0 });
+      s.reported += 1;
+      if (f.disposition) s.disposed += 1;
+      if (f.disposition && ["fixed", "accepted"].includes(f.disposition.as)) s.fixed += 1;
+      if (f.disposition && NOISE.has(f.disposition.as)) s.noise += 1;
+    }
+    for (const s of Object.values(out)) s.noiseRate = rate(s.noise, s.disposed);
+    return out;
+  };
+  const roundDepth = new Map(ledgers.flatMap((l) => l.rounds.map((r) => [`${l.repo}#${l.key}:${r.round}`, r.depth ?? null])));
+  const byDepth = tally((f) => roundDepth.get(`${f.ledger}:${f.round}`) ?? "unrecorded");
+  const byModel = tally((f) => f.model);
   const rounds = ledgers.map((l) => l.rounds.length).filter(Boolean);
   return {
     ledgers: ledgers.length,
@@ -527,6 +546,8 @@ export function summarize(ledgers) {
     dispositions,
     noiseRate: rate(noise.length, disposed.length),
     byLens,
+    byDepth,
+    byModel,
     verificationBrier: brier,
     modelFamilies: [...families].sort(),
     repeatedClasses: repeatedClasses(reported),

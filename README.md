@@ -61,6 +61,41 @@ npx skills add scalvert/skills --skill debate-a-decision
 
 A review has to converge. The ledger allows 3 rounds per PR or branch, and then asks the author to step back and reconsider the approach. `code-review` follow-ups review only the new commits, and nits stay out of posted comments. A problem that comes back after it was marked fixed is reported again. These follow the [Claude Code team's own review changes](https://claude.dev/blog/solving-code-review-at-anthropic/), which cut their mean reviews per PR from 2.08 to 1.32.
 
+### Depth and models
+
+A review runs at one of three depths. Each depth sets which lenses run, and which model tier and thinking level each role gets. Reviewers decide what gets found, and verifiers decide what gets reported, so `standard` spends the strong tier on verification and on the correctness and security lenses.
+
+| | `quick` | `standard` (default) | `deep` |
+|---|---|---|---|
+| Lenses | 3 | 3 to 6, picked from the diff | every lens that can apply |
+| Reviewers | fast tier | fast, but strong for correctness and security | strong tier |
+| Verifiers | fast tier | strong tier | strong, and a second verifier on each blocker |
+| Thinking | low | medium, and high for verifiers | high |
+
+Every depth keeps at least two model families, and a verifier always comes from a different family than the finding's author.
+
+The depth comes from, first match wins: `--depth` or a request such as "do a quick review", the repo's `agent-review.json`, the user config, then a suggestion from the diff (`quick` for a small docs-only change). A changed path that matches the repo's `deepPaths` always makes the review deep. The repo file is read from the merge base, so a change cannot lower its own review:
+
+```json
+{ "review": { "depth": "standard", "deepPaths": ["src/auth/**", ".github/workflows/**"] } }
+```
+
+Models are personal and host-specific, so they live in the user config at `~/.config/agent-reviews/config.json` (or `$AGENT_REVIEWS_CONFIG`), never in a repo. Model IDs are `provider/model`. On Claude Code, `anthropic/` models run as subagents and `openai/` models run through Codex:
+
+```json
+{
+  "depth": "standard",
+  "hosts": {
+    "claude-code": {
+      "fast": ["anthropic/sonnet", "openai/gpt-5.4-mini"],
+      "strong": ["anthropic/opus", "openai/gpt-5.5"]
+    }
+  }
+}
+```
+
+`tiebreak` is optional: list a third family when the host can run one. `pin` writes the resolved plan into `context.json`, and `agent-review plan show`, `plan verifier` and `plan tiebreak` read it. Without a user config, the plan has no models, and the agent picks them as before. The ledger records the depth of each round and the model behind each finding, so `ledger summary` shows noise and fixes by depth and by model.
+
 Every decision goes into a ledger at `~/.local/state/agent-reviews/reviews/<owner>/<repo>/<pr-or-branch>.json`. `$AGENT_REVIEWS_STATE_DIR` replaces `~/.local/state/agent-reviews`, and `$XDG_STATE_HOME` moves its parent. The old `$SCALVERT_STATE_DIR` still works. Without an explicit state directory override, ledgers written before 0.1.1 stay in `~/.local/state/scalvert` and are still used until `${XDG_STATE_HOME:-$HOME/.local/state}/agent-reviews/reviews` exists. To switch, move `~/.local/state/scalvert/reviews` to `${XDG_STATE_HOME:-$HOME/.local/state}/agent-reviews/reviews`. If you set `$AGENT_REVIEWS_STATE_DIR` or `$SCALVERT_STATE_DIR`, use that directory as the destination parent instead. In a branch name, characters other than letters, digits, `.`, `_` and `-` are percent-encoded, so `feature/x` becomes `feature%2Fx.json`. Later, the same ledger records what a person decided about each finding. A person's decision is one of `fixed`, `accepted` (will fix), `wrong`, `intended` or `not-worth-it`. `agent-review ledger summary` reports findings per review, rounds per review, the noise rate overall and per lens, model families, and how well the verification probabilities match those decisions (Brier score). It also lists bug classes that keep coming back in a repo, so the skills can suggest a rule: an `AGENTS.md` convention or lint rule when people fix them, a `REVIEW.md` line when people wave them off.
 
 All judgments go through one interface, `classify(kind, input) -> { label, probability }` (`cli/src/classify.mjs`), so a local or self-hosted classifier can replace the agent's own judgment later.

@@ -21,7 +21,7 @@ Use this shape, and nothing longer than the content needs:
 
 4. ...
 
-**Checked:** <lenses run>, on <model families>, at <short head SHA>. <What you ran, such as tests or a repro, or "Read only.">
+**Checked:** <depth> review: <lenses run>, on <model families>, at <short head SHA>. <What you ran, such as tests or a repro, or "Read only.">
 **Not checked:** <anything a reader might assume you covered but you did not>.
 ```
 
