@@ -28,7 +28,7 @@
  */
 
 // cli/src/cli.mjs
-import { readFileSync as readFileSync4 } from "node:fs";
+import { readFileSync as readFileSync5 } from "node:fs";
 
 // node_modules/commander/lib/error.js
 var CommanderError = class extends Error {
@@ -3989,173 +3989,19 @@ function writeCodexRules(settingsPath, out) {
 
 // cli/src/review-context.mjs
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync as existsSync2, mkdirSync as mkdirSync2, mkdtempSync, writeFileSync as writeFileSync2 } from "node:fs";
-import { homedir, tmpdir } from "node:os";
-import { join as join2 } from "node:path";
-var run = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], ...opts }).trim();
-var tryRun = (cmd, args, opts) => {
-  try {
-    return run(cmd, args, opts);
-  } catch {
-    return null;
-  }
-};
-var LENS_ORDER = ["correctness", "spec-fit", "security", "tests", "api-compat", "taste", "data", "docs"];
-var MAX_LENSES = 6;
-var MIN_LENSES = 3;
-var SECURITY = /(auth|token|secret|passw|credential|crypto|permission|session|oauth|cookie|sql|exec|spawn|shell|eval|sanitiz|escape|cors|csrf|xss|redirect|upload|deserializ)/i;
-var TEST_FILE = /(^|\/)(test|tests|__tests__|spec)\/|\.(test|spec)\.[a-z]+$|_test\.(go|py)$|^test_.*\.py$/i;
-var DOC_FILE = /(^|\/)(docs?\/|README|CHANGELOG)|\.mdx?$/i;
-var API_FILE = /(^|\/)(index\.[cm]?[jt]s|package\.json|.*\.d\.ts|openapi.*|.*\.proto|.*schema.*\.(json|ya?ml|graphql))$/i;
-var DATA_FILE = /(migrat|\.sql$|schema\.prisma|models?\/)/i;
-function chooseLenses({ files, changedText, hasAxioms, hasSpec }) {
-  const paths = files.map((f) => f.path);
-  const source = paths.filter((p) => !TEST_FILE.test(p) && !DOC_FILE.test(p));
-  const picked = /* @__PURE__ */ new Set(["correctness"]);
-  if (hasSpec) picked.add("spec-fit");
-  if (paths.some((p) => SECURITY.test(p)) || SECURITY.test(changedText)) picked.add("security");
-  if (source.length) picked.add("tests");
-  if (paths.some((p) => API_FILE.test(p)) || /^-\s*export\b/m.test(changedText)) picked.add("api-compat");
-  if (hasAxioms) picked.add("taste");
-  if (paths.some((p) => DATA_FILE.test(p))) picked.add("data");
-  if (paths.some((p) => DOC_FILE.test(p))) picked.add("docs");
-  for (const fill of ["tests", "spec-fit", "docs"]) {
-    if (picked.size >= MIN_LENSES) break;
-    picked.add(fill);
-  }
-  return LENS_ORDER.filter((l) => picked.has(l)).slice(0, MAX_LENSES);
-}
-function parseNumstat(text) {
-  return text.split("\n").filter(Boolean).map((line) => {
-    const [added, deleted, ...rest] = line.split("	");
-    return { path: rest.join("	"), added: Number(added) || 0, deleted: Number(deleted) || 0 };
-  });
-}
-function axiomsPath() {
-  return process.env.AXIOMS_PATH ?? join2(homedir(), ".config", "scalvert", "axioms.md");
-}
-function generatedPaths(paths, head, cwd) {
-  if (paths.length === 0) return /* @__PURE__ */ new Set();
-  const out = tryRun("git", ["check-attr", "--source", head, "-z", "linguist-generated", "--", ...paths], cwd) ?? tryRun("git", ["check-attr", "-z", "linguist-generated", "--", ...paths], cwd);
-  const set = /* @__PURE__ */ new Set();
-  if (!out) return set;
-  const parts = out.split("\0");
-  for (let i = 0; i + 2 < parts.length; i += 3) {
-    if (parts[i + 2] === "true" || parts[i + 2] === "set") set.add(parts[i]);
-  }
-  return set;
-}
-function prSpec(pr, cwd) {
-  const issues = (pr.closingIssuesReferences ?? []).map((i) => tryRun("gh", ["issue", "view", String(i.number), "--json", "number,title,body", "-q", '"#\\(.number) \\(.title)\\n\\n\\(.body)"'], cwd)).filter(Boolean);
-  return [`# ${pr.title}`, "", pr.url, "", pr.body || "(no description)", ...issues.map((t) => `
----
+import { copyFileSync, existsSync as existsSync4, mkdirSync as mkdirSync3, mkdtempSync, writeFileSync as writeFileSync3 } from "node:fs";
+import { homedir as homedir3, tmpdir } from "node:os";
+import { join as join4 } from "node:path";
 
-${t}`)].join("\n");
-}
-function repoSlug() {
-  const url = tryRun("git", ["config", "--get", "remote.origin.url"]) ?? "";
-  const m = url.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?\/?$/);
-  return m ? `${m[1]}/${m[2]}` : null;
-}
-function pin(o) {
-  const root = run("git", ["rev-parse", "--show-toplevel"]);
-  const cwd = { cwd: root };
-  const out = o.out ?? mkdtempSync(join2(tmpdir(), "review-"));
-  mkdirSync2(out, { recursive: true });
-  let base;
-  let head;
-  let key;
-  let spec = null;
-  if (o.pr) {
-    const pr = JSON.parse(
-      run("gh", ["pr", "view", String(o.pr), "--json", "number,title,body,url,baseRefName,headRefOid,closingIssuesReferences"], cwd)
-    );
-    run("git", ["fetch", "-q", "origin", `pull/${pr.number}/head`, pr.baseRefName], cwd);
-    head = pr.headRefOid;
-    base = run("git", ["rev-parse", `origin/${pr.baseRefName}`], cwd);
-    key = String(pr.number);
-    spec = prSpec(pr, cwd);
-  } else {
-    const ref = o.base ?? (tryRun("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd) || "origin/main");
-    base = run("git", ["rev-parse", ref], cwd);
-    head = run("git", ["rev-parse", "HEAD"], cwd);
-    key = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd);
-    const text = tryRun("gh", ["pr", "view", "--json", "number,title,body,url,state,closingIssuesReferences"], cwd);
-    let pr = null;
-    try {
-      pr = text ? JSON.parse(text) : null;
-    } catch {
-      pr = null;
-    }
-    if (pr?.state === "OPEN") spec = prSpec(pr, cwd);
-  }
-  const mergeBase = run("git", ["merge-base", base, head], cwd);
-  if (o.since && tryRun("git", ["merge-base", "--is-ancestor", o.since, head], cwd) === null) {
-    throw new Error(`--since ${o.since} is not an ancestor of ${head}; history was rewritten. Pin the full change without --since.`);
-  }
-  const from = o.since ?? mergeBase;
-  const allFiles = parseNumstat(run("git", ["diff", "--no-renames", "--numstat", `${from}..${head}`], cwd));
-  const generated = generatedPaths(allFiles.map((f) => f.path), head, cwd);
-  const files = allFiles.filter((f) => !generated.has(f.path));
-  const exclude = [...generated].map((p) => `:(exclude,literal)${p}`);
-  const diff = run("git", ["diff", "--no-renames", "--no-color", "-U5", `${from}..${head}`, "--", ".", ...exclude], cwd);
-  const commits = run("git", ["log", "--no-color", "--format=%h %s", `${from}..${head}`], cwd);
-  writeFileSync2(join2(out, "diff.patch"), `${diff}
-`);
-  writeFileSync2(join2(out, "files.json"), `${JSON.stringify(files, null, 2)}
-`);
-  writeFileSync2(join2(out, "commits.txt"), `${commits}
-`);
-  if (spec) writeFileSync2(join2(out, "spec.md"), `${spec}
-`);
-  const copied = {};
-  const rulesChanged = [];
-  for (const name of ["AGENTS.md", "REVIEW.md"]) {
-    const text = tryRun("git", ["show", `${mergeBase}:${name}`], cwd);
-    if (text !== null) {
-      writeFileSync2(join2(out, name), `${text}
-`);
-      copied[name] = true;
-    }
-    if (allFiles.some((f) => f.path === name)) rulesChanged.push(name);
-  }
-  const axioms = axiomsPath();
-  if (existsSync2(axioms)) {
-    copyFileSync(axioms, join2(out, "axioms.md"));
-    copied["axioms.md"] = true;
-  }
-  const changedText = diff.split("\n").filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---")).join("\n");
-  const lenses = chooseLenses({
-    files,
-    changedText,
-    hasAxioms: Boolean(copied["axioms.md"]),
-    hasSpec: Boolean(spec) || commits.length > 0
-  });
-  const context = {
-    repo: repoSlug(),
-    key,
-    base,
-    head,
-    mergeBase,
-    since: o.since ?? null,
-    files: files.length,
-    generatedSkipped: generated.size,
-    added: files.reduce((n, f) => n + f.added, 0),
-    deleted: files.reduce((n, f) => n + f.deleted, 0),
-    has: { spec: Boolean(spec), agents: Boolean(copied["AGENTS.md"]), review: Boolean(copied["REVIEW.md"]), axioms: Boolean(copied["axioms.md"]) },
-    rulesChanged,
-    lenses,
-    dir: out
-  };
-  writeFileSync2(join2(out, "context.json"), `${JSON.stringify(context, null, 2)}
-`);
-  return context;
-}
+// cli/src/review-plan.mjs
+import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
+import { homedir as homedir2 } from "node:os";
+import { join as join3 } from "node:path";
 
 // cli/src/review-ledger.mjs
-import { existsSync as existsSync3, mkdirSync as mkdirSync3, readFileSync as readFileSync2, readdirSync, renameSync, statSync, writeFileSync as writeFileSync3 } from "node:fs";
-import { homedir as homedir2 } from "node:os";
-import { dirname as dirname2, join as join3 } from "node:path";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, readdirSync, renameSync, statSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { homedir } from "node:os";
+import { dirname as dirname2, join as join2 } from "node:path";
 var SCHEMA = "scalvert.review/v1";
 var DEFAULT_THRESHOLD = 0.7;
 var DISPOSITIONS = ["fixed", "accepted", "wrong", "intended", "not-worth-it"];
@@ -4171,16 +4017,16 @@ var LedgerError = class extends Error {
 function stateDir() {
   const explicit = process.env.AGENT_REVIEWS_STATE_DIR || process.env.SCALVERT_STATE_DIR;
   if (explicit) return explicit;
-  const base = process.env.XDG_STATE_HOME || join3(homedir2(), ".local", "state");
-  const current = join3(base, "agent-reviews");
-  const legacy = join3(homedir2(), ".local", "state", "scalvert");
-  if (!existsSync3(join3(current, "reviews")) && existsSync3(join3(legacy, "reviews"))) return legacy;
+  const base = process.env.XDG_STATE_HOME || join2(homedir(), ".local", "state");
+  const current = join2(base, "agent-reviews");
+  const legacy = join2(homedir(), ".local", "state", "scalvert");
+  if (!existsSync2(join2(current, "reviews")) && existsSync2(join2(legacy, "reviews"))) return legacy;
   return current;
 }
 function ledgerPath(repo, key) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? "")) throw new LedgerError(`--repo must be owner/repo, got "${repo}"`);
   if (!key) throw new LedgerError("--key is required (a PR number or branch name)");
-  return join3(stateDir(), "reviews", repo, `${keyFile(key)}.json`);
+  return join2(stateDir(), "reviews", repo, `${keyFile(key)}.json`);
 }
 function keyFile(key) {
   return [...String(key)].map((ch) => /[\w.-]/.test(ch) ? ch : [...Buffer.from(ch)].map((b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("")).join("");
@@ -4190,29 +4036,30 @@ function openFindings(ledger) {
 }
 function load2(repo, key) {
   const path2 = ledgerPath(repo, key);
-  if (!existsSync3(path2)) return { schema: SCHEMA, repo, key: String(key), rounds: [], findings: [] };
+  if (!existsSync2(path2)) return { schema: SCHEMA, repo, key: String(key), rounds: [], findings: [] };
   const ledger = JSON.parse(readFileSync2(path2, "utf8"));
   if (ledger.schema !== SCHEMA) throw new LedgerError(`${path2}: unknown schema ${ledger.schema}`);
   return ledger;
 }
 function save(ledger) {
   const path2 = ledgerPath(ledger.repo, ledger.key);
-  mkdirSync3(dirname2(path2), { recursive: true });
+  mkdirSync2(dirname2(path2), { recursive: true });
   const tmp = `${path2}.tmp`;
-  writeFileSync3(tmp, `${JSON.stringify(ledger, null, 2)}
+  writeFileSync2(tmp, `${JSON.stringify(ledger, null, 2)}
 `);
   renameSync(tmp, path2);
   return path2;
 }
-function startRound(ledger, { base, head, lenses = [], models = [], pastCap = false }) {
+function startRound(ledger, { base, head, lenses = [], models = [], pastCap = false, depth = null }) {
   if (!base || !head) throw new LedgerError("start needs --base and --head");
+  if (depth != null && !["quick", "standard", "deep"].includes(depth)) throw new LedgerError(`--depth must be quick, standard or deep, got "${depth}"`);
   if (ledger.rounds.length >= MAX_ROUNDS && !pastCap) {
     throw new LedgerError(
       `this has had ${ledger.rounds.length} review rounds. Another round mostly finds older problems. Ask the author to step back and reconsider the approach. Start one more round only when a person asks for it, with --past-cap.`
     );
   }
   const round = ledger.rounds.length + 1;
-  ledger.rounds.push({ round, base, head, lenses, models, startedAt: (/* @__PURE__ */ new Date()).toISOString() });
+  ledger.rounds.push({ round, base, head, depth, lenses, models, startedAt: (/* @__PURE__ */ new Date()).toISOString() });
   return round;
 }
 function addFindings(ledger, findings) {
@@ -4523,6 +4370,22 @@ function summarize(ledgers) {
     if (f.disposition && NOISE.has(f.disposition.as)) s.noise += 1;
   }
   for (const s of Object.values(byLens)) s.noiseRate = rate(s.noise, s.disposed);
+  const tally = (key) => {
+    const out = {};
+    for (const f of reported) {
+      const k = key(f) ?? "unknown";
+      const s = out[k] ??= { reported: 0, disposed: 0, fixed: 0, noise: 0 };
+      s.reported += 1;
+      if (f.disposition) s.disposed += 1;
+      if (f.disposition && ["fixed", "accepted"].includes(f.disposition.as)) s.fixed += 1;
+      if (f.disposition && NOISE.has(f.disposition.as)) s.noise += 1;
+    }
+    for (const s of Object.values(out)) s.noiseRate = rate(s.noise, s.disposed);
+    return out;
+  };
+  const roundDepth = new Map(ledgers.flatMap((l) => l.rounds.map((r) => [`${l.repo}#${l.key}:${r.round}`, r.depth ?? null])));
+  const byDepth = tally((f) => roundDepth.get(`${f.ledger}:${f.round}`) ?? "unrecorded");
+  const byModel = tally((f) => f.model);
   const rounds = ledgers.map((l) => l.rounds.length).filter(Boolean);
   return {
     ledgers: ledgers.length,
@@ -4537,24 +4400,380 @@ function summarize(ledgers) {
     dispositions,
     noiseRate: rate(noise.length, disposed.length),
     byLens,
+    byDepth,
+    byModel,
     verificationBrier: brier,
     modelFamilies: [...families].sort(),
     repeatedClasses: repeatedClasses(reported)
   };
 }
 function allLedgers() {
-  const root = join3(stateDir(), "reviews");
+  const root = join2(stateDir(), "reviews");
   const out = [];
   const walk = (dir) => {
-    if (!existsSync3(dir)) return;
+    if (!existsSync2(dir)) return;
     for (const entry of readdirSync(dir)) {
-      const p = join3(dir, entry);
+      const p = join2(dir, entry);
       if (statSync(p).isDirectory()) walk(p);
       else if (entry.endsWith(".json")) out.push(JSON.parse(readFileSync2(p, "utf8")));
     }
   };
   walk(root);
   return out.filter((l) => l.schema === SCHEMA);
+}
+
+// cli/src/review-plan.mjs
+var DEPTHS = ["quick", "standard", "deep"];
+var HOSTS = ["tau", "claude-code", "codex"];
+var TIERS = ["fast", "strong", "tiebreak"];
+var MODEL = /^[\w.-]+(\/[\w.:@-]+)?$/;
+var PlanError = class extends Error {
+};
+var DEPTH_RULES = {
+  quick: {
+    strongLenses: [],
+    verifierTier: "fast",
+    thinking: { reviewer: "low", verifier: "low", tiebreak: "medium" },
+    secondVerifierOnBlockers: false
+  },
+  standard: {
+    strongLenses: ["correctness", "security"],
+    verifierTier: "strong",
+    thinking: { reviewer: "medium", verifier: "high", tiebreak: "high" },
+    secondVerifierOnBlockers: false
+  },
+  deep: {
+    strongLenses: "all",
+    verifierTier: "strong",
+    thinking: { reviewer: "high", verifier: "high", tiebreak: "high" },
+    secondVerifierOnBlockers: true
+  }
+};
+var DOC_FILE = /(^|\/)(docs?\/|README|CHANGELOG)|\.mdx?$/i;
+var QUICK_MAX_LINES = 100;
+function userConfigPath() {
+  if (process.env.AGENT_REVIEWS_CONFIG) return process.env.AGENT_REVIEWS_CONFIG;
+  const base = process.env.XDG_CONFIG_HOME || join3(homedir2(), ".config");
+  return join3(base, "agent-reviews", "config.json");
+}
+var checkDepth = (depth, where) => {
+  if (depth != null && !DEPTHS.includes(depth)) throw new PlanError(`${where}: depth must be one of ${DEPTHS.join(", ")}, got "${depth}"`);
+  return depth ?? null;
+};
+function checkUserConfig(config, where = "user config") {
+  if (config === null || typeof config !== "object" || Array.isArray(config)) throw new PlanError(`${where} must be a JSON object`);
+  checkDepth(config.depth, where);
+  if (config.host != null && !HOSTS.includes(config.host)) throw new PlanError(`${where}: host must be one of ${HOSTS.join(", ")}`);
+  for (const [host, tiers] of Object.entries(config.hosts ?? {})) {
+    for (const [tier, models] of Object.entries(tiers ?? {})) {
+      if (!TIERS.includes(tier)) throw new PlanError(`${where}: hosts.${host}.${tier} is not a tier (${TIERS.join(", ")})`);
+      if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL.test(m))) {
+        throw new PlanError(`${where}: hosts.${host}.${tier} must be a list of model IDs`);
+      }
+    }
+  }
+  return config;
+}
+function loadUserConfig(path2 = userConfigPath()) {
+  if (!existsSync3(path2)) return { path: path2, config: {} };
+  let config;
+  try {
+    config = JSON.parse(readFileSync3(path2, "utf8"));
+  } catch (e) {
+    throw new PlanError(`${path2}: ${e.message}`);
+  }
+  return { path: path2, config: checkUserConfig(config, path2) };
+}
+function checkRepoConfig(config, where = "agent-review.json") {
+  if (config === null || typeof config !== "object" || Array.isArray(config)) throw new PlanError(`${where} must be a JSON object`);
+  const review = config.review ?? {};
+  checkDepth(review.depth, `${where} review`);
+  const deepPaths = review.deepPaths ?? [];
+  if (!Array.isArray(deepPaths) || deepPaths.some((p) => typeof p !== "string" || !p)) {
+    throw new PlanError(`${where}: review.deepPaths must be a list of path globs`);
+  }
+  return { depth: review.depth ?? null, deepPaths };
+}
+function globToRegExp2(glob) {
+  let re = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*" && glob[i + 1] === "*") {
+      i += 1;
+      if (glob[i + 1] === "/") {
+        i += 1;
+        re += "(?:.*/)?";
+      } else re += ".*";
+    } else if (c === "*") re += "[^/]*";
+    else if (c === "?") re += "[^/]";
+    else re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${re}$`);
+}
+function suggestDepth(files) {
+  const lines = files.reduce((n, f) => n + f.added + f.deleted, 0);
+  if (files.length && files.every((f) => DOC_FILE.test(f.path)) && lines <= QUICK_MAX_LINES) return "quick";
+  return "standard";
+}
+function resolveDepth({ flag, repo, user, files }) {
+  checkDepth(flag, "--depth");
+  let depth;
+  let source;
+  if (flag) [depth, source] = [flag, "--depth"];
+  else if (repo?.depth) [depth, source] = [repo.depth, "agent-review.json"];
+  else if (user?.depth) [depth, source] = [user.depth, "user config"];
+  else [depth, source] = [suggestDepth(files), "suggested from the diff"];
+  const hit = (repo?.deepPaths ?? []).map((g) => [g, globToRegExp2(g)]).flatMap(([g, re]) => files.filter((f) => re.test(f.path)).map((f) => ({ glob: g, path: f.path })));
+  if (hit.length && depth !== "deep") {
+    return { depth: "deep", source: `agent-review.json deepPaths (${hit[0].path} matches ${hit[0].glob})`, raisedFrom: depth };
+  }
+  return { depth, source, raisedFrom: null };
+}
+function lensesFor(depth, chosen, { hasSpec = false } = {}) {
+  if (depth === "standard") return chosen;
+  if (depth === "quick") {
+    const keep = ["correctness", ...chosen.includes("spec-fit") ? ["spec-fit"] : []];
+    const rest = chosen.filter((l) => !keep.includes(l));
+    return [...keep, ...rest].slice(0, 3);
+  }
+  const extra = ["security", "tests", "api-compat", ...hasSpec ? ["spec-fit"] : []];
+  const order = ["correctness", "spec-fit", "security", "tests", "api-compat", "taste", "data", "docs"];
+  return order.filter((l) => chosen.includes(l) || extra.includes(l));
+}
+function detectHost(env = process.env) {
+  if (env.PI_SESSION_ID) return "tau";
+  if (env.CLAUDECODE) return "claude-code";
+  return null;
+}
+var byFamily = (models) => {
+  const groups = /* @__PURE__ */ new Map();
+  for (const m of models) {
+    const f = family(m);
+    if (!groups.has(f)) groups.set(f, []);
+    groups.get(f).push(m);
+  }
+  return [...groups.entries()];
+};
+function resolvePlan({ depth, lenses, host, config = {} }) {
+  const rules = DEPTH_RULES[depth];
+  const tiers = host && config.hosts?.[host] || {};
+  const warnings = [];
+  const used = { fast: 0, strong: 0 };
+  const reviewers = lenses.map((lens) => {
+    const tier = rules.strongLenses === "all" || rules.strongLenses.includes(lens) ? "strong" : "fast";
+    const groups = byFamily(tiers[tier] ?? []);
+    const pick = groups.length ? groups[used[tier]++ % groups.length][1][0] : null;
+    return { lens, tier, model: pick, family: pick ? family(pick) : null, thinking: rules.thinking.reviewer };
+  });
+  const families = new Set(reviewers.map((r) => r.family).filter(Boolean));
+  if (reviewers.every((r) => r.model) && families.size < 2) {
+    const other = TIERS.flatMap((t) => tiers[t] ?? []).find((m) => !families.has(family(m)));
+    if (other && reviewers.length > 1) Object.assign(reviewers.at(-1), { model: other, family: family(other), tier: "borrowed" });
+    else warnings.push("only one model family is configured; the review will not be cross-checked");
+  }
+  const missing = [...new Set(reviewers.filter((r) => !r.model).map((r) => r.tier))];
+  if (!host) warnings.push("host unknown (pass --host): pick each model yourself, following the tiers");
+  else if (missing.length) warnings.push(`no ${missing.join(" or ")} models configured for ${host} in the user config: pick those yourself`);
+  return {
+    depth,
+    host: host ?? null,
+    lenses,
+    reviewers,
+    verifier: { tier: rules.verifierTier, models: tiers[rules.verifierTier] ?? [], thinking: rules.thinking.verifier },
+    tiebreak: { models: tiers.tiebreak ?? [], thinking: rules.thinking.tiebreak },
+    secondVerifierOnBlockers: rules.secondVerifierOnBlockers,
+    warnings
+  };
+}
+function pickVerifier(plan, author, config = {}) {
+  const authorFamily = family(author);
+  const all = Object.values(plan.host && config.hosts?.[plan.host] || {}).flat();
+  const model = [...plan.verifier.models, ...all].find((m) => family(m) !== authorFamily) ?? null;
+  return { model, family: model ? family(model) : null, thinking: plan.verifier.thinking, ...model ? {} : { note: "no model from another family is configured; pick one yourself" } };
+}
+function pickTiebreak(plan, exclude = [], config = {}) {
+  const seen = new Set(exclude.map(family));
+  const all = Object.values(plan.host && config.hosts?.[plan.host] || {}).flat();
+  const model = [...plan.tiebreak.models, ...all].find((m) => !seen.has(family(m))) ?? null;
+  return { model, family: model ? family(model) : null, thinking: plan.tiebreak.thinking, ...model ? {} : { note: "no unused family is configured; pick one yourself" } };
+}
+
+// cli/src/review-context.mjs
+var run = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], ...opts }).trim();
+var tryRun = (cmd, args, opts) => {
+  try {
+    return run(cmd, args, opts);
+  } catch {
+    return null;
+  }
+};
+var LENS_ORDER = ["correctness", "spec-fit", "security", "tests", "api-compat", "taste", "data", "docs"];
+var MAX_LENSES = 6;
+var MIN_LENSES = 3;
+var SECURITY = /(auth|token|secret|passw|credential|crypto|permission|session|oauth|cookie|sql|exec|spawn|shell|eval|sanitiz|escape|cors|csrf|xss|redirect|upload|deserializ)/i;
+var TEST_FILE = /(^|\/)(test|tests|__tests__|spec)\/|\.(test|spec)\.[a-z]+$|_test\.(go|py)$|^test_.*\.py$/i;
+var DOC_FILE2 = /(^|\/)(docs?\/|README|CHANGELOG)|\.mdx?$/i;
+var API_FILE = /(^|\/)(index\.[cm]?[jt]s|package\.json|.*\.d\.ts|openapi.*|.*\.proto|.*schema.*\.(json|ya?ml|graphql))$/i;
+var DATA_FILE = /(migrat|\.sql$|schema\.prisma|models?\/)/i;
+function chooseLenses({ files, changedText, hasAxioms, hasSpec }) {
+  const paths = files.map((f) => f.path);
+  const source = paths.filter((p) => !TEST_FILE.test(p) && !DOC_FILE2.test(p));
+  const picked = /* @__PURE__ */ new Set(["correctness"]);
+  if (hasSpec) picked.add("spec-fit");
+  if (paths.some((p) => SECURITY.test(p)) || SECURITY.test(changedText)) picked.add("security");
+  if (source.length) picked.add("tests");
+  if (paths.some((p) => API_FILE.test(p)) || /^-\s*export\b/m.test(changedText)) picked.add("api-compat");
+  if (hasAxioms) picked.add("taste");
+  if (paths.some((p) => DATA_FILE.test(p))) picked.add("data");
+  if (paths.some((p) => DOC_FILE2.test(p))) picked.add("docs");
+  for (const fill of ["tests", "spec-fit", "docs"]) {
+    if (picked.size >= MIN_LENSES) break;
+    picked.add(fill);
+  }
+  return LENS_ORDER.filter((l) => picked.has(l)).slice(0, MAX_LENSES);
+}
+function parseNumstat(text) {
+  return text.split("\n").filter(Boolean).map((line) => {
+    const [added, deleted, ...rest] = line.split("	");
+    return { path: rest.join("	"), added: Number(added) || 0, deleted: Number(deleted) || 0 };
+  });
+}
+function axiomsPath() {
+  return process.env.AXIOMS_PATH ?? join4(homedir3(), ".config", "scalvert", "axioms.md");
+}
+function generatedPaths(paths, head, cwd) {
+  if (paths.length === 0) return /* @__PURE__ */ new Set();
+  const out = tryRun("git", ["check-attr", "--source", head, "-z", "linguist-generated", "--", ...paths], cwd) ?? tryRun("git", ["check-attr", "-z", "linguist-generated", "--", ...paths], cwd);
+  const set = /* @__PURE__ */ new Set();
+  if (!out) return set;
+  const parts = out.split("\0");
+  for (let i = 0; i + 2 < parts.length; i += 3) {
+    if (parts[i + 2] === "true" || parts[i + 2] === "set") set.add(parts[i]);
+  }
+  return set;
+}
+function prSpec(pr, cwd) {
+  const issues = (pr.closingIssuesReferences ?? []).map((i) => tryRun("gh", ["issue", "view", String(i.number), "--json", "number,title,body", "-q", '"#\\(.number) \\(.title)\\n\\n\\(.body)"'], cwd)).filter(Boolean);
+  return [`# ${pr.title}`, "", pr.url, "", pr.body || "(no description)", ...issues.map((t) => `
+---
+
+${t}`)].join("\n");
+}
+function repoSlug() {
+  const url = tryRun("git", ["config", "--get", "remote.origin.url"]) ?? "";
+  const m = url.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?\/?$/);
+  return m ? `${m[1]}/${m[2]}` : null;
+}
+function pin(o) {
+  const root = run("git", ["rev-parse", "--show-toplevel"]);
+  const cwd = { cwd: root };
+  const out = o.out ?? mkdtempSync(join4(tmpdir(), "review-"));
+  mkdirSync3(out, { recursive: true });
+  let base;
+  let head;
+  let key;
+  let spec = null;
+  if (o.pr) {
+    const pr = JSON.parse(
+      run("gh", ["pr", "view", String(o.pr), "--json", "number,title,body,url,baseRefName,headRefOid,closingIssuesReferences"], cwd)
+    );
+    run("git", ["fetch", "-q", "origin", `pull/${pr.number}/head`, pr.baseRefName], cwd);
+    head = pr.headRefOid;
+    base = run("git", ["rev-parse", `origin/${pr.baseRefName}`], cwd);
+    key = String(pr.number);
+    spec = prSpec(pr, cwd);
+  } else {
+    const ref = o.base ?? (tryRun("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd) || "origin/main");
+    base = run("git", ["rev-parse", ref], cwd);
+    head = run("git", ["rev-parse", "HEAD"], cwd);
+    key = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+    const text = tryRun("gh", ["pr", "view", "--json", "number,title,body,url,state,closingIssuesReferences"], cwd);
+    let pr = null;
+    try {
+      pr = text ? JSON.parse(text) : null;
+    } catch {
+      pr = null;
+    }
+    if (pr?.state === "OPEN") spec = prSpec(pr, cwd);
+  }
+  const mergeBase = run("git", ["merge-base", base, head], cwd);
+  if (o.since && tryRun("git", ["merge-base", "--is-ancestor", o.since, head], cwd) === null) {
+    throw new Error(`--since ${o.since} is not an ancestor of ${head}; history was rewritten. Pin the full change without --since.`);
+  }
+  const from = o.since ?? mergeBase;
+  const allFiles = parseNumstat(run("git", ["diff", "--no-renames", "--numstat", `${from}..${head}`], cwd));
+  const generated = generatedPaths(allFiles.map((f) => f.path), head, cwd);
+  const files = allFiles.filter((f) => !generated.has(f.path));
+  const exclude = [...generated].map((p) => `:(exclude,literal)${p}`);
+  const diff = run("git", ["diff", "--no-renames", "--no-color", "-U5", `${from}..${head}`, "--", ".", ...exclude], cwd);
+  const commits = run("git", ["log", "--no-color", "--format=%h %s", `${from}..${head}`], cwd);
+  writeFileSync3(join4(out, "diff.patch"), `${diff}
+`);
+  writeFileSync3(join4(out, "files.json"), `${JSON.stringify(files, null, 2)}
+`);
+  writeFileSync3(join4(out, "commits.txt"), `${commits}
+`);
+  if (spec) writeFileSync3(join4(out, "spec.md"), `${spec}
+`);
+  const copied = {};
+  const rulesChanged = [];
+  for (const name of ["AGENTS.md", "REVIEW.md"]) {
+    const text = tryRun("git", ["show", `${mergeBase}:${name}`], cwd);
+    if (text !== null) {
+      writeFileSync3(join4(out, name), `${text}
+`);
+      copied[name] = true;
+    }
+    if (allFiles.some((f) => f.path === name)) rulesChanged.push(name);
+  }
+  const repoText = tryRun("git", ["show", `${mergeBase}:agent-review.json`], cwd);
+  let repoConfig = null;
+  if (repoText !== null) {
+    try {
+      repoConfig = checkRepoConfig(JSON.parse(repoText), `agent-review.json at ${mergeBase.slice(0, 7)}`);
+    } catch (e) {
+      throw new Error(e.message);
+    }
+  }
+  if (allFiles.some((f) => f.path === "agent-review.json")) rulesChanged.push("agent-review.json");
+  const axioms = axiomsPath();
+  if (existsSync4(axioms)) {
+    copyFileSync(axioms, join4(out, "axioms.md"));
+    copied["axioms.md"] = true;
+  }
+  const changedText = diff.split("\n").filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---")).join("\n");
+  const hasSpec = Boolean(spec) || commits.length > 0;
+  const chosen = chooseLenses({ files, changedText, hasAxioms: Boolean(copied["axioms.md"]), hasSpec });
+  const prFiles = from === mergeBase ? allFiles : parseNumstat(run("git", ["diff", "--no-renames", "--numstat", `${mergeBase}..${head}`], cwd));
+  const user = loadUserConfig();
+  if (o.host && !HOSTS.includes(o.host)) throw new Error(`--host must be one of ${HOSTS.join(", ")}`);
+  const host = o.host ?? detectHost() ?? user.config.host ?? null;
+  const depth = resolveDepth({ flag: o.depth, repo: repoConfig, user: user.config, files: prFiles });
+  const lenses = lensesFor(depth.depth, chosen, { hasSpec });
+  const plan = resolvePlan({ depth: depth.depth, lenses, host, config: user.config });
+  const context = {
+    repo: repoSlug(),
+    key,
+    base,
+    head,
+    mergeBase,
+    since: o.since ?? null,
+    files: files.length,
+    generatedSkipped: generated.size,
+    added: files.reduce((n, f) => n + f.added, 0),
+    deleted: files.reduce((n, f) => n + f.deleted, 0),
+    has: { spec: Boolean(spec), agents: Boolean(copied["AGENTS.md"]), review: Boolean(copied["REVIEW.md"]), axioms: Boolean(copied["axioms.md"]) },
+    rulesChanged,
+    depth: depth.depth,
+    depthSource: depth.source,
+    lenses,
+    plan,
+    userConfig: { path: user.path, found: existsSync4(user.path) },
+    dir: out
+  };
+  writeFileSync3(join4(out, "context.json"), `${JSON.stringify(context, null, 2)}
+`);
+  return context;
 }
 
 // cli/src/review-threads.mjs
@@ -4648,9 +4867,9 @@ function owner({ path: path2, line, repo }) {
 
 // cli/src/run-lens.mjs
 import { execFileSync as execFileSync3 } from "node:child_process";
-import { existsSync as existsSync4, mkdtempSync as mkdtempSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync4 } from "node:fs";
+import { existsSync as existsSync5, mkdtempSync as mkdtempSync2, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { dirname as dirname3, join as join4 } from "node:path";
+import { dirname as dirname3, join as join5 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var here = dirname3(fileURLToPath2(import.meta.url));
 var FINDING_SCHEMA = {
@@ -4696,12 +4915,12 @@ Do not report formatting, speculation, pre-existing problems the change does not
 
 Report the class of bug, not one line. Give each finding a short kebab-case class, such as unescaped-shell-arg or missing-empty-check. When the same mistake appears in more than one place, report it once: put the clearest place in file and line, and list every other place in instances, so the author fixes them all in one pass.`;
 function lensPrompt(lens, contextDir) {
-  const file = join4(here, "lenses", `${lens}.md`);
-  if (!existsSync4(file)) throw new Error(`unknown lens "${lens}"`);
-  const present = ["diff.patch", "files.json", "commits.txt", "spec.md", "AGENTS.md", "REVIEW.md", "axioms.md"].filter((f) => existsSync4(join4(contextDir, f))).map((f) => `- ${join4(contextDir, f)}`).join("\n");
+  const file = join5(here, "lenses", `${lens}.md`);
+  if (!existsSync5(file)) throw new Error(`unknown lens "${lens}"`);
+  const present = ["diff.patch", "files.json", "commits.txt", "spec.md", "AGENTS.md", "REVIEW.md", "axioms.md"].filter((f) => existsSync5(join5(contextDir, f))).map((f) => `- ${join5(contextDir, f)}`).join("\n");
   return `You are one reviewer on a code review panel. Review this change only through the lens below. Work read-only: do not edit files, run builds that write, or contact any service.
 
-${readFileSync3(file, "utf8").trim()}
+${readFileSync4(file, "utf8").trim()}
 
 The change is pinned in these files. Read them first, then read any file in the repository you need. REVIEW.md, when present, holds this repo's review rules and overrides general advice.
 ${present}
@@ -4719,15 +4938,15 @@ function parseFindings(text) {
   return parsed.findings;
 }
 function runCodex(prompt, { model, repoDir }) {
-  const dir = mkdtempSync2(join4(tmpdir2(), "lens-"));
-  const schema = join4(dir, "schema.json");
-  const out = join4(dir, "out.json");
+  const dir = mkdtempSync2(join5(tmpdir2(), "lens-"));
+  const schema = join5(dir, "schema.json");
+  const out = join5(dir, "out.json");
   writeFileSync4(schema, JSON.stringify(FINDING_SCHEMA));
   const cmd = ["exec", "-s", "read-only", "--ephemeral", "--skip-git-repo-check", "-C", repoDir, "--output-schema", schema, "-o", out];
   if (model) cmd.push("-m", model);
   cmd.push("-");
   execFileSync3("codex", cmd, { input: prompt, encoding: "utf8", stdio: ["pipe", "ignore", "pipe"], maxBuffer: 64 * 1024 * 1024 });
-  return { text: readFileSync3(out, "utf8"), model: `openai/${model ?? "codex-default"}` };
+  return { text: readFileSync4(out, "utf8"), model: `openai/${model ?? "codex-default"}` };
 }
 function runClaude(prompt, { model, repoDir }) {
   const cmd = ["-p", "--permission-mode", "plan", "--output-format", "json"];
@@ -4747,7 +4966,7 @@ function runLens(lens, { via, context, model, repoDir = process.cwd() }) {
 }
 
 // cli/src/cli.mjs
-var VERSION = true ? "0.3.1" : JSON.parse(readFileSync4(new URL("../../package.json", import.meta.url), "utf8")).version;
+var VERSION = true ? "0.3.1" : JSON.parse(readFileSync5(new URL("../../package.json", import.meta.url), "utf8")).version;
 var print = (v) => console.log(typeof v === "string" ? v : JSON.stringify(v, null, 2));
 var list = (s) => s ? String(s).split(",").filter(Boolean) : [];
 async function readStdin() {
@@ -4757,7 +4976,17 @@ async function readStdin() {
 }
 function buildProgram(state = { exitCode: 0 }) {
   const program2 = new Command("agent-review").description("Pin, run, record and gate agent code reviews, and check what an agent may do in a repo.").version(VERSION).enablePositionalOptions().showHelpAfterError("(run with --help for usage)").exitOverride();
-  program2.command("pin").description("Pin a change into one directory (diff, files, commits, spec, AGENTS.md, REVIEW.md, axioms) and pick its lenses. Prints context.json.").option("--pr <number>", "pin a pull request").option("--base <ref>", "base ref for a local branch (default: origin/HEAD)").option("--since <sha>", "pin only the commits after this one (a follow-up round)").option("--out <dir>", "output directory (default: a new temp dir)").action((o) => print(pin(o)));
+  program2.command("pin").description("Pin a change into one directory (diff, files, commits, spec, AGENTS.md, REVIEW.md, axioms) and pick its lenses. Prints context.json.").option("--pr <number>", "pin a pull request").option("--base <ref>", "base ref for a local branch (default: origin/HEAD)").option("--since <sha>", "pin only the commits after this one (a follow-up round)").option("--out <dir>", "output directory (default: a new temp dir)").addOption(new Option("--depth <depth>", "review depth (default: repo, then user config, then suggested from the diff)").choices(DEPTHS)).addOption(new Option("--host <host>", "host that runs the reviewers, for the model plan (default: detected)").choices(HOSTS)).action((o) => print(pin(o)));
+  const plan = program2.command("plan").description("The model plan that pin writes: which model and thinking level each review role gets.");
+  const planOf = (dir) => {
+    const context = JSON.parse(readFileSync5(`${dir}/context.json`, "utf8"));
+    if (!context.plan) throw new LedgerError(`${dir}/context.json has no plan; pin it again with this version`);
+    return context.plan;
+  };
+  plan.command("show").description("Print the plan for a pinned change.").requiredOption("--context <dir>", "directory written by pin").action((o) => print(planOf(o.context)));
+  plan.command("verifier").description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--author <provider/model>", "model that wrote the finding").action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config)));
+  plan.command("tiebreak").description("Pick a tie-break model from a family no earlier model on the finding used.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--exclude <m1,m2>", "models that already judged the finding").action((o) => print(pickTiebreak(planOf(o.context), list(o.exclude), loadUserConfig().config)));
+  plan.command("config").description("Print the user config path and its checked contents.").action(() => print(loadUserConfig()));
   const lens = program2.command("lens").description("Review lens prompts, and running a lens on another model family.");
   lens.command("prompt <lens>").description("Print the prompt a reviewer gets for one lens.").requiredOption("--context <dir>", "directory written by pin").action((name, o) => print(lensPrompt(name, o.context)));
   lens.command("run <lens>").description("Run one lens through another model's CLI and print its findings as JSON.").addOption(new Option("--via <cli>", "model CLI to run").choices(VIAS).makeOptionMandatory()).requiredOption("--context <dir>", "directory written by pin").option("--model <id>", "model to ask for").option("--repo-dir <path>", "repository the model may read (default: cwd)").action((name, o) => print(runLens(name, { via: o.via, context: o.context, model: o.model, repoDir: o.repoDir })));
@@ -4770,20 +4999,21 @@ function buildProgram(state = { exitCode: 0 }) {
     print(result);
   };
   keyed("path", "Print the ledger file path.").action((o) => print(ledgerPath(o.repo, o.key)));
-  keyed("start", "Start a review round.").requiredOption("--base <sha>", "merge base").requiredOption("--head <sha>", "reviewed head").option("--lenses <a,b>", "lenses chosen for this round").option("--models <m1,m2>", "models planned for this round").option("--past-cap", `start a round past ${MAX_ROUNDS}, only when a person asks for it`).action(
+  keyed("start", "Start a review round.").requiredOption("--base <sha>", "merge base").requiredOption("--head <sha>", "reviewed head").option("--lenses <a,b>", "lenses chosen for this round").option("--models <m1,m2>", "models planned for this round").option("--past-cap", `start a round past ${MAX_ROUNDS}, only when a person asks for it`).addOption(new Option("--depth <depth>", "review depth, from context.json").choices(DEPTHS)).action(
     withLedger((l, o) => ({
       round: startRound(l, {
         base: o.base,
         head: o.head,
         lenses: list(o.lenses),
         models: list(o.models),
-        pastCap: o.pastCap === true
+        pastCap: o.pastCap === true,
+        depth: o.depth ?? null
       }),
       path: ledgerPath(o.repo, o.key)
     }))
   );
   keyed("add", "Add findings from a file, or from JSON on stdin.").option("--file <findings.json>", "findings file").action(async (o) => {
-    const text = o.file ? readFileSync4(o.file, "utf8") : await readStdin();
+    const text = o.file ? readFileSync5(o.file, "utf8") : await readStdin();
     withLedger((l) => ({ added: addFindings(l, JSON.parse(text)) }))(o);
   });
   keyed("decide", "Record a classifier decision for a finding.").requiredOption("--id <id>", "finding ID").requiredOption("--kind <kind>", `decision kind: ${Object.keys(KINDS).join(", ")}`).requiredOption("--json <decision>", "the decision as JSON").action(withLedger((l, o) => decide(l, o.id, o.kind, JSON.parse(o.json))));
@@ -4801,7 +5031,7 @@ function buildProgram(state = { exitCode: 0 }) {
   );
   keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").action(async (o) => {
     if (o.note != null && o.noteFile != null) throw new LedgerError("use --note or --note-file, not both");
-    const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync4(o.noteFile, "utf8")).trim() : o.note;
+    const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync5(o.noteFile, "utf8")).trim() : o.note;
     withLedger((l) => {
       dispose(l, o.id, o.as, note);
       return { id: o.id, disposition: o.as };
@@ -4859,7 +5089,7 @@ function buildProgram(state = { exitCode: 0 }) {
   threads.command("list").description("Unresolved review threads, oldest first.").requiredOption("--pr <number>", "pull request").option("--repo <owner/repo>", "repository (default: the current one)").option("--all", "include resolved threads").action((o) => print(listThreads(o)));
   threads.command("owner").description("The commit that last changed a line, and the open PR that contains it.").requiredOption("--path <file>", "file").requiredOption("--line <n>", "line").option("--repo <owner/repo>", "repository (default: the current one)").action((o) => print(owner(o)));
   program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding IDs, code outside backticks, broken Markdown").action(async (files, o) => {
-    const inputs = files.length ? files.map((f) => [f, readFileSync4(f, "utf8")]) : [["<stdin>", await readStdin()]];
+    const inputs = files.length ? files.map((f) => [f, readFileSync5(f, "utf8")]) : [["<stdin>", await readStdin()]];
     const run4 = o.github ? checkGithub : check;
     const all = inputs.flatMap(([file, text]) => run4(text).map((f) => ({ file, ...f })));
     if (o.json) console.log(JSON.stringify(all, null, 2));

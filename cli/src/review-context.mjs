@@ -6,11 +6,12 @@
 //   commits.txt    commit subjects in the range
 //   spec.md        PR title and body plus linked issues (PR mode)
 //   AGENTS.md, REVIEW.md, axioms.md   copied when present
-//   context.json   summary, including the lenses chosen for this diff
+//   context.json   summary, including the depth, the lenses and the model plan
+//                  (see review-plan.mjs)
 //
 // Usage:
-//   agent-review pin --pr <number> [--since <sha>] [--out <dir>]
-//   agent-review pin [--base <ref>] [--since <sha>] [--out <dir>]   (local branch)
+//   agent-review pin --pr <number> [--since <sha>] [--depth <d>] [--host <h>] [--out <dir>]
+//   agent-review pin [--base <ref>] [--since <sha>] [--depth <d>] [--host <h>] [--out <dir>]   (local branch)
 //
 // Axioms come from $AXIOMS_PATH, else ~/.config/scalvert/axioms.md. They are
 // optional; without them the taste lens does not run.
@@ -19,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { checkRepoConfig, detectHost, HOSTS, lensesFor, loadUserConfig, resolveDepth, resolvePlan } from "./review-plan.mjs";
 
 const run = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], ...opts }).trim();
@@ -175,6 +177,17 @@ export function pin(o) {
     }
     if (allFiles.some((f) => f.path === name)) rulesChanged.push(name);
   }
+  // The repo's review depth also comes from the base.
+  const repoText = tryRun("git", ["show", `${mergeBase}:agent-review.json`], cwd);
+  let repoConfig = null;
+  if (repoText !== null) {
+    try {
+      repoConfig = checkRepoConfig(JSON.parse(repoText), `agent-review.json at ${mergeBase.slice(0, 7)}`);
+    } catch (e) {
+      throw new Error(e.message);
+    }
+  }
+  if (allFiles.some((f) => f.path === "agent-review.json")) rulesChanged.push("agent-review.json");
   const axioms = axiomsPath();
   if (existsSync(axioms)) {
     copyFileSync(axioms, join(out, "axioms.md"));
@@ -185,12 +198,20 @@ export function pin(o) {
     .split("\n")
     .filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---"))
     .join("\n");
-  const lenses = chooseLenses({
-    files,
-    changedText,
-    hasAxioms: Boolean(copied["axioms.md"]),
-    hasSpec: Boolean(spec) || commits.length > 0,
-  });
+  const hasSpec = Boolean(spec) || commits.length > 0;
+  const chosen = chooseLenses({ files, changedText, hasAxioms: Boolean(copied["axioms.md"]), hasSpec });
+
+  // Depth looks at the whole change, not only the commits since the last
+  // round, so a follow-up never drops below a deep path the PR touches.
+  const prFiles = from === mergeBase ? allFiles : parseNumstat(run("git", ["diff", "--no-renames", "--numstat", `${mergeBase}..${head}`], cwd));
+  const user = loadUserConfig();
+  if (o.host && !HOSTS.includes(o.host)) throw new Error(`--host must be one of ${HOSTS.join(", ")}`);
+  // A detected host beats the config's, so Tau model IDs never reach Claude
+  // Code. The config's host covers hosts that cannot be detected, such as Codex.
+  const host = o.host ?? detectHost() ?? user.config.host ?? null;
+  const depth = resolveDepth({ flag: o.depth, repo: repoConfig, user: user.config, files: prFiles });
+  const lenses = lensesFor(depth.depth, chosen, { hasSpec });
+  const plan = resolvePlan({ depth: depth.depth, lenses, host, config: user.config });
 
   const context = {
     repo: repoSlug(),
@@ -205,7 +226,11 @@ export function pin(o) {
     deleted: files.reduce((n, f) => n + f.deleted, 0),
     has: { spec: Boolean(spec), agents: Boolean(copied["AGENTS.md"]), review: Boolean(copied["REVIEW.md"]), axioms: Boolean(copied["axioms.md"]) },
     rulesChanged,
+    depth: depth.depth,
+    depthSource: depth.source,
     lenses,
+    plan,
+    userConfig: { path: user.path, found: existsSync(user.path) },
     dir: out,
   };
   writeFileSync(join(out, "context.json"), `${JSON.stringify(context, null, 2)}\n`);
