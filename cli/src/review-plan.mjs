@@ -5,8 +5,9 @@
 //   roles      reviewers (one per lens), verifiers (one per finding), tie-break
 //   tiers      fast | strong | tiebreak, each a list of models per host
 //
-// Model IDs are host-specific (Tau uses glean/..., Claude Code uses opus or
-// sonnet), so they live in the user's config, never in a repo:
+// Model IDs are provider/model and host-specific (Tau uses glean/...,
+// Claude Code anthropic/opus and openai/gpt-5.5), so they live in the user's
+// config, never in a repo:
 //
 //   $AGENT_REVIEWS_CONFIG, else $XDG_CONFIG_HOME/agent-reviews/config.json,
 //   else ~/.config/agent-reviews/config.json
@@ -38,7 +39,10 @@ import { family } from "./review-ledger.mjs";
 export const DEPTHS = ["quick", "standard", "deep"];
 export const HOSTS = ["tau", "claude-code", "codex"];
 const TIERS = ["fast", "strong", "tiebreak"];
-const MODEL = /^[\w.-]+(\/[\w.:@-]+)?$/;
+// provider/model, as the ledger records models. A bare name such as "opus"
+// would count as its own family and make a one-family plan look cross-checked.
+const MODEL = /^[\w.-]+\/[\w.:@-]+$/;
+const STANDARD_MAX_LENSES = 6;
 
 export class PlanError extends Error {}
 
@@ -88,7 +92,7 @@ export function checkUserConfig(config, where = "user config") {
     for (const [tier, models] of Object.entries(tiers ?? {})) {
       if (!TIERS.includes(tier)) throw new PlanError(`${where}: hosts.${host}.${tier} is not a tier (${TIERS.join(", ")})`);
       if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL.test(m))) {
-        throw new PlanError(`${where}: hosts.${host}.${tier} must be a list of model IDs`);
+        throw new PlanError(`${where}: hosts.${host}.${tier} must be a list of provider/model IDs, such as anthropic/opus`);
       }
     }
   }
@@ -162,10 +166,11 @@ export function resolveDepth({ flag, repo, user, files }) {
   return { depth, source, raisedFrom: null };
 }
 
-// Lenses for a depth. standard is the lens choice from the diff; quick keeps
-// the three that matter most; deep adds every lens that can apply.
+// Lenses for a depth, from every lens the diff calls for. standard keeps up
+// to six; quick keeps the three that matter most; deep keeps them all and
+// adds every lens that can apply.
 export function lensesFor(depth, chosen, { hasSpec = false } = {}) {
-  if (depth === "standard") return chosen;
+  if (depth === "standard") return chosen.slice(0, STANDARD_MAX_LENSES);
   if (depth === "quick") {
     const keep = ["correctness", ...(chosen.includes("spec-fit") ? ["spec-fit"] : [])];
     const rest = chosen.filter((l) => !keep.includes(l));
@@ -176,9 +181,12 @@ export function lensesFor(depth, chosen, { hasSpec = false } = {}) {
   return order.filter((l) => chosen.includes(l) || extra.includes(l));
 }
 
+// The innermost host wins: Claude Code started from a Tau shell inherits
+// PI_SESSION_ID, so CLAUDECODE is checked first. Codex sets no marker this
+// can rely on, so on Codex the skills pass --host codex.
 export function detectHost(env = process.env) {
-  if (env.PI_SESSION_ID) return "tau";
   if (env.CLAUDECODE) return "claude-code";
+  if (env.PI_SESSION_ID) return "tau";
   return null;
 }
 

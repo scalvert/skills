@@ -43,8 +43,9 @@ const API_FILE = /(^|\/)(index\.[cm]?[jt]s|package\.json|.*\.d\.ts|openapi.*|.*\
 const DATA_FILE = /(migrat|\.sql$|schema\.prisma|models?\/)/i;
 
 // Picks 3 to 6 lenses from what the diff touches. Correctness and spec fit
-// always run; taste runs only when an axioms file is present.
-export function chooseLenses({ files, changedText, hasAxioms, hasSpec }) {
+// always run; taste runs only when an axioms file is present. With
+// { cap: false } it returns every lens the diff calls for, for a deep review.
+export function chooseLenses({ files, changedText, hasAxioms, hasSpec, cap = true }) {
   const paths = files.map((f) => f.path);
   const source = paths.filter((p) => !TEST_FILE.test(p) && !DOC_FILE.test(p));
   const picked = new Set(["correctness"]);
@@ -59,7 +60,21 @@ export function chooseLenses({ files, changedText, hasAxioms, hasSpec }) {
     if (picked.size >= MIN_LENSES) break;
     picked.add(fill);
   }
-  return LENS_ORDER.filter((l) => picked.has(l)).slice(0, MAX_LENSES);
+  const ordered = LENS_ORDER.filter((l) => picked.has(l));
+  return cap ? ordered.slice(0, MAX_LENSES) : ordered;
+}
+
+// `git diff --numstat -z`: one "added<TAB>deleted<TAB>path" record per NUL,
+// with the path as it is, never quoted or escaped. Without -z, git quotes a
+// path such as src/auth/caf\303\251.js, and a glob would not match it.
+export function parseNumstatZ(text) {
+  return text
+    .split("\0")
+    .filter(Boolean)
+    .map((record) => {
+      const [added, deleted, ...rest] = record.split("\t");
+      return { path: rest.join("\t"), added: Number(added) || 0, deleted: Number(deleted) || 0 };
+    });
 }
 
 export function parseNumstat(text) {
@@ -151,7 +166,8 @@ export function pin(o) {
   const from = o.since ?? mergeBase;
   // --no-renames keeps each path whole, so a renamed generated file is still
   // recognized as generated.
-  const allFiles = parseNumstat(run("git", ["diff", "--no-renames", "--numstat", `${from}..${head}`], cwd));
+  const numstat = (range) => parseNumstatZ(run("git", ["diff", "--no-renames", "--numstat", "-z", range], cwd));
+  const allFiles = numstat(`${from}..${head}`);
   // Files the repo marks as generated (linguist-generated in .gitattributes,
   // which GitHub also collapses in PR diffs) are left out of the review.
   const generated = generatedPaths(allFiles.map((f) => f.path), head, cwd);
@@ -181,11 +197,14 @@ export function pin(o) {
   const repoText = tryRun("git", ["show", `${mergeBase}:agent-review.json`], cwd);
   let repoConfig = null;
   if (repoText !== null) {
+    const where = `agent-review.json at ${mergeBase.slice(0, 7)}`;
+    let parsed;
     try {
-      repoConfig = checkRepoConfig(JSON.parse(repoText), `agent-review.json at ${mergeBase.slice(0, 7)}`);
+      parsed = JSON.parse(repoText);
     } catch (e) {
-      throw new Error(e.message);
+      throw new Error(`${where}: ${e.message}`);
     }
+    repoConfig = checkRepoConfig(parsed, where);
   }
   if (allFiles.some((f) => f.path === "agent-review.json")) rulesChanged.push("agent-review.json");
   const axioms = axiomsPath();
@@ -199,11 +218,11 @@ export function pin(o) {
     .filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---"))
     .join("\n");
   const hasSpec = Boolean(spec) || commits.length > 0;
-  const chosen = chooseLenses({ files, changedText, hasAxioms: Boolean(copied["axioms.md"]), hasSpec });
+  const chosen = chooseLenses({ files, changedText, hasAxioms: Boolean(copied["axioms.md"]), hasSpec, cap: false });
 
   // Depth looks at the whole change, not only the commits since the last
   // round, so a follow-up never drops below a deep path the PR touches.
-  const prFiles = from === mergeBase ? allFiles : parseNumstat(run("git", ["diff", "--no-renames", "--numstat", `${mergeBase}..${head}`], cwd));
+  const prFiles = from === mergeBase ? allFiles : numstat(`${mergeBase}..${head}`);
   const user = loadUserConfig();
   if (o.host && !HOSTS.includes(o.host)) throw new Error(`--host must be one of ${HOSTS.join(", ")}`);
   // A detected host beats the config's, so Tau model IDs never reach Claude

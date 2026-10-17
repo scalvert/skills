@@ -4426,7 +4426,8 @@ function allLedgers() {
 var DEPTHS = ["quick", "standard", "deep"];
 var HOSTS = ["tau", "claude-code", "codex"];
 var TIERS = ["fast", "strong", "tiebreak"];
-var MODEL = /^[\w.-]+(\/[\w.:@-]+)?$/;
+var MODEL = /^[\w.-]+\/[\w.:@-]+$/;
+var STANDARD_MAX_LENSES = 6;
 var PlanError = class extends Error {
 };
 var DEPTH_RULES = {
@@ -4468,7 +4469,7 @@ function checkUserConfig(config, where = "user config") {
     for (const [tier, models] of Object.entries(tiers ?? {})) {
       if (!TIERS.includes(tier)) throw new PlanError(`${where}: hosts.${host}.${tier} is not a tier (${TIERS.join(", ")})`);
       if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL.test(m))) {
-        throw new PlanError(`${where}: hosts.${host}.${tier} must be a list of model IDs`);
+        throw new PlanError(`${where}: hosts.${host}.${tier} must be a list of provider/model IDs, such as anthropic/opus`);
       }
     }
   }
@@ -4530,7 +4531,7 @@ function resolveDepth({ flag, repo, user, files }) {
   return { depth, source, raisedFrom: null };
 }
 function lensesFor(depth, chosen, { hasSpec = false } = {}) {
-  if (depth === "standard") return chosen;
+  if (depth === "standard") return chosen.slice(0, STANDARD_MAX_LENSES);
   if (depth === "quick") {
     const keep = ["correctness", ...chosen.includes("spec-fit") ? ["spec-fit"] : []];
     const rest = chosen.filter((l) => !keep.includes(l));
@@ -4541,8 +4542,8 @@ function lensesFor(depth, chosen, { hasSpec = false } = {}) {
   return order.filter((l) => chosen.includes(l) || extra.includes(l));
 }
 function detectHost(env = process.env) {
-  if (env.PI_SESSION_ID) return "tau";
   if (env.CLAUDECODE) return "claude-code";
+  if (env.PI_SESSION_ID) return "tau";
   return null;
 }
 var byFamily = (models) => {
@@ -4615,7 +4616,7 @@ var TEST_FILE = /(^|\/)(test|tests|__tests__|spec)\/|\.(test|spec)\.[a-z]+$|_tes
 var DOC_FILE2 = /(^|\/)(docs?\/|README|CHANGELOG)|\.mdx?$/i;
 var API_FILE = /(^|\/)(index\.[cm]?[jt]s|package\.json|.*\.d\.ts|openapi.*|.*\.proto|.*schema.*\.(json|ya?ml|graphql))$/i;
 var DATA_FILE = /(migrat|\.sql$|schema\.prisma|models?\/)/i;
-function chooseLenses({ files, changedText, hasAxioms, hasSpec }) {
+function chooseLenses({ files, changedText, hasAxioms, hasSpec, cap = true }) {
   const paths = files.map((f) => f.path);
   const source = paths.filter((p) => !TEST_FILE.test(p) && !DOC_FILE2.test(p));
   const picked = /* @__PURE__ */ new Set(["correctness"]);
@@ -4630,11 +4631,12 @@ function chooseLenses({ files, changedText, hasAxioms, hasSpec }) {
     if (picked.size >= MIN_LENSES) break;
     picked.add(fill);
   }
-  return LENS_ORDER.filter((l) => picked.has(l)).slice(0, MAX_LENSES);
+  const ordered = LENS_ORDER.filter((l) => picked.has(l));
+  return cap ? ordered.slice(0, MAX_LENSES) : ordered;
 }
-function parseNumstat(text) {
-  return text.split("\n").filter(Boolean).map((line) => {
-    const [added, deleted, ...rest] = line.split("	");
+function parseNumstatZ(text) {
+  return text.split("\0").filter(Boolean).map((record) => {
+    const [added, deleted, ...rest] = record.split("	");
     return { path: rest.join("	"), added: Number(added) || 0, deleted: Number(deleted) || 0 };
   });
 }
@@ -4701,7 +4703,8 @@ function pin(o) {
     throw new Error(`--since ${o.since} is not an ancestor of ${head}; history was rewritten. Pin the full change without --since.`);
   }
   const from = o.since ?? mergeBase;
-  const allFiles = parseNumstat(run("git", ["diff", "--no-renames", "--numstat", `${from}..${head}`], cwd));
+  const numstat = (range) => parseNumstatZ(run("git", ["diff", "--no-renames", "--numstat", "-z", range], cwd));
+  const allFiles = numstat(`${from}..${head}`);
   const generated = generatedPaths(allFiles.map((f) => f.path), head, cwd);
   const files = allFiles.filter((f) => !generated.has(f.path));
   const exclude = [...generated].map((p) => `:(exclude,literal)${p}`);
@@ -4729,11 +4732,14 @@ function pin(o) {
   const repoText = tryRun("git", ["show", `${mergeBase}:agent-review.json`], cwd);
   let repoConfig = null;
   if (repoText !== null) {
+    const where = `agent-review.json at ${mergeBase.slice(0, 7)}`;
+    let parsed;
     try {
-      repoConfig = checkRepoConfig(JSON.parse(repoText), `agent-review.json at ${mergeBase.slice(0, 7)}`);
+      parsed = JSON.parse(repoText);
     } catch (e) {
-      throw new Error(e.message);
+      throw new Error(`${where}: ${e.message}`);
     }
+    repoConfig = checkRepoConfig(parsed, where);
   }
   if (allFiles.some((f) => f.path === "agent-review.json")) rulesChanged.push("agent-review.json");
   const axioms = axiomsPath();
@@ -4743,8 +4749,8 @@ function pin(o) {
   }
   const changedText = diff.split("\n").filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---")).join("\n");
   const hasSpec = Boolean(spec) || commits.length > 0;
-  const chosen = chooseLenses({ files, changedText, hasAxioms: Boolean(copied["axioms.md"]), hasSpec });
-  const prFiles = from === mergeBase ? allFiles : parseNumstat(run("git", ["diff", "--no-renames", "--numstat", `${mergeBase}..${head}`], cwd));
+  const chosen = chooseLenses({ files, changedText, hasAxioms: Boolean(copied["axioms.md"]), hasSpec, cap: false });
+  const prFiles = from === mergeBase ? allFiles : numstat(`${mergeBase}..${head}`);
   const user = loadUserConfig();
   if (o.host && !HOSTS.includes(o.host)) throw new Error(`--host must be one of ${HOSTS.join(", ")}`);
   const host = o.host ?? detectHost() ?? user.config.host ?? null;
@@ -4937,7 +4943,9 @@ function parseFindings(text) {
   if (!Array.isArray(parsed.findings)) throw new Error("model output has no findings array");
   return parsed.findings;
 }
-function runCodex(prompt, { model, repoDir }) {
+var native = (model, provider) => model ? String(model).replace(new RegExp(`^${provider}/`), "") : model;
+function runCodex(prompt, { model: planned, repoDir }) {
+  const model = native(planned, "openai");
   const dir = mkdtempSync2(join5(tmpdir2(), "lens-"));
   const schema = join5(dir, "schema.json");
   const out = join5(dir, "out.json");
@@ -4948,7 +4956,8 @@ function runCodex(prompt, { model, repoDir }) {
   execFileSync3("codex", cmd, { input: prompt, encoding: "utf8", stdio: ["pipe", "ignore", "pipe"], maxBuffer: 64 * 1024 * 1024 });
   return { text: readFileSync4(out, "utf8"), model: `openai/${model ?? "codex-default"}` };
 }
-function runClaude(prompt, { model, repoDir }) {
+function runClaude(prompt, { model: planned, repoDir }) {
+  const model = native(planned, "anthropic");
   const cmd = ["-p", "--permission-mode", "plan", "--output-format", "json"];
   if (model) cmd.push("--model", model);
   cmd.push(prompt);

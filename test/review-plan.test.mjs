@@ -64,6 +64,9 @@ test("suggested depth: quick only for a small docs-only change", () => {
 });
 
 test("lenses per depth", () => {
+  const all = ["correctness", "spec-fit", "security", "tests", "api-compat", "taste", "data", "docs"];
+  assert.deepEqual(lensesFor("deep", all), all, "deep keeps every lens the diff calls for");
+  assert.equal(lensesFor("standard", all).length, 6);
   const chosen = ["correctness", "spec-fit", "security", "tests", "docs"];
   assert.deepEqual(lensesFor("standard", chosen), chosen);
   assert.deepEqual(lensesFor("quick", chosen), ["correctness", "spec-fit", "security"]);
@@ -122,11 +125,13 @@ test("verifier and tie-break come from families the finding has not seen", () =>
 test("config checks and host detection", () => {
   assert.throws(() => checkUserConfig({ depth: "max" }), /depth must be one of/);
   assert.throws(() => checkUserConfig({ hosts: { tau: { cheap: ["x/y"] } } }), /not a tier/);
-  assert.throws(() => checkUserConfig({ hosts: { tau: { fast: "glean/X" } } }), /list of model IDs/);
+  assert.throws(() => checkUserConfig({ hosts: { tau: { fast: "glean/X" } } }), /list of provider\/model IDs/);
+  assert.throws(() => checkUserConfig({ hosts: { "claude-code": { strong: ["opus"] } } }), /provider\/model/, "a bare name would count as its own family");
   assert.deepEqual(checkRepoConfig({}), { depth: null, deepPaths: [] });
   assert.throws(() => checkRepoConfig({ review: { deepPaths: "src/**" } }), /list of path globs/);
   assert.equal(detectHost({ PI_SESSION_ID: "x" }), "tau");
   assert.equal(detectHost({ CLAUDECODE: "1" }), "claude-code");
+  assert.equal(detectHost({ PI_SESSION_ID: "x", CLAUDECODE: "1" }), "claude-code", "Claude Code started from a Tau shell is Claude Code");
   assert.equal(detectHost({}), null);
 });
 
@@ -196,4 +201,24 @@ test("pin: repo depth and deep paths come from the merge base, and a follow-up k
   assert.equal(plan("verifier", "--author", "glean/CLAUDE_5_5_OPUS").model, "glean/GPT6_1_SOL");
   assert.equal(plan("tiebreak", "--exclude", "glean/CLAUDE_5_5_OPUS,glean/GPT6_1_SOL").model, "glean/GROK_4_7");
   assert.equal(plan("show").depth, "deep");
+
+  // A name git would quote (non-ASCII) still matches deepPaths.
+  git("checkout", "-q", "main");
+  git("checkout", "-q", "-b", "unicode");
+  writeFileSync(join(repo, "src", "auth", "caf\u00e9.js"), "1\n");
+  git("add", "-A");
+  git("commit", "-qm", "add a non-ASCII name under auth");
+  const unicode = pin();
+  assert.equal(unicode.depth, "deep", unicode.depthSource);
+  assert.match(unicode.depthSource, /src\/auth\/caf\u00e9\.js/);
+
+  // A broken agent-review.json at the base names the file.
+  writeFileSync(join(repo, "agent-review.json"), "{ \"review\": { \"depth\": \"deep\", } }");
+  git("commit", "-qam", "break the config");
+  git("checkout", "-q", "-b", "after-broken");
+  writeFileSync(join(repo, "src", "a.js"), "9\n");
+  git("commit", "-qam", "change");
+  const r = spawnSync("node", [CLI, "pin", "--base", "unicode", "--host", "tau"], { cwd: repo, env, encoding: "utf8" });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /agent-review\.json at [0-9a-f]{7}: /);
 });

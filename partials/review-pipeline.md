@@ -5,7 +5,7 @@ Run the context command from the step above. It writes one directory with the di
 `context.json` also gives the review `depth` (`quick`, `standard` or `deep`), where it came from (`depthSource`), and a `plan`: the model and thinking level for each reviewer, the verifier tier, and the tie-break models. The depth comes from `--depth`, then the repo's `agent-review.json`, then the user config, then a suggestion from the diff. A path the repo lists in `deepPaths` always makes it deep.
 
 - When the user asks for a quick or a deep review, add `--depth quick` or `--depth deep` to the pin command.
-- When `plan.host` is null, pin again with `--host tau`, `--host claude-code` or `--host codex`.
+- On Codex, always pin with `--host codex`. A Codex session started from a Tau shell looks like Tau. Elsewhere, when `plan.host` is null, pin again with `--host tau` or `--host claude-code`.
 - Before the panel runs, tell the user the depth and its source in one line, and pass on any `plan.warnings`.
 
 Then start a ledger round:
@@ -29,7 +29,7 @@ node <skill>/scripts/agent-review.mjs lens prompt <lens> --context <dir>
 The plan already spreads the reviewers across at least two model families. Run them this way:
 
 - **Tau:** start the reviewers as parallel subagent tasks, and set each task's `model` and `thinkingLevel` from the plan. Record each model ID as Tau gives it, such as `glean/GPT6_1_SOL`. The ledger reads the provider from the model name, so Claude and GPT behind the `glean/` prefix count as two families.
-- **Claude Code:** model IDs are `provider/model`. Start each `anthropic/` reviewer as a subagent, with the part after the slash as its model. Run each `openai/` reviewer with `node <skill>/scripts/agent-review.mjs lens run <lens> --via codex --model <model> --context <dir> --repo-dir <repo>`.
+- **Claude Code:** model IDs are `provider/model`. Start each `anthropic/` reviewer as a subagent, with the part after the slash as its model. Run each `openai/` reviewer with `node <skill>/scripts/agent-review.mjs lens run <lens> --via codex --model <model> --context <dir> --repo-dir <repo>`, passing the model as the plan gives it. `lens run` strips the provider for the CLI and records it once.
 - **Codex:** start each `openai/` reviewer as a subagent, and run each `anthropic/` reviewer with `lens run <lens> --via claude --model <model>`.
 
 Without a user config, the plan has no models. Then spread the lenses across at least two families yourself: give about half of them a model from another provider, and run correctness and one other lens on the second family.
