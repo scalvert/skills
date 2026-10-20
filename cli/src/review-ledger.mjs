@@ -20,7 +20,20 @@
 //   agent-review ledger last-head --repo R --key K
 //   agent-review ledger summary [--repo R [--key K]]   (no repo: every ledger)
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
+import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { check as checkDecision } from "./classify.mjs";
@@ -97,10 +110,105 @@ export function load(repo, key) {
 export function save(ledger) {
   const path = ledgerPath(ledger.repo, ledger.key);
   mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.tmp`;
+  // A unique name per writer, so two writers never rename each other's file.
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(ledger, null, 2)}\n`);
   renameSync(tmp, path);
   return path;
+}
+
+// Load, change and save one ledger under its lock. Agents write to the same
+// ledger in parallel; without the lock, the last writer silently drops the
+// others' changes. Each writer either commits or fails with "ledger busy"
+// and writes nothing. If fn throws, nothing is saved.
+//
+// The lock is a file created with O_EXCL next to the ledger. A lock whose
+// process is gone, or that is older than STALE_LOCK_MS, was left by a crash
+// and is removed. This covers writers on one machine, not a shared network
+// state directory.
+export function update(repo, key, fn) {
+  const path = ledgerPath(repo, key);
+  mkdirSync(dirname(path), { recursive: true });
+  const lock = `${path}.lock`;
+  const token = acquire(lock);
+  try {
+    const l = load(repo, key);
+    const result = fn(l);
+    save(l);
+    return result;
+  } finally {
+    release(lock, token);
+  }
+}
+
+const STALE_LOCK_MS = 30_000;
+const lockTimeoutMs = () => Number(process.env.AGENT_REVIEWS_LOCK_TIMEOUT_MS) || 10_000;
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+function alive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
+}
+
+function readLock(lock) {
+  try {
+    return { text: readFileSync(lock, "utf8"), mtimeMs: statSync(lock).mtimeMs };
+  } catch {
+    return null;
+  }
+}
+
+// A lock is stale when its writer is gone, or when it is too old to belong to
+// a running command (this also covers a reused PID). A lock with no content
+// yet is being created right now and is stale only by age.
+function isStale({ text, mtimeMs }) {
+  if (Date.now() - mtimeMs > STALE_LOCK_MS) return true;
+  try {
+    return !alive(JSON.parse(text).pid);
+  } catch {
+    return false;
+  }
+}
+
+function acquire(lock) {
+  const token = JSON.stringify({ pid: process.pid, id: randomBytes(6).toString("hex"), at: new Date().toISOString() });
+  const deadline = Date.now() + lockTimeoutMs();
+  for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
+    try {
+      const fd = openSync(lock, "wx");
+      writeSync(fd, token);
+      closeSync(fd);
+      return token;
+    } catch (e) {
+      if (e.code !== "EEXIST") throw e;
+    }
+    const held = readLock(lock);
+    if (held && isStale(held)) {
+      // Remove it only if it is still the same stale lock.
+      const again = readLock(lock);
+      if (again && again.text === held.text && again.mtimeMs === held.mtimeMs) {
+        try {
+          unlinkSync(lock);
+        } catch {}
+      }
+      continue;
+    }
+    if (Date.now() > deadline) {
+      throw new LedgerError(`ledger busy: another writer holds ${lock}, so nothing was written. Retry; if no review is running, remove the lock file.`);
+    }
+    sleep(wait + Math.floor(Math.random() * wait));
+  }
+}
+
+function release(lock, token) {
+  if (readLock(lock)?.text !== token) return;
+  try {
+    unlinkSync(lock);
+  } catch {}
 }
 
 export function startRound(ledger, { base, head, lenses = [], models = [], pastCap = false, depth = null }) {
