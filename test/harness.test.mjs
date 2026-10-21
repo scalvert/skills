@@ -255,6 +255,7 @@ test("a review from before the harness: its open findings and last head carry ov
   assert.equal(report.round, 2, "harness rounds come after the v1 rounds");
   assert.equal(report.earlierOpen.blockers, 1, "the open v1 blocker still holds the change");
   assert.equal(report.verdict, "needs-changes");
+  assert.deepEqual(report.dropped, [1], "a refuted candidate is dropped, by candidate number");
   ok(["ledger", "dispose", ...K, "--id", "F1", "--as", "fixed"]);
   assert.equal(ok(["findings", "report", ...K]).json.verdict, "ready");
 
@@ -284,7 +285,10 @@ test("duplicates merged in a chain all count toward their top finding", () => {
     ok(["review", "decide", ...K, "--candidate", "1", "--kind", kind, "--label", label, "--probability", "0.9", "--rationale", "r", "--verifier-model", SOL, "--head", "fix"]);
   }
   ok(["review", "report", ...K]);
-  const [f] = ok(["findings", "report", ...K]).json.findings;
+  const merged = ok(["findings", "report", ...K]);
+  assert.deepEqual(merged.json.merged, [2, 3], "merged candidates, by candidate number");
+  assert.doesNotMatch(merged.stdout, /\bF[0-9]+\b/);
+  const [f] = merged.json.findings;
   assert.deepEqual(f.instances, [{ file: "b.js", line: 20 }, { file: "c.js", line: 30 }]);
   assert.deepEqual(f.foundBy, { reviewers: 3, lenses: ["correctness", "security"], families: ["anthropic", "openai"] });
 });
