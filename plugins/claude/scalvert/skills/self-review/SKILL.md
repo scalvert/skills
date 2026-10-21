@@ -34,7 +34,7 @@ node <skill>/scripts/agent-review.mjs review next --repo <repo> --key <key>
 
 It prints the next step in `action`, and whether it waits on an agent or a person in `waitingOn`. Do what it names. When it waits on a person, stop and tell the user what it needs, from `human`. A person and an agent can hand the review back and forth at any step, and a new session picks up where the last one stopped.
 
-Every command that changes the review takes `--actor agent:<runtime>`, such as `agent:claude-code`, `agent:codex` or `agent:tau`. A person runs the same commands with `--actor human:<name>`. Some steps are a person's call, and the harness refuses them from an agent: accepting a missing reviewer, settling a dispute, going past the round cap, and clearing a blocker or should-fix as `wrong`, `intended` or `not-worth-it`. For these, show the user what to decide and the command. Pass `--actor human:<their name>` only to record a decision the user made in this conversation, and only that decision. Never decide one yourself and record it as theirs.
+Every command that changes the review takes `--actor agent:<runtime>`, such as `agent:claude-code`, `agent:codex` or `agent:tau`. A person runs the same commands with `--actor human:<name>`. Some steps are a person's call, and the harness refuses them from an `agent:` actor: accepting a missing reviewer, settling a dispute, going past the round cap, and clearing a blocker or should-fix as `wrong`, `intended` or `not-worth-it`. The harness cannot check who passes `human:`, so this rule holds only as long as you keep it. For these, show the user what to decide and the command. Pass `--actor human:<their name>` only to record a decision the user made in this conversation, and only that decision. Never decide one yourself and record it as theirs.
 
 Output is JSON. A refused step exits 1 and prints `{"error": {"code", "message", "reasons"}}` on stderr.
 
@@ -119,9 +119,9 @@ Use `--rationale-file` for anything longer than a few words, or for text copied 
 
 The report keeps a confirmed finding only when every verifier's probability is at or above the policy's threshold (0.7 by default). Record what each verifier says, even when it is unsure. Do not look for a second verifier to raise a low number.
 
-When two verifiers disagree, the harness sends the finding to a person. It does not pick a side, and neither should you. When `plan.secondVerifierOnBlockers` is true (a deep review), or the policy asks for it, verify every finding rated blocker a second time, with another verifier from `plan verifier`.
+When two verifiers disagree, the harness sends the finding to a person. It does not pick a side, and neither should you. When `plan.secondVerifierOnBlockers` is true (a deep review), or the policy asks for it, verify every finding rated blocker a second time, with another verifier from `plan verifier --context <dir> --author <model of the finding> --exclude <model of the first verifier>`. Without `--exclude`, it picks the first verifier again, and the harness refuses a second decision from the same model.
 
-The verifier also checks each place in `instances`. Name any that do not hold in its rationale. The report leaves them out.
+The verifier also checks each place in `instances`. Name any that do not hold in its rationale. The harness does not read the rationale: `findings report` still lists every instance. Leave the rejected places out yourself when you write the report and the comments.
 
 For every confirmed finding, and every disputed one, also record `finding-severity` (blocker, should-fix or nit), `finding-triage` (agent-fixable or needs-judgment) and `finding-origin` (introduced, missed or pre-existing), using each kind's rubric from `node <skill>/scripts/agent-review.mjs rubric show <kind>`. Each comes from a model independent of the finding's author, as verification does. Only an introduced finding can be a blocker: the report moves a missed or pre-existing blocker to should-fix.
 
@@ -203,7 +203,7 @@ Rules for the prose:
 - A finding with a `repeatOf` may not be new. End its entry with one line: `This may repeat finding <n>, <its title>, which was <closed as intended | still open>.` An earlier finding from before the harness has no number: give its title only. A person decides whether it is the same problem. A finding with `recurs` ends with: `This came back after an earlier fix.`
 - Start each finding with its number `n` from the report output, in bold, as its own paragraph: `**2.**`. Do not use a Markdown numbered list. It renumbers from its first item, and the numbers shown must be the review's. The harness gives the numbers in report order, and they continue across rounds, so a follow-up's first new finding may be 4. Leave any gap as it is.
 - The user names a finding by its number ("fix 2"), and commands take the same number (`--finding 2`). No other ID exists for you to show.
-- One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item. Leave out praise and summaries of the diff.
+- One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item, except any its verifier rejected. Leave out praise and summaries of the diff.
 - Mark a finding whose origin is `missed` with "missed in an earlier round". Mark a finding with a non-empty `recurs` with "came back after an earlier fix".
 - Put code in backticks: identifiers, calls, paths, `file:line`, commands, flags and values.
 - Plain words, short sentences, active voice. No em dashes, no emoji, no "it's worth noting".
