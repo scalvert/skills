@@ -5,7 +5,7 @@ description: Review your own branch before you open or merge a pull request. Run
 
 # Self-review
 
-Input: the current branch in a worktree. Output: a report, one commit with the agent-fixable fixes, a list of findings that need judgment, and a ledger entry. It merges only when the repo's rules allow it.
+Input: the current branch in a worktree. Output: a report, one commit with the agent-fixable fixes, a list of findings that need judgment, and the review's history in the review harness. It merges only when the repo's rules allow it.
 
 For someone else's PR, use `code-review`.
 
@@ -32,12 +32,12 @@ For each reported finding that triage marked `agent-fixable`:
 2. Add or update a test when the finding is about behavior.
 3. Run the repo's checks from `AGENTS.md` (build, tests, lint).
 
-Put all of these fixes in one commit, separate from the work it reviews, titled `fix: address self-review findings`. List the findings by title in the body, not by ledger ID. If the checks fail and the fix is not clear, revert that fix and move the finding to the needs-judgment list.
+Put all of these fixes in one commit, separate from the work it reviews, titled `fix: address self-review findings`. List the findings by title in the body, not by finding ID. If the checks fail and the fix is not clear, revert that fix and move the finding to the needs-judgment list.
 
 Then record each fixed finding:
 
 ```sh
-node <skill>/scripts/agent-review.mjs ledger dispose --repo <repo> --key <key> --id F3 --as fixed
+node <skill>/scripts/agent-review.mjs review dispose --repo <repo> --key <key> --finding F3 --as fixed --actor <actor>
 ```
 
 {{> review-report}}
@@ -71,5 +71,5 @@ Otherwise stop after the report and say what is left.
 ## Done when
 
 - The fix commit exists (or the report says no finding was agent-fixable).
-- The needs-judgment list matches the ledger.
+- The needs-judgment list matches the findings triaged `needs-judgment` in `findings report`.
 - Nothing merged without an `allow` rule or the user's approval.

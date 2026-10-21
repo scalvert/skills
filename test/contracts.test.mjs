@@ -51,6 +51,15 @@ test("the command surface: every command, argument and flag", () => {
     "ledger open --key --repo",
     "ledger last-head --key --repo",
     "ledger summary --key --repo",
+    // Added with the review harness: a read-only view of harness reviews, and
+    // the harness's own commands, which take their arguments unparsed.
+    "findings report --key --repo",
+    "findings open --key --repo",
+    "findings last-head --key --repo",
+    "review",
+    "eligibility",
+    "merge",
+    "inbox",
     "rubric list",
     "rubric show <kind>",
     "rubric check <kind> <json>",

@@ -221,4 +221,23 @@ test("pin: repo depth and deep paths come from the merge base, and a follow-up k
   const r = spawnSync("node", [CLI, "pin", "--base", "unicode", "--host", "tau"], { cwd: repo, env, encoding: "utf8" });
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /agent-review\.json at [0-9a-f]{7}: /);
+
+  // A version 1 policy, as the review harness reads it: minDepth is a floor.
+  const v1 = (policy, name) => {
+    git("checkout", "-q", "main");
+    git("checkout", "-q", "-b", `${name}-base`);
+    writeFileSync(join(repo, "agent-review.json"), JSON.stringify(policy));
+    git("commit", "-qam", `policy ${name}`);
+    git("checkout", "-q", "-b", name);
+    writeFileSync(join(repo, "README.md"), `${name}\n`);
+    git("add", "-A");
+    git("commit", "-qm", "docs only");
+    return spawnSync("node", [CLI, "pin", "--base", `${name}-base`, "--host", "tau"], { cwd: repo, env, encoding: "utf8" });
+  };
+  const floored = v1({ version: 1, review: { minDepth: "standard" } }, "floor");
+  assert.equal(floored.status, 0, floored.stderr);
+  assert.deepEqual([JSON.parse(floored.stdout).depth, JSON.parse(floored.stdout).depthSource], ["standard", "agent-review.json minDepth (raised from quick)"]);
+  const unknown = v1({ version: 1, review: { minDepht: "deep" } }, "typo");
+  assert.notEqual(unknown.status, 0, "a setting the harness does not know is an error, not ignored");
+  assert.match(unknown.stderr, /review\.minDepht/);
 });
