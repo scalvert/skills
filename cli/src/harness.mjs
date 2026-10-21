@@ -9,6 +9,12 @@
 //   - harnessLedger() presents a harness review in the shape of a v1 ledger,
 //     so the report sections, repeats and summary code works on both. It is
 //     a read-only view; every change goes through the harness.
+//
+// The view keeps the harness's internal keys (id, duplicateOf), because the
+// repeat and summary code joins on them. What this module prints never has
+// one: a finding is named by the number the harness's report gave it, and a
+// candidate by its candidate number. Only a v1 finding, from before the
+// harness, has no number, and is named by its v1 ID.
 
 import { listReviews, openReview } from "agent-review";
 import { cliStateRoot, main as harnessMain } from "agent-review/cli";
@@ -126,8 +132,14 @@ export function harnessLedger(state, ref) {
     }
     return id;
   };
+  // The section each finding's report put it in. The harness numbered the
+  // report in this order, so numbers and sections always agree.
+  const sectionOf = new Map(Object.values(state.rounds).flatMap((r) => (r.report?.numbers ?? []).map((x) => [x.finding, x.section])));
   const findings = state.findings.map((f) => ({
     id: f.id,
+    number: f.number ?? null,
+    candidate: f.candidate ?? null,
+    reportSection: sectionOf.get(f.id) ?? null,
     round: f.round,
     lens: f.lens,
     model: f.author.model,
@@ -221,23 +233,20 @@ export function presentReport(state, view) {
   }
   const round = current.round;
   const shown = view.findings.filter((f) => f.round === round && f.reported && !f.duplicateOf);
-  const earlierOf = (f) => possibleRepeats(view, f).map((e) => ({ id: e.id, round: e.round, disposition: e.disposition?.as ?? "open" }));
-  const placed = new Map(shown.map((f) => [f, placement(f)]));
-  shown.sort(
-    (a, b) =>
-      SECTION_ORDER[placed.get(a).section] - SECTION_ORDER[placed.get(b).section] ||
-      String(a.file).localeCompare(String(b.file)) ||
-      (a.line ?? 0) - (b.line ?? 0),
-  );
-  const findings = shown.map((f, i) => ({
-    ...f,
-    // n is the number a person sees (1, 2, 3). The id is the harness's key
-    // for later commands; it is never shown.
-    n: i + 1,
-    ...placed.get(f),
+  const earlierOf = (f) => possibleRepeats(view, f).map((e) => ({ ...named(e), disposition: e.disposition?.as ?? "open" }));
+  // The harness numbered the report in section order, so its numbers are the
+  // report order.
+  shown.sort((a, b) => a.number - b.number);
+  const findings = shown.map((f) => ({
+    ...publicFinding(f),
+    // n is the number the harness gave this finding. It names the finding in
+    // this conversation and in commands, for the whole review.
+    n: f.number,
+    ...placement(f),
+    section: f.reportSection ?? placement(f).section,
     instances: allInstances(view, f),
     repeatOf: earlierOf(f),
-    recurs: recurrences(view, f).map((e) => ({ id: e.id, round: e.round, file: e.file, line: e.line ?? null })),
+    recurs: recurrences(view, f).map(named),
     foundBy: foundBy(view, f),
   }));
   const tally = (list) => {
@@ -251,13 +260,14 @@ export function presentReport(state, view) {
   // What waits on a person, as the harness's next step sees it: open
   // escalations (disputed findings, policy changes, escalation paths), and
   // reported findings triaged needs-judgment that nobody has closed.
+  const numberOf = (id) => view.findings.find((f) => f.source === "harness" && f.id === id)?.number ?? null;
   const waiting = [
     ...view.escalations
       .filter((x) => x.round === round && x.status === "open")
-      .map((x) => ({ escalation: x.id, code: x.code, finding: x.finding, path: x.path, message: x.message })),
+      .map((x) => ({ escalation: x.id, code: x.code, finding: x.finding ? numberOf(x.finding) : null, path: x.path, message: x.message })),
     ...openFindings(view)
       .filter((f) => f.source === "harness" && !f.disposition && f.decisions["finding-triage"]?.label === "needs-judgment")
-      .map((f) => ({ escalation: null, code: "needs-judgment", finding: f.id, path: null, message: `${f.title}: a person decides what to do about it` })),
+      .map((f) => ({ escalation: null, code: "needs-judgment", finding: f.number, path: null, message: `${f.title}: a person decides what to do about it` })),
   ];
   // A person rejected a policy change or a change to an escalation path. It
   // blocks, as it does in the harness's eligibility. A rejected dispute about
@@ -266,7 +276,10 @@ export function presentReport(state, view) {
     .filter((x) => x.round === round && x.status === "rejected" && !x.finding)
     .map((x) => ({ escalation: x.id, code: x.code, path: x.path, message: x.message, reason: x.resolution?.reason ?? null, by: x.resolution?.actor ?? null }));
   const escalated = new Set(view.escalations.filter((x) => x.round === round && x.finding).map((x) => x.finding));
-  const dropped = view.findings.filter((f) => f.round === round && !f.duplicateOf && !f.reported && !escalated.has(f.id)).map((f) => f.id);
+  // Dropped and merged candidates, by candidate number. They have no finding
+  // number, and the report leaves them out.
+  const thisRound = view.findings.filter((f) => f.round === round && f.source === "harness");
+  const dropped = thisRound.filter((f) => !f.duplicateOf && !f.reported && !escalated.has(f.id)).map((f) => f.candidate);
   return {
     round,
     head: current.head,
@@ -280,17 +293,30 @@ export function presentReport(state, view) {
     findings,
     waiting,
     rejected,
-    repeats: findings.filter((f) => f.repeatOf.length).map((f) => ({ id: f.id, n: f.n, earlier: f.repeatOf })),
+    repeats: findings.filter((f) => f.repeatOf.length).map((f) => ({ n: f.n, earlier: f.repeatOf })),
     dropped,
-    merged: view.findings.filter((f) => f.round === round && f.duplicateOf).map((f) => f.id),
+    merged: thisRound.filter((f) => f.duplicateOf).map((f) => f.candidate),
     lenses: current.lenses,
     families: roundFamilies(view, round),
   };
 }
 
-// Reported findings from any round that nobody has closed yet.
-// source is v1 for a finding from before the harness: close it with ledger
-// dispose and its ID without the v1: prefix.
+// An earlier finding, as a report or command needs it: its number, or for a
+// v1 finding its v1 ID, and what and where it is.
+function named(f) {
+  const name = f.source === "v1" ? { n: null, v1Id: f.id.replace(/^v1:/, "") } : { n: f.number };
+  return { ...name, round: f.round, title: f.title, file: f.file, line: f.line ?? null };
+}
+
+// A finding without the harness's internal keys.
+function publicFinding(f) {
+  const { id, duplicateOf, number, candidate, reportSection, ...rest } = f;
+  return rest;
+}
+
+// Reported findings from any round that nobody has closed yet, by number.
+// A v1 finding, from before the harness, has no number: close it with
+// ledger dispose --id <v1Id>.
 export function presentOpen(view) {
-  return openFindings(view).map((f) => ({ id: f.id, source: f.source, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario, thread: f.thread?.id ?? null }));
+  return openFindings(view).map((f) => ({ ...named(f), source: f.source, scenario: f.scenario, thread: f.thread?.id ?? null }));
 }

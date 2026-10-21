@@ -71,22 +71,24 @@ node <skill>/scripts/agent-review.mjs review advance --repo <repo> --key <key> -
 
 ### Merge duplicates
 
-Reviewers often find the same problem. Group findings that share a root cause: same file, nearby lines, and the same failing scenario. Keep the clearest one as the primary, and merge the rest into it, before anyone verifies them:
+Until the report, each reviewer's finding is a **candidate**: a claim, not yet verified. `review next` lists this round's candidates by number (1, 2, 3, in the order they were recorded), with each one's title, file and line. Commands name a candidate by that number.
+
+Reviewers often find the same problem. Group candidates that share a root cause: same file, nearby lines, and the same failing scenario. Keep the clearest one as the primary, and merge the rest into it, before anyone verifies them:
 
 ```sh
-node <skill>/scripts/agent-review.mjs review merge --repo <repo> --key <key> --into F1 --ids F4,F7 --actor <actor>
+node <skill>/scripts/agent-review.mjs review merge --repo <repo> --key <key> --into 1 --duplicates 4,7 --actor <actor>
 ```
 
-`review status` lists the findings and their IDs. The duplicates stay in the history, and the report shows how many reviewers and model families found the problem. Merge only true duplicates. Two different bugs on the same line stay separate.
+The duplicates stay in the history, and the report shows how many reviewers and model families found the problem. Merge only true duplicates. Two different bugs on the same line stay separate.
 
-Do not merge a new finding into one from an earlier round, and do not drop it. The report marks a new finding that may repeat an earlier one, by location and bug class, and leaves the call to a person.
+Do not merge a new candidate into a finding from an earlier round, and do not drop it. The report marks a new finding that may repeat an earlier one, by location and bug class, and leaves the call to a person.
 
 ### Verify every finding
 
-A reviewer's finding is a claim, not a fact. For each primary finding, start a fresh verifier: a subagent that did not write the finding, on a model from another family than its author. The harness refuses a decision from the author's own model or family. Get the model and its thinking level from `node <skill>/scripts/agent-review.mjs plan verifier --context <dir> --author <model of the finding>`. Give it the finding, the pinned directory, and the rubric from `node <skill>/scripts/agent-review.mjs rubric show finding-verification`. The verifier reads the code itself. It must show that the precondition can occur, and give the call path or a repro, before it answers `confirmed`. Record its answer:
+A candidate is a claim, not a fact. For each primary candidate, start a fresh verifier: a subagent that did not write the finding, on a model from another family than its author. The harness refuses a decision from the author's own model or family. Get the model and its thinking level from `node <skill>/scripts/agent-review.mjs plan verifier --context <dir> --author <model of the finding>`. Give it the finding, the pinned directory, and the rubric from `node <skill>/scripts/agent-review.mjs rubric show finding-verification`. The verifier reads the code itself. It must show that the precondition can occur, and give the call path or a repro, before it answers `confirmed`. Record its answer:
 
 ```sh
-node <skill>/scripts/agent-review.mjs review decide --repo <repo> --key <key> --finding F1 --kind finding-verification --label confirmed --probability 0.85 --rationale-file <file> --verifier-model <provider/model> --head <head> --actor <actor>
+node <skill>/scripts/agent-review.mjs review decide --repo <repo> --key <key> --candidate 1 --kind finding-verification --label confirmed --probability 0.85 --rationale-file <file> --verifier-model <provider/model> --head <head> --actor <actor>
 ```
 
 Use `--rationale-file` for anything longer than a few words, or for text copied from code or GitHub.
@@ -111,13 +113,13 @@ The harness refuses while a finding has no verification, or a reported or disput
 node <skill>/scripts/agent-review.mjs findings report --repo <repo> --key <key>
 ```
 
-It gives each reported finding a `section` (blockers, should-fix, pre-existing, smaller) and a number `n` in report order. Each finding's `instances` include the places its duplicates found. `repeatOf` lists earlier findings it may repeat that are still open or that a person waved off, and `recurs` lists earlier findings marked fixed that it matches. The output also gives:
+It gives each reported finding a `section` (blockers, should-fix, pre-existing, smaller) and its number `n`. The harness numbers a round's findings when the round reports, in report order, after the numbers earlier rounds used. So a finding keeps its number for the whole review, and a follow-up's new findings start after the last round's. Each finding's `instances` include the places its duplicates found. `repeatOf` lists earlier findings it may repeat that are still open or that a person waved off, and `recurs` lists earlier findings marked fixed that it matches, each with its number, title and place. The output also gives:
 
 - `counts` per section, and `earlierOpen`: findings from earlier rounds that are still open, per section.
 - A `verdict`: `ready`, `needs-changes`, or `needs-a-person` when something waits on a person.
 - `waiting`: what a person must settle, such as a disputed finding, a change to the review policy, or a finding triaged `needs-judgment`.
 - `rejected`: changes a person rejected, such as an edit to the review policy. Each one holds the change.
 - `repeats`: the numbers of the findings that have a `repeatOf`.
-- `dropped`, `merged`, and the model `families` that took part.
+- `dropped` and `merged`, by candidate number, and the model `families` that took part.
 
 Report only what it returns.

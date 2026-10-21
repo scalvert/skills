@@ -27,7 +27,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 /*
- * This file includes agent-review 0.2.0 (https://github.com/scalvert/agent-review), under this license:
+ * This file includes agent-review 0.3.0 (https://github.com/scalvert/agent-review), under this license:
  *
  * MIT License
  *
@@ -1152,28 +1152,28 @@ function suggestSimilar(word, candidates) {
   const searchingOptions = word.startsWith("--");
   if (searchingOptions) {
     word = word.slice(2);
-    candidates = candidates.map((candidate) => candidate.slice(2));
+    candidates = candidates.map((candidate2) => candidate2.slice(2));
   }
   let similar = [];
   let bestDistance = maxDistance;
   const minSimilarity = 0.4;
-  candidates.forEach((candidate) => {
-    if (candidate.length <= 1) return;
-    const distance = editDistance(word, candidate);
-    const length = Math.max(word.length, candidate.length);
+  candidates.forEach((candidate2) => {
+    if (candidate2.length <= 1) return;
+    const distance = editDistance(word, candidate2);
+    const length = Math.max(word.length, candidate2.length);
     const similarity = (length - distance) / length;
     if (similarity > minSimilarity) {
       if (distance < bestDistance) {
         bestDistance = distance;
-        similar = [candidate];
+        similar = [candidate2];
       } else if (distance === bestDistance) {
-        similar.push(candidate);
+        similar.push(candidate2);
       }
     }
   });
   similar.sort((a, b) => a.localeCompare(b));
   if (searchingOptions) {
-    similar = similar.map((candidate) => `--${candidate}`);
+    similar = similar.map((candidate2) => `--${candidate2}`);
   }
   if (similar.length > 1) {
     return `
@@ -3666,6 +3666,7 @@ function checkGithub(text) {
   maskExempt(text, { links: true }).map(html).forEach((line, i) => {
     const n = i + 1;
     for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
+    for (const m of line.matchAll(/\b(?:finding|candidate)s?\s+#?\d+\b/gi)) add(n, "finding number", m[0]);
     const covered = [];
     for (const { kind, re } of CODE_PATTERNS) {
       for (const m of line.matchAll(re)) {
@@ -4210,11 +4211,11 @@ var SNAPSHOT_SCHEMA = "agent-review.snapshot/v1";
 var TYPE = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/;
 var ACTOR = /^(human|agent|system):[^\s].*$/;
 function checkEvent(e, i) {
-  const where = `event ${i + 1}`;
-  if (!e || typeof e !== "object") throw new StoreError(INVALID, `${where}: must be an object`);
-  if (typeof e.type !== "string" || !TYPE.test(e.type)) throw new StoreError(INVALID, `${where}: type must look like "review.started", got ${JSON.stringify(e.type)}`);
-  if (typeof e.actor !== "string" || !ACTOR.test(e.actor)) throw new StoreError(INVALID, `${where}: actor must be human:<name>, agent:<runtime> or system:<name>, got ${JSON.stringify(e.actor)}`);
-  if (e.data !== void 0 && (e.data === null || typeof e.data !== "object" || Array.isArray(e.data))) throw new StoreError(INVALID, `${where}: data must be an object`);
+  const where2 = `event ${i + 1}`;
+  if (!e || typeof e !== "object") throw new StoreError(INVALID, `${where2}: must be an object`);
+  if (typeof e.type !== "string" || !TYPE.test(e.type)) throw new StoreError(INVALID, `${where2}: type must look like "review.started", got ${JSON.stringify(e.type)}`);
+  if (typeof e.actor !== "string" || !ACTOR.test(e.actor)) throw new StoreError(INVALID, `${where2}: actor must be human:<name>, agent:<runtime> or system:<name>, got ${JSON.stringify(e.actor)}`);
+  if (e.data !== void 0 && (e.data === null || typeof e.data !== "object" || Array.isArray(e.data))) throw new StoreError(INVALID, `${where2}: data must be an object`);
   return { type: e.type, actor: e.actor, data: e.data ?? {} };
 }
 function parseLog(path2) {
@@ -4664,27 +4665,27 @@ function defaultPolicy() {
 }
 function parsePolicy(bytes, source = { kind: "file", path: POLICY_FILE }) {
   const text = Buffer.isBuffer(bytes) ? bytes.toString("utf8") : String(bytes);
-  const where = [source.path ?? POLICY_FILE, source.commit ? `at ${source.commit.slice(0, 12)}` : null].filter(Boolean).join(" ");
+  const where2 = [source.path ?? POLICY_FILE, source.commit ? `at ${source.commit.slice(0, 12)}` : null].filter(Boolean).join(" ");
   let raw;
   try {
     raw = JSON.parse(text);
   } catch (e) {
-    throw new PolicyError(NOT_JSON, `${where}: not valid JSON (${e.message})`);
+    throw new PolicyError(NOT_JSON, `${where2}: not valid JSON (${e.message})`);
   }
   const warnings = [];
   let declared = raw;
   if (!isObject(raw) || !("version" in raw)) {
     declared = versionZero(raw);
-    if (!declared) throw new PolicyError(NO_VERSION, `${where}: "version" is required; this harness supports version ${SUPPORTED_VERSIONS.join(", ")}`);
+    if (!declared) throw new PolicyError(NO_VERSION, `${where2}: "version" is required; this harness supports version ${SUPPORTED_VERSIONS.join(", ")}`);
     warnings.push({
       code: "policy/version-0",
-      message: `${where} has no "version". It was read as version 1: add "version": 1, and rename review.depth to review.defaultDepth.`
+      message: `${where2} has no "version". It was read as version 1: add "version": 1, and rename review.depth to review.defaultDepth.`
     });
   } else if (!SUPPORTED_VERSIONS.includes(raw.version)) {
-    throw new PolicyError(UNSUPPORTED_VERSION, `${where}: version ${JSON.stringify(raw.version)} is not supported; this harness supports version ${SUPPORTED_VERSIONS.join(", ")}`);
+    throw new PolicyError(UNSUPPORTED_VERSION, `${where2}: version ${JSON.stringify(raw.version)} is not supported; this harness supports version ${SUPPORTED_VERSIONS.join(", ")}`);
   }
   const errors = validateV1(declared);
-  if (errors.length) throw new PolicyError(INVALID2, `${where}: invalid policy`, errors);
+  if (errors.length) throw new PolicyError(INVALID2, `${where2}: invalid policy`, errors);
   const { $schema: _schema, ...settings } = declared;
   const policy = merge(DEFAULT_POLICY, settings);
   return {
@@ -4849,8 +4850,47 @@ var INVALID3 = "workflow/invalid";
 var FORBIDDEN = "workflow/forbidden";
 var UNKNOWN_EVENT = "workflow/unknown-event";
 
+// node_modules/agent-review/src/core/workflow/numbers.mjs
+var SECTIONS = ["blockers", "should-fix", "pre-existing", "smaller", "unrated"];
+function placement(f) {
+  const severity = f.decisions["finding-severity"]?.at(-1)?.label ?? null;
+  const origin = f.decisions["finding-origin"]?.at(-1)?.label ?? "introduced";
+  const capped = severity === "blocker" && origin !== "introduced";
+  const effective = capped ? "should-fix" : severity;
+  let section = "smaller";
+  if (effective === "blocker") section = "blockers";
+  else if (effective === "should-fix") section = origin === "pre-existing" ? "pre-existing" : "should-fix";
+  else if (effective === null) section = "unrated";
+  return { severity: effective, origin, cappedFrom: capped ? "blocker" : null, section };
+}
+var cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+function numberReport(state, ids) {
+  let n = Math.max(0, ...state.findings.map((f) => f.number ?? 0));
+  const order = (f) => SECTIONS.indexOf(placement(f).section);
+  return ids.map((id) => state.findings.find((f) => f.id === id)).sort((a, b) => order(a) - order(b) || cmp(String(a.file ?? ""), String(b.file ?? "")) || (a.line ?? 0) - (b.line ?? 0) || a.candidate - b.candidate).map((f) => ({ n: ++n, finding: f.id, section: placement(f).section }));
+}
+function publicReport(state, report2) {
+  if (!report2) return null;
+  const by = new Map(state.findings.map((f) => [f.id, f]));
+  return {
+    findings: report2.numbers.filter((x) => report2.reported.includes(x.finding)).map((x) => ({ n: x.n, section: x.section })),
+    disputed: report2.numbers.filter((x) => report2.escalated.includes(x.finding)).map((x) => x.n),
+    dropped: report2.dropped.map((id) => by.get(id).candidate),
+    coverage: report2.coverage,
+    at: report2.at
+  };
+}
+function publicState(state) {
+  const s = structuredClone(state);
+  const by = new Map(state.findings.map((f) => [f.id, f]));
+  for (const r of Object.values(s.rounds)) r.report = publicReport(state, state.rounds[r.round].report);
+  s.findings = s.findings.map(({ id, duplicateOf, ...f }) => ({ ...f, duplicateOf: duplicateOf ? by.get(duplicateOf).candidate : null }));
+  s.escalations = s.escalations.map((x) => ({ ...x, finding: x.finding ? by.get(x.finding).number : null }));
+  return s;
+}
+
 // node_modules/agent-review/src/core/workflow/reducer.mjs
-var REDUCER_VERSION = "review/4";
+var REDUCER_VERSION = "review/5";
 var initialState = () => ({
   legacy: [],
   round: 0,
@@ -4901,7 +4941,21 @@ function reduce(state, e) {
       current(s, d.round).gaps[d.slot] = { reason: d.reason, actor: e.actor, at: e.at };
       break;
     case "finding.added":
-      s.findings.push({ class: null, instances: [], axiom: null, ...d.finding, id: d.id, round: d.round, author: d.author, duplicateOf: null, decisions: {}, disposition: null, thread: null });
+      s.findings.push({
+        class: null,
+        instances: [],
+        axiom: null,
+        ...d.finding,
+        id: d.id,
+        round: d.round,
+        candidate: d.candidate ?? s.findings.filter((f) => f.round === d.round).length + 1,
+        number: null,
+        author: d.author,
+        duplicateOf: null,
+        decisions: {},
+        disposition: null,
+        thread: null
+      });
       break;
     case "finding.linked":
       s.findings.find((x) => x.id === d.finding).thread = { id: d.thread, url: d.url, actor: e.actor, at: e.at };
@@ -4922,12 +4976,17 @@ function reduce(state, e) {
     case "review.advanced":
       current(s, d.round).status = d.to;
       break;
-    case "review.reported":
+    case "review.reported": {
+      const numbers2 = d.report.numbers ?? numberReport(s, [...d.report.reported, ...d.report.escalated]);
+      for (const x of numbers2) s.findings.find((f) => f.id === x.finding).number = x.n;
+      for (const x of s.escalations) nameByNumber(s, x);
       current(s, d.round).status = "reported";
-      current(s, d.round).report = { ...d.report, at: e.at };
+      current(s, d.round).report = { ...d.report, numbers: numbers2, at: e.at };
       break;
+    }
     case "escalation.raised":
       s.escalations.push({ id: d.id, round: d.round, code: d.code, message: d.message, path: d.path ?? null, finding: d.finding ?? null, status: "open", raisedAt: e.at, resolution: null });
+      nameByNumber(s, s.escalations.at(-1));
       break;
     case "escalation.resolved": {
       const x = s.escalations.find((y) => y.id === d.id);
@@ -4939,6 +4998,12 @@ function reduce(state, e) {
       throw new WorkflowError(UNKNOWN_EVENT, `event ${e.seq} has type ${JSON.stringify(e.type)}, which this version of the harness does not know; upgrade the harness to read this review`);
   }
   return s;
+}
+function nameByNumber(s, x) {
+  if (!x.finding) return;
+  const n = s.findings.find((f) => f.id === x.finding)?.number;
+  if (n == null) return;
+  x.message = x.message.replace(new RegExp(`\\b${x.finding}\\b`, "g"), `finding ${n}`);
 }
 
 // node_modules/agent-review/src/core/workflow/review.mjs
@@ -4958,6 +5023,22 @@ function checkActor(actor, { human = false } = {}) {
 }
 function checkModel(model, what) {
   if (typeof model !== "string" || !MODEL.test(model)) invalid(`${what} must be provider/model, such as anthropic/opus, got ${JSON.stringify(model)}`);
+}
+function checkNumber(n, what) {
+  if (!Number.isInteger(n) || n < 1) invalid(`${what} must be a number from 1, as the harness shows it, got ${JSON.stringify(n)}`);
+}
+var candidatesIn = (state, r) => state.findings.filter((f) => f.round === r.round);
+var numbered = (state) => state.findings.filter((f) => f.number !== null).map((f) => f.number);
+var listOf = (ns) => ns.length ? ns.join(", ") : "none";
+function candidateOf(state, r, n) {
+  const f = candidatesIn(state, r).find((x) => x.candidate === n);
+  if (!f) refuse(`no candidate ${n} in round ${r.round}`, [reason("unknown-candidate", `candidates in round ${r.round}: ${listOf(candidatesIn(state, r).map((x) => x.candidate))}`, { candidate: n })]);
+  return f;
+}
+function findingOf(state, n) {
+  const f = state.findings.find((x) => x.number === n);
+  if (!f) refuse(`no finding ${n}`, [reason("unknown-finding", `findings in this review: ${listOf(numbered(state))}`, { finding: n })]);
+  return f;
 }
 var activeRound = (state) => state.round ? state.rounds[state.round] : null;
 function isHttpsUrl(url) {
@@ -5106,6 +5187,7 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
       if (problems.length) refuse("findings are missing required evidence", problems);
       const events = [{ type: "run.recorded", actor, data: record }];
       let n = state.findings.length;
+      let candidate2 = candidatesIn(state, r).length;
       for (const f of findings) {
         const finding = {
           title: f.title,
@@ -5119,7 +5201,7 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
           axiom: f.axiom ?? null,
           lens: planned.lens
         };
-        events.push({ type: "finding.added", actor, data: { round: r.round, id: `F${++n}`, author: { slot, model, family: fam }, finding } });
+        events.push({ type: "finding.added", actor, data: { round: r.round, id: `F${++n}`, candidate: ++candidate2, author: { slot, model, family: fam }, finding } });
       }
       return events;
     }, { opId });
@@ -5161,8 +5243,9 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
       return [{ type: "review.advanced", actor, data: { round: r.round, to: "verifying" } }];
     }, { opId });
   }
-  function decide2({ finding, kind, label, probability, rationale = null, verifier, head, actor, opId }) {
+  function decide2({ candidate: candidate2, kind, label, probability, rationale = null, verifier, head, actor, opId }) {
     checkActor(actor);
+    checkNumber(candidate2, "candidate");
     if (!DECISION_KINDS[kind]) invalid(`kind must be one of ${Object.keys(DECISION_KINDS).join(", ")}, got ${JSON.stringify(kind)}`);
     if (!DECISION_KINDS[kind].includes(label)) invalid(`${kind} label must be one of ${DECISION_KINDS[kind].join(", ")}, got ${JSON.stringify(label)}`);
     if (typeof probability !== "number" || !(probability >= 0 && probability <= 1)) invalid(`probability must be from 0 to 1, got ${JSON.stringify(probability)}`);
@@ -5170,9 +5253,12 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
     return mutate((state) => {
       const r = liveRound(state, { statuses: ["verifying"] });
       checkHead(r, head);
-      const f = state.findings.find((x) => x.id === finding);
-      if (!f || f.round !== r.round) refuse(`no finding ${JSON.stringify(finding)} in round ${r.round}`, [reason("unknown-finding", `finding ${finding} is not part of this round`)]);
-      if (f.duplicateOf) refuse(`finding ${finding} is a duplicate`, [reason("duplicate", `${finding} was merged into ${f.duplicateOf}; decide on ${f.duplicateOf}`)]);
+      const f = candidateOf(state, r, candidate2);
+      const finding = f.id;
+      if (f.duplicateOf) {
+        const into = state.findings.find((x) => x.id === f.duplicateOf).candidate;
+        refuse(`candidate ${candidate2} is a duplicate`, [reason("duplicate", `candidate ${candidate2} was merged into candidate ${into}; decide on ${into}`, { candidate: candidate2, into })]);
+      }
       const policy = r.policy.resolved;
       const problems = [];
       if (policy.evidence.decision.includes("rationale") && !(typeof rationale === "string" && rationale.trim())) {
@@ -5191,32 +5277,36 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
       }
       if (kind === "finding-verification") {
         if (earlier.some((x) => x.verifier.model === verifier.model)) {
-          problems.push(reason("verifier-repeated", `${verifier.model} already verified ${finding}; a second verification needs a different model`));
+          problems.push(reason("verifier-repeated", `${verifier.model} already verified candidate ${candidate2}; a second verification needs a different model`));
         }
       }
-      if (problems.length) refuse(`the ${kind} decision on ${finding} was not recorded`, problems);
+      if (problems.length) refuse(`the ${kind} decision on candidate ${candidate2} was not recorded`, problems);
       return [{ type: "decision.recorded", actor, data: decision }];
     }, { opId });
   }
-  function merge2({ into, ids, actor, opId }) {
+  function merge2({ into, duplicates, actor, opId }) {
     checkActor(actor);
-    if (!Array.isArray(ids) || ids.length === 0) invalid("merge needs the IDs of the duplicates");
+    checkNumber(into, "into");
+    if (!Array.isArray(duplicates) || duplicates.length === 0) invalid("merge needs the candidate numbers of the duplicates");
+    for (const n of duplicates) checkNumber(n, "each duplicate");
     return mutate((state) => {
       const r = liveRound(state, { statuses: ["reviewing", "verifying"] });
-      const inRound = (id) => state.findings.find((f) => f.id === id && f.round === r.round);
+      const inRound = (n) => candidatesIn(state, r).find((f) => f.candidate === n);
+      const candidateOfId = (id) => state.findings.find((f) => f.id === id).candidate;
       const primary = inRound(into);
       const problems = [];
-      if (!primary) problems.push(reason("unknown-finding", `finding ${into} is not part of this round`));
-      else if (primary.duplicateOf) problems.push(reason("duplicate", `${into} is itself a duplicate of ${primary.duplicateOf}`));
-      for (const id of ids) {
-        const f = inRound(id);
-        if (!f) problems.push(reason("unknown-finding", `finding ${id} is not part of this round`));
-        else if (id === into) problems.push(reason("self-merge", `${id} cannot be merged into itself`));
-        else if (Object.keys(f.decisions).length) problems.push(reason("has-decisions", `${id} already has decisions; merge duplicates before verifying`));
+      const unknown = (n) => reason("unknown-candidate", `candidate ${n} is not part of round ${r.round}; candidates: ${listOf(candidatesIn(state, r).map((f) => f.candidate))}`, { candidate: n });
+      if (!primary) problems.push(unknown(into));
+      else if (primary.duplicateOf) problems.push(reason("duplicate", `candidate ${into} is itself a duplicate of candidate ${candidateOfId(primary.duplicateOf)}`, { candidate: into }));
+      for (const n of duplicates) {
+        const f = inRound(n);
+        if (!f) problems.push(unknown(n));
+        else if (n === into) problems.push(reason("self-merge", `candidate ${n} cannot be merged into itself`, { candidate: n }));
+        else if (Object.keys(f.decisions).length) problems.push(reason("has-decisions", `candidate ${n} already has decisions; merge duplicates before verifying`, { candidate: n }));
       }
       if (problems.length) refuse("the merge was not recorded", problems);
-      const todo = ids.filter((id) => inRound(id).duplicateOf !== into);
-      return todo.length ? [{ type: "finding.merged", actor, data: { round: r.round, into, ids: todo } }] : [];
+      const todo = duplicates.map(inRound).filter((f) => f.duplicateOf !== primary.id).map((f) => f.id);
+      return todo.length ? [{ type: "finding.merged", actor, data: { round: r.round, into: primary.id, ids: [...new Set(todo)] } }] : [];
     }, { opId });
   }
   function reportPlan(state, r) {
@@ -5227,15 +5317,16 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
     const escalate2 = [];
     for (const f of state.findings.filter((x) => x.round === r.round && !x.duplicateOf)) {
       const v = f.decisions["finding-verification"] ?? [];
+      const c = { candidate: f.candidate };
       if (v.length === 0) {
-        missing.push(reason("unverified", `${f.id} has no verification`, { finding: f.id }));
+        missing.push(reason("unverified", `candidate ${f.candidate} has no verification`, c));
         continue;
       }
       const labels = new Set(v.map((x) => x.label));
       if (labels.size > 1) {
-        if (!f.decisions["finding-severity"]?.length) missing.push(reason("no-severity", `${f.id} is disputed and has no severity; rate it so a person can settle it`, { finding: f.id }));
-        if (!f.decisions["finding-origin"]?.length) missing.push(reason("no-origin", `${f.id} is disputed and has no origin`, { finding: f.id }));
-        escalate2.push({ finding: f.id, code: "verifiers-disagree", message: `verifiers disagree on ${f.id} (${v.map((x) => `${x.verifier.model}: ${x.label}`).join(", ")}); a person decides whether it is real` });
+        if (!f.decisions["finding-severity"]?.length) missing.push(reason("no-severity", `candidate ${f.candidate} is disputed and has no severity; rate it so a person can settle it`, c));
+        if (!f.decisions["finding-origin"]?.length) missing.push(reason("no-origin", `candidate ${f.candidate} is disputed and has no origin`, c));
+        escalate2.push({ finding: f.id, code: "verifiers-disagree", verdicts: v.map((x) => `${x.verifier.model}: ${x.label}`).join(", ") });
         continue;
       }
       const confirmed = labels.has("confirmed") && Math.min(...v.map((x) => x.probability)) >= policy.thresholds.report;
@@ -5244,10 +5335,10 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
         continue;
       }
       const sev = f.decisions["finding-severity"]?.at(-1)?.label;
-      if (!sev) missing.push(reason("no-severity", `${f.id} is confirmed but has no severity`, { finding: f.id }));
-      if (!f.decisions["finding-origin"]?.length) missing.push(reason("no-origin", `${f.id} is confirmed but has no origin`, { finding: f.id }));
+      if (!sev) missing.push(reason("no-severity", `candidate ${f.candidate} is confirmed but has no severity`, c));
+      if (!f.decisions["finding-origin"]?.length) missing.push(reason("no-origin", `candidate ${f.candidate} is confirmed but has no origin`, c));
       if (sev === "blocker" && policy.independence.secondVerifierForBlockers && new Set(v.map((x) => x.verifier.model)).size < 2) {
-        missing.push(reason("second-verifier", `${f.id} is a blocker; the policy needs a second verifier from a different model`, { finding: f.id }));
+        missing.push(reason("second-verifier", `candidate ${f.candidate} is a blocker; the policy needs a second verifier from a different model`, c));
       }
       reported.push(f.id);
     }
@@ -5259,14 +5350,21 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
       const r = liveRound(state, { statuses: ["verifying"] });
       const p = reportPlan(state, r);
       if (p.missing.length) refuse("the report is not ready", p.missing);
+      const escalated = p.escalate.map((x) => x.finding);
+      const numbers2 = numberReport(state, [...p.reported, ...escalated]);
+      const numberOf = (id) => numbers2.find((x) => x.finding === id).n;
       let n = state.escalations.length;
       const open = new Set(state.escalations.filter((x) => x.round === r.round && x.finding).map((x) => x.finding));
-      const events = p.escalate.filter((x) => !open.has(x.finding)).map((x) => ({ type: "escalation.raised", actor: "agent:harness", data: { id: `E${++n}`, round: r.round, code: x.code, message: x.message, finding: x.finding } }));
+      const events = p.escalate.filter((x) => !open.has(x.finding)).map((x) => {
+        const f = state.findings.find((y) => y.id === x.finding);
+        const message = `verifiers disagree on finding ${numberOf(x.finding)}, ${f.title} (${x.verdicts}); a person decides whether it is real`;
+        return { type: "escalation.raised", actor: "agent:harness", data: { id: `E${++n}`, round: r.round, code: x.code, message, finding: x.finding } };
+      });
       const gaps = Object.entries(r.gaps).map(([slot, g]) => ({ slot, reason: g.reason, acceptedBy: g.actor }));
       events.push({
         type: "review.reported",
         actor,
-        data: { round: r.round, report: { reported: p.reported, dropped: p.dropped, escalated: p.escalate.map((x) => x.finding), coverage: { complete: gaps.length === 0, gaps } } }
+        data: { round: r.round, report: { reported: p.reported, dropped: p.dropped, escalated, numbers: numbers2, coverage: { complete: gaps.length === 0, gaps } } }
       });
       return events;
     }, { opId });
@@ -5288,18 +5386,19 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
       return [{ type: "escalation.resolved", actor, data: { id, decision, reason: why } }];
     }, { opId });
   }
-  function dispose2({ finding, as, note = null, actor, opId }) {
+  function dispose2({ finding: number2, as, note = null, actor, opId }) {
     checkActor(actor);
+    checkNumber(number2, "finding");
     if (!DISPOSITIONS.includes(as)) invalid(`disposition must be one of ${DISPOSITIONS.join(", ")}, got ${JSON.stringify(as)}`);
     return mutate((state) => {
       if (!activeRound(state)) refuse("no review has started", [reason("not-started", "start a review first")]);
-      const f = state.findings.find((x) => x.id === finding);
-      const r = f ? state.rounds[f.round] : null;
-      const approved = state.escalations.some((x) => x.round === f?.round && x.finding === finding && x.status === "approved");
-      const open = Boolean(r?.report) && (r.report.reported.includes(finding) || r.report.escalated.includes(finding) && approved);
-      if (!open) {
-        const all = Object.values(state.rounds).flatMap((x) => x.report?.reported ?? []);
-        refuse(`${finding} is not a reported finding`, [reason("not-reported", `reported findings: ${all.join(", ") || "none"}`)]);
+      const f = findingOf(state, number2);
+      const finding = f.id;
+      const r = state.rounds[f.round];
+      const dispute = state.escalations.find((x) => x.round === f.round && x.finding === finding);
+      if (!r.report.reported.includes(finding) && dispute?.status !== "approved") {
+        const why = dispute?.status === "rejected" ? `a person settled finding ${number2} as not a problem` : `verifiers disagree on finding ${number2}; a person settles that first${dispute ? ` (review resolve --escalation ${dispute.id})` : ""}`;
+        refuse(`finding ${number2} is not open`, [reason(dispute?.status === "rejected" ? "dispute-rejected" : "disputed", why, { finding: number2 })]);
       }
       if (f.decisions["finding-triage"]?.at(-1)?.label === "needs-judgment") checkActor(actor, { human: true });
       const disqualifying = r.policy.resolved.actions?.merge?.disqualifying ?? ["blocker", "should-fix"];
@@ -5327,27 +5426,30 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
       return [{ type: "change.classified", actor, data: { round: r.round, category, probability, rationale, classifier: { model: classifier.model, family: fam } } }];
     }, { opId });
   }
-  function link2({ finding, thread, url = null, actor, opId }) {
+  function link2({ finding: number2, thread, url = null, actor, opId }) {
     checkActor(actor);
+    checkNumber(number2, "finding");
     if (typeof thread !== "string" || !thread.trim()) invalid("link needs a thread ID");
     if (url != null && !isHttpsUrl(url)) invalid(`url must be an https URL, got ${JSON.stringify(url)}`);
     return mutate((state) => {
-      const f = state.findings.find((x) => x.id === finding);
-      if (!f) refuse(`no finding ${JSON.stringify(finding)}`, [reason("unknown-finding", `finding ${finding} is not in this review`)]);
+      const f = findingOf(state, number2);
       if (f.thread?.id === thread && f.thread.url === url) return [];
-      return [{ type: "finding.linked", actor, data: { finding, thread, url } }];
+      return [{ type: "finding.linked", actor, data: { finding: f.id, thread, url } }];
     }, { opId });
   }
   return { log, read, start, recordRun: recordRun2, acceptGap, advance, decide: decide2, merge: merge2, report: report2, resolveEscalation, dispose: dispose2, classify, link: link2, coverageReasons, reportPlan };
 }
 
 // node_modules/agent-review/src/core/workflow/next.mjs
+var candidate = (f) => ({ candidate: f.candidate, title: f.title, file: f.file, line: f.line });
+var where = (f) => `${f.file ?? "no file"}${f.line ? `:${f.line}` : ""}`;
 var needsClassification = (r) => r.policy.resolved.actions?.merge?.enabled === true && !r.classification;
 var pendingSlots = (r) => r.plan.slots.filter((s) => r.runs[s.id]?.status !== "ok" && !r.gaps[s.id]);
 function next(state) {
   const r = activeRound(state);
   const open = state.escalations.filter((x) => x.status === "open" && x.round === state.round);
-  const human = open.map((x) => ({ escalation: x.id, code: x.code, ask: x.message }));
+  const numberOf = (id) => state.findings.find((f) => f.id === id)?.number ?? null;
+  const human = open.map((x) => ({ escalation: x.id, code: x.code, ask: x.message, ...x.finding ? { finding: numberOf(x.finding) } : {} }));
   const roundsSoFar = state.round + state.legacy.reduce((n, l) => n + (l.rounds ?? 0), 0);
   if (!r) {
     return {
@@ -5386,7 +5488,7 @@ function next(state) {
     const findings = state.findings.filter((f) => f.round === r.round && !f.duplicateOf);
     const policy = r.policy.resolved;
     const verify = findings.filter((f) => !(f.decisions["finding-verification"] ?? []).length).map((f) => ({
-      finding: f.id,
+      ...candidate(f),
       author: f.author,
       verifierMust: policy.independence.verifier === "family" ? { notFamily: f.author.family } : { notModel: f.author.model }
     }));
@@ -5400,10 +5502,10 @@ function next(state) {
       if (!confirmed && !disputed) continue;
       const wanted = disputed ? ["finding-severity", "finding-origin"] : ["finding-severity", "finding-origin", "finding-triage"];
       const kinds = wanted.filter((k) => !f.decisions[k]?.length);
-      if (kinds.length) decide2.push({ finding: f.id, kinds, verifierMust: policy.independence.verifier === "family" ? { notFamily: f.author.family } : { notModel: f.author.model } });
+      if (kinds.length) decide2.push({ ...candidate(f), kinds, author: f.author, verifierMust: policy.independence.verifier === "family" ? { notFamily: f.author.family } : { notModel: f.author.model } });
       if (disputed) continue;
       if (f.decisions["finding-severity"]?.at(-1)?.label === "blocker" && policy.independence.secondVerifierForBlockers && new Set(v.map((x) => x.verifier.model)).size < 2) {
-        again.push({ finding: f.id, verifierMust: { notModels: [f.author.model, ...v.map((x) => x.verifier.model)], ...policy.independence.verifier === "family" ? { notFamily: f.author.family } : {} } });
+        again.push({ ...candidate(f), author: f.author, verifierMust: { notModels: [f.author.model, ...v.map((x) => x.verifier.model)], ...policy.independence.verifier === "family" ? { notFamily: f.author.family } : {} } });
       }
     }
     if (decide2.length) return { status: "verifying", ...base, waitingOn: "agent", action: { do: "decide", findings: decide2 }, human };
@@ -5411,10 +5513,11 @@ function next(state) {
     if (needsClassification(r)) return { status: "verifying", ...base, waitingOn: "agent", action: { do: "classify", categories: CATEGORIES }, human };
     return { status: "verifying", ...base, waitingOn: "agent", action: { do: "report" }, human };
   }
-  const calls = state.findings.filter((f) => f.round === r.round && r.report.reported.includes(f.id) && !f.disposition && f.decisions["finding-triage"]?.at(-1)?.label === "needs-judgment").map((f) => ({ finding: f.id, code: "needs-judgment", ask: `${f.id}: ${f.title} (${f.file ?? "no file"}${f.line ? `:${f.line}` : ""}) needs your call` }));
-  if (open.length) return { status: "reported", ...base, waitingOn: "human", action: { do: "resolve", escalations: open.map((x) => x.id) }, human: [...human, ...calls], report: r.report };
-  if (needsClassification(r)) return { status: "complete", ...base, waitingOn: "agent", action: { do: "classify", categories: CATEGORIES }, human: calls, report: r.report };
-  return { status: "complete", ...base, waitingOn: calls.length ? "human" : null, action: calls.length ? { do: "dispose", findings: calls.map((c) => c.finding) } : null, human: calls, report: r.report };
+  const calls = state.findings.filter((f) => f.round === r.round && r.report.reported.includes(f.id) && !f.disposition && f.decisions["finding-triage"]?.at(-1)?.label === "needs-judgment").map((f) => ({ finding: f.number, code: "needs-judgment", ask: `finding ${f.number}, ${f.title} (${where(f)}), needs your call` }));
+  const report2 = publicReport(state, r.report);
+  if (open.length) return { status: "reported", ...base, waitingOn: "human", action: { do: "resolve", escalations: open.map((x) => x.id) }, human: [...human, ...calls], report: report2 };
+  if (needsClassification(r)) return { status: "complete", ...base, waitingOn: "agent", action: { do: "classify", categories: CATEGORIES }, human: calls, report: report2 };
+  return { status: "complete", ...base, waitingOn: calls.length ? "human" : null, action: calls.length ? { do: "dispose", findings: calls.map((c) => c.finding) } : null, human: calls, report: report2 };
 }
 function inbox(reviews) {
   const items = [];
@@ -5539,10 +5642,11 @@ function evaluateEligibility({ state, facts }) {
       const f = byId.get(id);
       const sev = f.decisions["finding-severity"]?.at(-1)?.label ?? null;
       if (f.disposition && CLEARED.has(f.disposition.as)) continue;
+      const n = f.number;
       if (f.decisions["finding-triage"]?.at(-1)?.label === "needs-judgment" && !f.disposition) {
-        reasons.push(escalate("needs-judgment", `${id} needs a person's call: ${f.title}`, { finding: id }));
+        reasons.push(escalate("needs-judgment", `finding ${n} needs a person's call: ${f.title}`, { finding: n }));
       } else if (sev === null || merge2.disqualifying.includes(sev)) {
-        reasons.push(block("disqualifying-finding", `${id} (${sev ?? "unrated"}) is unresolved${f.disposition ? ` (${f.disposition.as})` : ""}: ${f.title}`, { finding: id }));
+        reasons.push(block("disqualifying-finding", `finding ${n} (${sev ?? "unrated"}) is unresolved${f.disposition ? ` (${f.disposition.as})` : ""}: ${f.title}`, { finding: n }));
       }
     }
   }
@@ -5583,7 +5687,7 @@ function evaluateEligibility({ state, facts }) {
 var dryRunExecutor = Object.freeze({
   name: "dry-run",
   dryRun: true,
-  merge: ({ repo, number, sha }) => ({ merged: false, dryRun: true, wouldMerge: { repo, number, sha } })
+  merge: ({ repo, number: number2, sha }) => ({ merged: false, dryRun: true, wouldMerge: { repo, number: number2, sha } })
 });
 var KEYS = [
   ["head", (p) => p.observed.head],
@@ -5594,7 +5698,7 @@ var KEYS = [
   ["matched rule", (p) => p.rule],
   ["facts source", (p) => p.factsSource]
 ];
-function prepareMerge({ eligibility, recheck, executor = dryRunExecutor, repo, number }) {
+function prepareMerge({ eligibility, recheck, executor = dryRunExecutor, repo, number: number2 }) {
   const why = (code, message, extra = {}) => ({ code, message, ...extra });
   if (eligibility.outcome !== ELIGIBLE) {
     throw new WorkflowError(REFUSED, "the change is not eligible to merge", [why("not-eligible", `the decision was ${eligibility.outcome}`), ...eligibility.reasons]);
@@ -5611,7 +5715,7 @@ function prepareMerge({ eligibility, recheck, executor = dryRunExecutor, repo, n
     ]);
   }
   const simulated = fresh.provenance.factsSource !== "github";
-  return { executor: executor.name, simulated, decidedOn: eligibility.provenance, recheckedOn: fresh.provenance, result: executor.merge({ repo, number, sha: fresh.provenance.observed.head }) };
+  return { executor: executor.name, simulated, decidedOn: eligibility.provenance, recheckedOn: fresh.provenance, result: executor.merge({ repo, number: number2, sha: fresh.provenance.observed.head }) };
 }
 
 // node_modules/agent-review/src/core/decide/local-facts.mjs
@@ -5679,6 +5783,7 @@ function gitAdapter(cwd) {
 
 // node_modules/agent-review/src/cli/render.mjs
 var short = (sha) => sha ? sha.slice(0, 12) : "";
+var named = (word, items, sep = ", ") => `${word}${items.length === 1 ? "" : "s"} ${items.join(sep)}`;
 function action(a) {
   if (!a) return "nothing; the review is complete";
   switch (a.do) {
@@ -5689,19 +5794,19 @@ function action(a) {
     case "advance":
       return "advance to verification";
     case "verify":
-      return `verify ${a.findings.map((f) => `${f.finding} (not ${f.verifierMust.notFamily ?? f.verifierMust.notModel})`).join(", ")}`;
+      return `verify ${named("candidate", a.findings.map((f) => `${f.candidate} (not ${f.verifierMust.notFamily ?? f.verifierMust.notModel})`))}`;
     case "decide":
-      return `decide ${a.findings.map((f) => `${f.finding}: ${f.kinds.map((k) => k.replace("finding-", "")).join(", ")}`).join("; ")}`;
+      return `decide on ${named("candidate", a.findings.map((f) => `${f.candidate}: ${f.kinds.map((k) => k.replace("finding-", "")).join(", ")}`), "; ")}`;
     case "classify":
       return "classify the change (review classify)";
     case "verify-again":
-      return `second verifier for ${a.findings.map((f) => f.finding).join(", ")}`;
+      return `second verifier for ${named("candidate", a.findings.map((f) => f.candidate))}`;
     case "report":
       return "write the report";
     case "resolve":
       return `a person resolves ${a.escalations.join(", ")}`;
     case "dispose":
-      return `a person decides ${a.findings.join(", ")} (review dispose)`;
+      return `a person decides ${named("finding", a.findings)} (review dispose)`;
     default:
       return a.do;
   }
@@ -5714,7 +5819,8 @@ function renderNext(n) {
   for (const h of n.human ?? []) lines.push(`for a person: ${h.ask}${h.escalation ? ` (${h.escalation})` : ""}`);
   if (n.report) {
     const r = n.report;
-    lines.push(`report: ${r.reported.length} reported${r.reported.length ? ` (${r.reported.join(", ")})` : ""}, ${r.dropped.length} dropped, ${r.escalated.length} escalated${r.coverage.complete ? "" : `; coverage gaps: ${r.coverage.gaps.map((g) => g.slot).join(", ")}`}`);
+    const ns = r.findings.map((f) => f.n);
+    lines.push(`report: ${ns.length} reported${ns.length ? ` (${named("finding", ns)})` : ""}, ${r.dropped.length} dropped, ${r.disputed.length} disputed${r.coverage.complete ? "" : `; coverage gaps: ${r.coverage.gaps.map((g) => g.slot).join(", ")}`}`);
   }
   return lines.join("\n");
 }
@@ -5771,10 +5877,10 @@ function pages(api, path2) {
   }
   return out;
 }
-function githubFacts({ repo, number, api = ghApi, now = () => (/* @__PURE__ */ new Date()).toISOString() }) {
-  const pr = api(`repos/${repo}/pulls/${number}`);
+function githubFacts({ repo, number: number2, api = ghApi, now = () => (/* @__PURE__ */ new Date()).toISOString() }) {
+  const pr = api(`repos/${repo}/pulls/${number2}`);
   const head = pr.head.sha;
-  const commits = pages(api, `repos/${repo}/pulls/${number}/commits`).map((c) => ({
+  const commits = pages(api, `repos/${repo}/pulls/${number2}/commits`).map((c) => ({
     sha: c.sha,
     verified: c.commit?.verification?.verified === true,
     reason: c.commit?.verification?.reason ?? null,
@@ -5783,7 +5889,7 @@ function githubFacts({ repo, number, api = ghApi, now = () => (/* @__PURE__ */ n
     committer: c.committer?.login ?? null
   }));
   const commitsComplete = commits.length < 250;
-  const files = pages(api, `repos/${repo}/pulls/${number}/files`);
+  const files = pages(api, `repos/${repo}/pulls/${number2}/files`);
   const changedPaths = [...new Set(files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean)))];
   const runs = pages(api, `repos/${repo}/commits/${head}/check-runs`).map((r) => ({ name: r.name, headSha: r.head_sha, status: r.status, conclusion: r.conclusion, source: "check-run" }));
   const STATUS = { success: ["completed", "success"], failure: ["completed", "failure"], error: ["completed", "failure"], pending: ["in_progress", null] };
@@ -5804,7 +5910,7 @@ function githubFacts({ repo, number, api = ghApi, now = () => (/* @__PURE__ */ n
     if (e.status !== 404 && e.status !== 403) throw e;
   }
   const latest = /* @__PURE__ */ new Map();
-  for (const r of pages(api, `repos/${repo}/pulls/${number}/reviews`)) if (r.user?.login) latest.set(r.user.login, r);
+  for (const r of pages(api, `repos/${repo}/pulls/${number2}/reviews`)) if (r.user?.login) latest.set(r.user.login, r);
   const ignored = [];
   let approvals = 0;
   for (const r of [...latest.values()].filter((x) => x.state === "APPROVED" && x.commit_id === head)) {
@@ -5835,7 +5941,7 @@ function githubFacts({ repo, number, api = ghApi, now = () => (/* @__PURE__ */ n
 }
 
 // node_modules/agent-review/src/adapters/npm.mjs
-var SECTIONS = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
+var SECTIONS2 = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
 var BUMP_FIELDS = /* @__PURE__ */ new Set(["version", "resolved", "integrity", "dependencies", "optionalDependencies", "peerDependencies", "peerDependenciesMeta", "engines", "funding", "license", "deprecated"]);
 var isObject2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 function readJson(git, commit, path2) {
@@ -5869,27 +5975,27 @@ function compareEntries(a, b, source, changes) {
     const name = key.replace(/^.*node_modules\//, "");
     const x = a[key];
     const y = b[key];
-    const where = `${source} ${key}`;
+    const where2 = `${source} ${key}`;
     if (!x) {
-      changes.push({ name, from: null, to: y.version ?? null, change: "added", source: where });
+      changes.push({ name, from: null, to: y.version ?? null, change: "added", source: where2 });
       continue;
     }
     if (!y) {
-      changes.push({ name, from: x.version ?? null, to: null, change: "removed", source: where });
+      changes.push({ name, from: x.version ?? null, to: null, change: "removed", source: where2 });
       continue;
     }
     const fields = changedFields(x, y);
     if (fields.length === 0) continue;
     if (x.version === y.version) {
-      changes.push({ name, from: x.version, to: y.version, change: "other", detail: `${fields.join(", ")} changed without a version change`, source: where });
+      changes.push({ name, from: x.version, to: y.version, change: "other", detail: `${fields.join(", ")} changed without a version change`, source: where2 });
       continue;
     }
     const odd = fields.filter((f) => !BUMP_FIELDS.has(f));
     const problems = [];
     if (odd.length) problems.push(`${odd.join(", ")} changed`);
     if (x.resolved && y.resolved && host(x.resolved) !== host(y.resolved)) problems.push(`the registry changed from ${host(x.resolved)} to ${host(y.resolved)}`);
-    if (problems.length) changes.push({ name, from: x.version, to: y.version, change: "other", detail: problems.join("; "), source: where });
-    else changes.push({ name, from: x.version, to: y.version, change: "changed", source: where });
+    if (problems.length) changes.push({ name, from: x.version, to: y.version, change: "other", detail: problems.join("; "), source: where2 });
+    else changes.push({ name, from: x.version, to: y.version, change: "changed", source: where2 });
   }
 }
 var range = (r) => {
@@ -5897,23 +6003,23 @@ var range = (r) => {
   return m ? { op: m[1], version: m[2] } : null;
 };
 function comparePackageJson(pa, pb, source, changes) {
-  const rest = (p) => Object.fromEntries(Object.entries(p ?? {}).filter(([k]) => !SECTIONS.includes(k)));
+  const rest = (p) => Object.fromEntries(Object.entries(p ?? {}).filter(([k]) => !SECTIONS2.includes(k)));
   const other = changedFields(rest(pa), rest(pb));
   if (other.length) changes.push({ name: source, from: null, to: null, change: "other", detail: `${other.join(", ")} changed`, source });
-  for (const section of SECTIONS) {
+  for (const section of SECTIONS2) {
     const x = pa?.[section] ?? {};
     const y = pb?.[section] ?? {};
     for (const name of /* @__PURE__ */ new Set([...Object.keys(x), ...Object.keys(y)])) {
       if (x[name] === y[name]) continue;
-      const where = `${source} ${section}`;
-      if (x[name] === void 0) changes.push({ name, from: null, to: y[name], change: "added", source: where });
-      else if (y[name] === void 0) changes.push({ name, from: x[name], to: null, change: "removed", source: where });
+      const where2 = `${source} ${section}`;
+      if (x[name] === void 0) changes.push({ name, from: null, to: y[name], change: "added", source: where2 });
+      else if (y[name] === void 0) changes.push({ name, from: x[name], to: null, change: "removed", source: where2 });
       else {
         const a = range(x[name]);
         const b = range(y[name]);
-        if (!a || !b) changes.push({ name, from: x[name], to: y[name], change: "other", detail: "not a simple version range", source: where });
-        else if (a.op !== b.op) changes.push({ name, from: x[name], to: y[name], change: "other", detail: `the range operator changed from "${a.op}" to "${b.op}"`, source: where });
-        else changes.push({ name, from: a.version, to: b.version, change: "changed", source: where });
+        if (!a || !b) changes.push({ name, from: x[name], to: y[name], change: "other", detail: "not a simple version range", source: where2 });
+        else if (a.op !== b.op) changes.push({ name, from: x[name], to: y[name], change: "other", detail: `the range operator changed from "${a.op}" to "${b.op}"`, source: where2 });
+        else changes.push({ name, from: a.version, to: b.version, change: "changed", source: where2 });
       }
     }
   }
@@ -5981,14 +6087,14 @@ var COMMANDS = {
     run: (o, h) => h.review().advance({ actor: h.actor(), opId: o["op-id"] })
   },
   "review merge": {
-    summary: "Mark findings as duplicates of a primary finding.",
-    options: { into: { type: "string" }, ids: { type: "string" } },
-    run: (o, h) => h.review().merge({ into: need(o, "into"), ids: list(need(o, "ids")), actor: h.actor(), opId: o["op-id"] })
+    summary: "Mark candidates as duplicates of a primary candidate, by candidate number.",
+    options: { into: { type: "string" }, duplicates: { type: "string" } },
+    run: (o, h) => h.review().merge({ into: number(o, "into"), duplicates: numbers(o, "duplicates"), actor: h.actor(), opId: o["op-id"] })
   },
   "review decide": {
-    summary: "Record a verification, severity, triage or origin decision on a finding.",
+    summary: "Record a verification, severity, triage or origin decision on a candidate, by candidate number.",
     options: {
-      finding: { type: "string" },
+      candidate: { type: "string" },
       kind: { type: "string" },
       label: { type: "string" },
       probability: { type: "string" },
@@ -6002,7 +6108,7 @@ var COMMANDS = {
       if (o.rationale != null && o["rationale-file"] != null) throw new UsageError("use --rationale or --rationale-file, not both");
       const p = Number(need(o, "probability"));
       return h.review().decide({
-        finding: need(o, "finding"),
+        candidate: number(o, "candidate"),
         kind: need(o, "kind"),
         label: need(o, "label"),
         probability: p,
@@ -6025,20 +6131,20 @@ var COMMANDS = {
     run: (o, h) => h.review().resolveEscalation({ id: need(o, "escalation"), decision: need(o, "decision"), reason: need(o, "reason"), actor: h.actor(), opId: o["op-id"] })
   },
   "review dispose": {
-    summary: "Record what became of a reported finding. A needs-judgment finding is a person's call.",
+    summary: "Record what became of a reported finding, by finding number. A needs-judgment finding is a person's call.",
     // --note-file reads the note from a file, or stdin with -, so text copied
     // from a pull request never passes through a shell string.
     options: { finding: { type: "string" }, as: { type: "string" }, note: { type: "string" }, "note-file": { type: "string" } },
     run: (o, h) => {
       if (o.note != null && o["note-file"] != null) throw new UsageError("use --note or --note-file, not both");
       const note = o["note-file"] != null ? readText(o["note-file"]).trim() : o.note ?? null;
-      return h.review().dispose({ finding: need(o, "finding"), as: need(o, "as"), note, actor: h.actor(), opId: o["op-id"] });
+      return h.review().dispose({ finding: number(o, "finding"), as: need(o, "as"), note, actor: h.actor(), opId: o["op-id"] });
     }
   },
   "review link": {
-    summary: "Record the host's review thread that carries a finding, such as a pull request comment.",
+    summary: "Record the host's review thread that carries a finding, such as a pull request comment, by finding number.",
     options: { finding: { type: "string" }, thread: { type: "string" }, url: { type: "string" } },
-    run: (o, h) => h.review().link({ finding: need(o, "finding"), thread: need(o, "thread"), url: o.url ?? null, actor: h.actor(), opId: o["op-id"] })
+    run: (o, h) => h.review().link({ finding: number(o, "finding"), thread: need(o, "thread"), url: o.url ?? null, actor: h.actor(), opId: o["op-id"] })
   },
   "review classify": {
     summary: "Classify the change as a whole, such as deps-patch or feature. Evidence for the merge policy, never permission.",
@@ -6082,10 +6188,10 @@ var COMMANDS = {
     run: (o, h) => next(h.review().read())
   },
   "review status": {
-    summary: "The full review state.",
+    summary: "The full review state, with candidates and findings by number.",
     options: {},
     readOnly: true,
-    run: (o, h) => h.review().read()
+    run: (o, h) => publicState(h.review().read())
   },
   inbox: {
     summary: "Everything waiting on a person, across reviews.",
@@ -6126,6 +6232,13 @@ function need(o, name) {
   if (o[name] == null || o[name] === "") throw new UsageError(`--${name} is required`);
   return o[name];
 }
+function toNumber(name, s) {
+  if (/^[1-9][0-9]*$/.test(s)) return Number(s);
+  if (/^F[0-9]+$/i.test(s)) throw new UsageError(`--${name} takes a number as the harness shows it, such as 2, not ${s}`);
+  throw new UsageError(`--${name} takes a number from 1, got ${JSON.stringify(s)}`);
+}
+var number = (o, name) => toNumber(name, need(o, name));
+var numbers = (o, name) => list(need(o, name)).map((s) => toNumber(name, s));
 function readText(path2) {
   try {
     return path2 === "-" ? readFileSync5(0, "utf8") : readFileSync5(path2, "utf8");
@@ -6560,7 +6673,7 @@ function roundFamilies(ledger, round) {
   ];
   return [...new Set(families.filter(Boolean))].sort();
 }
-function placement(f) {
+function placement2(f) {
   const severity = f.decisions["finding-severity"]?.label ?? null;
   const origin = f.decisions["finding-origin"]?.label ?? "introduced";
   const capped = severity === "blocker" && origin !== "introduced";
@@ -6638,7 +6751,7 @@ function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = false, k
       `${lines.join("; ")}. Merge each into the earlier finding with "ledger merge --into <earlier> --ids <new>", or pass --keep <new> when it is a different bug.`
     );
   }
-  const placed = new Map(passing.map((f) => [f, placement(f)]));
+  const placed = new Map(passing.map((f) => [f, placement2(f)]));
   passing.sort(
     (a, b) => SECTION_ORDER[placed.get(a).section] - SECTION_ORDER[placed.get(b).section] || a.file.localeCompare(b.file) || (a.line ?? 0) - (b.line ?? 0)
   );
@@ -6662,7 +6775,7 @@ function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = false, k
     return out;
   };
   const counts = tally(findings);
-  const earlierOpen = tally(openFindings(ledger).filter((f) => f.round < round).map(placement));
+  const earlierOpen = tally(openFindings(ledger).filter((f) => f.round < round).map(placement2));
   const holding = (c) => c.blockers + c["should-fix"] + c.unrated;
   return {
     round,
@@ -6861,8 +6974,12 @@ function harnessLedger(state, ref) {
     }
     return id;
   };
+  const sectionOf = new Map(Object.values(state.rounds).flatMap((r) => (r.report?.numbers ?? []).map((x) => [x.finding, x.section])));
   const findings = state.findings.map((f) => ({
     id: f.id,
+    number: f.number ?? null,
+    candidate: f.candidate ?? null,
+    reportSection: sectionOf.get(f.id) ?? null,
     round: f.round,
     lens: f.lens,
     model: f.author.model,
@@ -6934,20 +7051,18 @@ function presentReport(state, view) {
   }
   const round = current2.round;
   const shown = view.findings.filter((f) => f.round === round && f.reported && !f.duplicateOf);
-  const earlierOf = (f) => possibleRepeats(view, f).map((e) => ({ id: e.id, round: e.round, disposition: e.disposition?.as ?? "open" }));
-  const placed = new Map(shown.map((f) => [f, placement(f)]));
-  shown.sort(
-    (a, b) => SECTION_ORDER[placed.get(a).section] - SECTION_ORDER[placed.get(b).section] || String(a.file).localeCompare(String(b.file)) || (a.line ?? 0) - (b.line ?? 0)
-  );
-  const findings = shown.map((f, i) => ({
-    ...f,
-    // n is the number a person sees (1, 2, 3). The id is the harness's key
-    // for later commands; it is never shown.
-    n: i + 1,
-    ...placed.get(f),
+  const earlierOf = (f) => possibleRepeats(view, f).map((e) => ({ ...named2(e), disposition: e.disposition?.as ?? "open" }));
+  shown.sort((a, b) => a.number - b.number);
+  const findings = shown.map((f) => ({
+    ...publicFinding(f),
+    // n is the number the harness gave this finding. It names the finding in
+    // this conversation and in commands, for the whole review.
+    n: f.number,
+    ...placement2(f),
+    section: f.reportSection ?? placement2(f).section,
     instances: allInstances(view, f),
     repeatOf: earlierOf(f),
-    recurs: recurrences(view, f).map((e) => ({ id: e.id, round: e.round, file: e.file, line: e.line ?? null })),
+    recurs: recurrences(view, f).map(named2),
     foundBy: foundBy(view, f)
   }));
   const tally = (list3) => {
@@ -6956,15 +7071,17 @@ function presentReport(state, view) {
     return out;
   };
   const counts = tally(findings);
-  const earlierOpen = tally(openFindings(view).filter((f) => f.round < round).map(placement));
+  const earlierOpen = tally(openFindings(view).filter((f) => f.round < round).map(placement2));
   const holding = (c) => c.blockers + c["should-fix"] + c.unrated;
+  const numberOf = (id) => view.findings.find((f) => f.source === "harness" && f.id === id)?.number ?? null;
   const waiting = [
-    ...view.escalations.filter((x) => x.round === round && x.status === "open").map((x) => ({ escalation: x.id, code: x.code, finding: x.finding, path: x.path, message: x.message })),
-    ...openFindings(view).filter((f) => f.source === "harness" && !f.disposition && f.decisions["finding-triage"]?.label === "needs-judgment").map((f) => ({ escalation: null, code: "needs-judgment", finding: f.id, path: null, message: `${f.title}: a person decides what to do about it` }))
+    ...view.escalations.filter((x) => x.round === round && x.status === "open").map((x) => ({ escalation: x.id, code: x.code, finding: x.finding ? numberOf(x.finding) : null, path: x.path, message: x.message })),
+    ...openFindings(view).filter((f) => f.source === "harness" && !f.disposition && f.decisions["finding-triage"]?.label === "needs-judgment").map((f) => ({ escalation: null, code: "needs-judgment", finding: f.number, path: null, message: `${f.title}: a person decides what to do about it` }))
   ];
   const rejected = view.escalations.filter((x) => x.round === round && x.status === "rejected" && !x.finding).map((x) => ({ escalation: x.id, code: x.code, path: x.path, message: x.message, reason: x.resolution?.reason ?? null, by: x.resolution?.actor ?? null }));
   const escalated = new Set(view.escalations.filter((x) => x.round === round && x.finding).map((x) => x.finding));
-  const dropped = view.findings.filter((f) => f.round === round && !f.duplicateOf && !f.reported && !escalated.has(f.id)).map((f) => f.id);
+  const thisRound = view.findings.filter((f) => f.round === round && f.source === "harness");
+  const dropped = thisRound.filter((f) => !f.duplicateOf && !f.reported && !escalated.has(f.id)).map((f) => f.candidate);
   return {
     round,
     head: current2.head,
@@ -6978,15 +7095,23 @@ function presentReport(state, view) {
     findings,
     waiting,
     rejected,
-    repeats: findings.filter((f) => f.repeatOf.length).map((f) => ({ id: f.id, n: f.n, earlier: f.repeatOf })),
+    repeats: findings.filter((f) => f.repeatOf.length).map((f) => ({ n: f.n, earlier: f.repeatOf })),
     dropped,
-    merged: view.findings.filter((f) => f.round === round && f.duplicateOf).map((f) => f.id),
+    merged: thisRound.filter((f) => f.duplicateOf).map((f) => f.candidate),
     lenses: current2.lenses,
     families: roundFamilies(view, round)
   };
 }
+function named2(f) {
+  const name = f.source === "v1" ? { n: null, v1Id: f.id.replace(/^v1:/, "") } : { n: f.number };
+  return { ...name, round: f.round, title: f.title, file: f.file, line: f.line ?? null };
+}
+function publicFinding(f) {
+  const { id, duplicateOf, number: number2, candidate: candidate2, reportSection, ...rest } = f;
+  return rest;
+}
 function presentOpen(view) {
-  return openFindings(view).map((f) => ({ id: f.id, source: f.source, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario, thread: f.thread?.id ?? null }));
+  return openFindings(view).map((f) => ({ ...named2(f), source: f.source, scenario: f.scenario, thread: f.thread?.id ?? null }));
 }
 
 // cli/src/review-context.mjs
@@ -7033,19 +7158,19 @@ function userConfigPath() {
   const base = process.env.XDG_CONFIG_HOME || join5(homedir2(), ".config");
   return join5(base, "agent-reviews", "config.json");
 }
-var checkDepth = (depth, where) => {
-  if (depth != null && !DEPTHS2.includes(depth)) throw new PlanError(`${where}: depth must be one of ${DEPTHS2.join(", ")}, got "${depth}"`);
+var checkDepth = (depth, where2) => {
+  if (depth != null && !DEPTHS2.includes(depth)) throw new PlanError(`${where2}: depth must be one of ${DEPTHS2.join(", ")}, got "${depth}"`);
   return depth ?? null;
 };
-function checkUserConfig(config, where = "user config") {
-  if (config === null || typeof config !== "object" || Array.isArray(config)) throw new PlanError(`${where} must be a JSON object`);
-  checkDepth(config.depth, where);
-  if (config.host != null && !HOSTS.includes(config.host)) throw new PlanError(`${where}: host must be one of ${HOSTS.join(", ")}`);
+function checkUserConfig(config, where2 = "user config") {
+  if (config === null || typeof config !== "object" || Array.isArray(config)) throw new PlanError(`${where2} must be a JSON object`);
+  checkDepth(config.depth, where2);
+  if (config.host != null && !HOSTS.includes(config.host)) throw new PlanError(`${where2}: host must be one of ${HOSTS.join(", ")}`);
   for (const [host2, tiers] of Object.entries(config.hosts ?? {})) {
     for (const [tier, models] of Object.entries(tiers ?? {})) {
-      if (!TIERS.includes(tier)) throw new PlanError(`${where}: hosts.${host2}.${tier} is not a tier (${TIERS.join(", ")})`);
+      if (!TIERS.includes(tier)) throw new PlanError(`${where2}: hosts.${host2}.${tier} is not a tier (${TIERS.join(", ")})`);
       if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL2.test(m))) {
-        throw new PlanError(`${where}: hosts.${host2}.${tier} must be a list of provider/model IDs, such as anthropic/opus`);
+        throw new PlanError(`${where2}: hosts.${host2}.${tier} must be a list of provider/model IDs, such as anthropic/opus`);
       }
     }
   }
@@ -7302,13 +7427,13 @@ function pin(o) {
   const repoText = tryRun("git", ["show", `${mergeBase}:agent-review.json`], cwd);
   let repoConfig = null;
   if (repoText !== null) {
-    const where = `agent-review.json at ${mergeBase.slice(0, 7)}`;
+    const where2 = `agent-review.json at ${mergeBase.slice(0, 7)}`;
     let parsed;
     try {
-      parsed = parsePolicy(repoText, { kind: "file", path: where }).policy;
+      parsed = parsePolicy(repoText, { kind: "file", path: where2 }).policy;
     } catch (e) {
       const details = (e.errors ?? []).map((x) => `${x.path}: ${x.message}`).join("; ");
-      throw new Error(`${where}: ${e.message}${details ? ` (${details})` : ""}`);
+      throw new Error(`${where2}: ${e.message}${details ? ` (${details})` : ""}`);
     }
     repoConfig = { depth: parsed.review.defaultDepth, minDepth: parsed.review.minDepth, deepPaths: parsed.review.deepPaths };
   }
@@ -7676,7 +7801,7 @@ function buildProgram(state = { exitCode: 0 }) {
   const threads = program2.command("threads").description("Read-only helpers for answering PR review threads.");
   threads.command("list").description("Unresolved review threads, oldest first.").requiredOption("--pr <number>", "pull request").option("--repo <owner/repo>", "repository (default: the current one)").option("--all", "include resolved threads").action((o) => print(listThreads(o)));
   threads.command("owner").description("The commit that last changed a line, and the open PR that contains it.").requiredOption("--path <file>", "file").requiredOption("--line <n>", "line").option("--repo <owner/repo>", "repository (default: the current one)").action((o) => print(owner(o)));
-  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding IDs, code outside backticks, broken Markdown").action(async (files, o) => {
+  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding numbers and IDs, code outside backticks, broken Markdown").action(async (files, o) => {
     const inputs = files.length ? files.map((f) => [f, readFileSync9(f, "utf8")]) : [["<stdin>", await readStdin()]];
     const run4 = o.github ? checkGithub : check;
     const all = inputs.flatMap(([file, text]) => run4(text).map((f) => ({ file, ...f })));
