@@ -34,7 +34,7 @@ test("the command surface: every command, argument and flag", () => {
   assert.deepEqual(surface(), [
     "pin --base --depth --host --out --pr --since",
     "plan show --context",
-    "plan verifier --author --context",
+    "plan verifier --author --context --exclude",
     "plan tiebreak --context --exclude",
     "plan config",
     "lens prompt <lens> --context",

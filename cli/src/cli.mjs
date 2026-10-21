@@ -68,7 +68,8 @@ export function buildProgram(state = { exitCode: 0 }) {
     .description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.")
     .requiredOption("--context <dir>", "directory written by pin")
     .requiredOption("--author <provider/model>", "model that wrote the finding")
-    .action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config)));
+    .option("--exclude <m1,m2>", "models that already verified the finding; pass the first verifier when picking a second")
+    .action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config, list(o.exclude))));
   plan
     .command("tiebreak")
     .description("Pick a tie-break model from a family no earlier model on the finding used.")
