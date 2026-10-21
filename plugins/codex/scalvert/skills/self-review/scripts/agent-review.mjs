@@ -4979,12 +4979,14 @@ function reduce(state, e) {
     case "review.reported": {
       const numbers2 = d.report.numbers ?? numberReport(s, [...d.report.reported, ...d.report.escalated]);
       for (const x of numbers2) s.findings.find((f) => f.id === x.finding).number = x.n;
+      for (const x of s.escalations) nameByNumber(s, x);
       current(s, d.round).status = "reported";
       current(s, d.round).report = { ...d.report, numbers: numbers2, at: e.at };
       break;
     }
     case "escalation.raised":
       s.escalations.push({ id: d.id, round: d.round, code: d.code, message: d.message, path: d.path ?? null, finding: d.finding ?? null, status: "open", raisedAt: e.at, resolution: null });
+      nameByNumber(s, s.escalations.at(-1));
       break;
     case "escalation.resolved": {
       const x = s.escalations.find((y) => y.id === d.id);
@@ -4996,6 +4998,12 @@ function reduce(state, e) {
       throw new WorkflowError(UNKNOWN_EVENT, `event ${e.seq} has type ${JSON.stringify(e.type)}, which this version of the harness does not know; upgrade the harness to read this review`);
   }
   return s;
+}
+function nameByNumber(s, x) {
+  if (!x.finding) return;
+  const n = s.findings.find((f) => f.id === x.finding)?.number;
+  if (n == null) return;
+  x.message = x.message.replace(new RegExp(`\\b${x.finding}\\b`, "g"), `finding ${n}`);
 }
 
 // node_modules/agent-review/src/core/workflow/review.mjs
