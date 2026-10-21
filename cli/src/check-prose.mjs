@@ -215,10 +215,24 @@ function notCode(token, kind) {
   return false;
 }
 
+// Phrases that describe how a review ran rather than the code. Commit
+// messages, PR descriptions and comments are about the change; how many
+// reviewers or rounds ran, and on which models, belongs in the conversation.
+const COUNT = String.raw`(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)`;
+const REVIEW_DETAILS = [
+  /\bmodel famil(?:y|ies)\b/gi,
+  /\bself-review(?:ed|s)?\b/gi,
+  /\b(?:review|self-review) rounds?\b|\brounds? of (?:self-)?review\b/gi,
+  new RegExp(String.raw`\b${COUNT} (?:review )?rounds\b`, "gi"),
+  new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers|verifiers|lenses)\b`, "gi"),
+];
+
 // Checks text that will be posted to GitHub: review comments, thread
 // replies, PR descriptions. On top of the prose rules it flags:
 //
 //   finding ID             F1, F2: ledger keys that mean nothing on GitHub
+//   review detail          how the review ran (rounds, reviewer counts, model
+//                          families, "self-review"): process, not the change
 //   escaped backtick       \` renders as a literal backtick, not code; this is
 //                          what a body inlined in a shell string turns into
 //   unformatted code       code outside backticks (calls, paths, flags, identifiers)
@@ -252,6 +266,9 @@ export function checkGithub(text) {
   maskExempt(text, { links: true }).map(html).forEach((line, i) => {
     const n = i + 1;
     for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
+    for (const re of REVIEW_DETAILS) {
+      for (const m of line.matchAll(re)) add(n, "review detail (describe the change, not how it was reviewed)", m[0]);
+    }
     // Patterns run from widest to narrowest. A match inside one already
     // reported (repoDir inside opts.repoDir) is the same code, reported once.
     const covered = [];

@@ -11,3 +11,9 @@ node <skill>/scripts/agent-review.mjs policy check -- <the exact command>
 - `deny`: do not do it. Tell the user which rule denies it.
 
 A request earlier in the conversation to "review" something is not approval to post the review.
+
+Everything that leaves this machine (commit messages, PR titles and descriptions, comments and replies) is about the change: what it does, why, and how it was tested. Leave out how it was reviewed. No review rounds, reviewer or verifier counts, lenses, models or model families, ledger IDs, or "self-review". That stays in this conversation. Check each of those texts before it goes out:
+
+```sh
+node <skill>/scripts/agent-review.mjs prose --github <file>
+```

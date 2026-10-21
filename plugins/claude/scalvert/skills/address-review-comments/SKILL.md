@@ -45,7 +45,7 @@ In a stack of PRs, the fix belongs where the code came from, not on top of the s
 node <skill>/scripts/agent-review.mjs threads owner --path <file> --line <line>
 ```
 
-If the line came from a lower PR in the stack, fix it on that branch, then rebase the PRs above it. Make one commit per thread, or one per group of related threads. Name the thread or finding in the commit body. Run the repo's checks from `AGENTS.md` after each fix.
+If the line came from a lower PR in the stack, fix it on that branch, then rebase the PRs above it. Make one commit per thread, or one per group of related threads. Say in the commit body what the fix changes and why. Run the repo's checks from `AGENTS.md` after each fix.
 
 Order: blockers (wrong behavior, security) first, then simple fixes, then larger changes.
 
@@ -102,6 +102,12 @@ node <skill>/scripts/agent-review.mjs policy check -- <the exact command>
 - `deny`: do not do it. Tell the user which rule denies it.
 
 A request earlier in the conversation to "review" something is not approval to post the review.
+
+Everything that leaves this machine (commit messages, PR titles and descriptions, comments and replies) is about the change: what it does, why, and how it was tested. Leave out how it was reviewed. No review rounds, reviewer or verifier counts, lenses, models or model families, ledger IDs, or "self-review". That stays in this conversation. Check each of those texts before it goes out:
+
+```sh
+node <skill>/scripts/agent-review.mjs prose --github <file>
+```
 
 Ask once for the whole batch rather than once per reply. Show the user every planned reply, and get approval before posting.
 
