@@ -3616,6 +3616,14 @@ function notCode(token, kind) {
   if (kind === "path" && /^[\d/]+$/.test(token)) return true;
   return false;
 }
+var COUNT = String.raw`(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)`;
+var REVIEW_DETAILS = [
+  /\bmodel famil(?:y|ies)\b/gi,
+  /\bself-review(?:ed|s)?\b/gi,
+  /\b(?:review|self-review) rounds?\b|\brounds? of (?:self-)?review\b/gi,
+  new RegExp(String.raw`\b${COUNT} (?:review )?rounds\b`, "gi"),
+  new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers|verifiers|lenses)\b`, "gi")
+];
 function checkGithub(text) {
   const findings = check(text);
   const add = (line, rule, excerpt) => findings.push({ line, rule, excerpt: excerpt.trim().slice(0, 80) });
@@ -3641,6 +3649,9 @@ function checkGithub(text) {
   maskExempt(text, { links: true }).map(html).forEach((line, i) => {
     const n = i + 1;
     for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
+    for (const re of REVIEW_DETAILS) {
+      for (const m of line.matchAll(re)) add(n, "review detail (describe the change, not how it was reviewed)", m[0]);
+    }
     const covered = [];
     for (const { kind, re } of CODE_PATTERNS) {
       for (const m of line.matchAll(re)) {

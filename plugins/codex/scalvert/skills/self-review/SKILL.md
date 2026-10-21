@@ -113,7 +113,7 @@ For each reported finding that triage marked `agent-fixable`:
 2. Add or update a test when the finding is about behavior.
 3. Run the repo's checks from `AGENTS.md` (build, tests, lint).
 
-Put all of these fixes in one commit, separate from the work it reviews, titled `fix: address self-review findings`. List the findings by title in the body, not by ledger ID. If the checks fail and the fix is not clear, revert that fix and move the finding to the needs-judgment list.
+Put all of these fixes in one commit, separate from the work it reviews. Write its message in the repo's commit style about what the fixes change, for example `fix: reject agent files Copilot can't load`, with one line per fix in the body. Do not mention the review or list ledger IDs. If the checks fail and the fix is not clear, revert that fix and move the finding to the needs-judgment list.
 
 Then record each fixed finding:
 
@@ -189,7 +189,7 @@ When the branch has no PR yet, draft three sections for its description, from wh
 - **Risk:** what could break, and how someone would notice.
 - **How to revert:** the one step that undoes the change, such as a revert, a flag, or a config value.
 
-Draft only. Opening the PR follows the repo's rules below.
+Leave the review itself out of the description. Draft only. Opening the PR follows the repo's rules below.
 
 ### Before anything leaves this machine
 
@@ -204,6 +204,12 @@ node <skill>/scripts/agent-review.mjs policy check -- <the exact command>
 - `deny`: do not do it. Tell the user which rule denies it.
 
 A request earlier in the conversation to "review" something is not approval to post the review.
+
+Everything that leaves this machine (commit messages, PR titles and descriptions, comments and replies) is about the change: what it does, why, and how it was tested. Leave out how it was reviewed. No review rounds, reviewer or verifier counts, lenses, models or model families, ledger IDs, or "self-review". That stays in this conversation. Check each of those texts before it goes out:
+
+```sh
+node <skill>/scripts/agent-review.mjs prose --github <file>
+```
 
 ### Merging
 

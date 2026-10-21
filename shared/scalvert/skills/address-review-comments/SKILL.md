@@ -45,7 +45,7 @@ In a stack of PRs, the fix belongs where the code came from, not on top of the s
 node <skill>/scripts/agent-review.mjs threads owner --path <file> --line <line>
 ```
 
-If the line came from a lower PR in the stack, fix it on that branch, then rebase the PRs above it. Make one commit per thread, or one per group of related threads. Name the thread or finding in the commit body. Run the repo's checks from `AGENTS.md` after each fix.
+If the line came from a lower PR in the stack, fix it on that branch, then rebase the PRs above it. Make one commit per thread, or one per group of related threads. Say in the commit body what the fix changes and why. Run the repo's checks from `AGENTS.md` after each fix.
 
 Order: blockers (wrong behavior, security) first, then simple fixes, then larger changes.
 

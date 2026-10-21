@@ -268,6 +268,12 @@ node <skill>/scripts/agent-review.mjs policy check -- <the exact command>
 
 A request earlier in the conversation to "review" something is not approval to post the review.
 
+Everything that leaves this machine (commit messages, PR titles and descriptions, comments and replies) is about the change: what it does, why, and how it was tested. Leave out how it was reviewed. No review rounds, reviewer or verifier counts, lenses, models or model families, ledger IDs, or "self-review". That stays in this conversation. Check each of those texts before it goes out:
+
+```sh
+node <skill>/scripts/agent-review.mjs prose --github <file>
+```
+
 If the user asks you to post the comments, post them as one pending review, so they can read it before it goes out. Post replies to earlier findings in their threads, never as new comments. Check `gh api` writes with the command above first. After the review is submitted, record each new finding's thread with `ledger link`, as above, so the next round can answer in place.
 
 ## Done when

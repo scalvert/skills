@@ -11,6 +11,14 @@ test("flags ledger IDs in text bound for GitHub", () => {
   assert.deepEqual(rules("Fixed in `F1` on purpose."), []);
 });
 
+test("flags review details in text bound for GitHub", () => {
+  const review = (text) => checkGithub(text).filter((f) => f.rule.startsWith("review detail")).map((f) => f.excerpt);
+  assert.deepEqual(review("Two rounds, with reviewers on two model families."), ["model families", "Two rounds"]);
+  assert.deepEqual(review("fix: address self-review findings"), ["self-review"]);
+  assert.deepEqual(review("Found by 3 reviewers in the second review round."), ["review round", "3 reviewers"]);
+  assert.deepEqual(review("Adds the `self-review` skill and fixes the round-trip test."), []);
+});
+
 test("flags code outside backticks, once per piece of code", () => {
   assert.deepEqual(codeFlags("listThreads() in src/page.js:12 returns one extra item."), ["listThreads()", "src/page.js:12"]);
   assert.deepEqual(codeFlags("Read opts.repoDir and ledger.rounds."), ["opts.repoDir", "ledger.rounds"]);
