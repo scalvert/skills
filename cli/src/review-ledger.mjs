@@ -34,8 +34,8 @@ import {
   writeSync,
 } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { cliStateRoot } from "agent-review/cli";
 import { check as checkDecision } from "./classify.mjs";
 
 export const SCHEMA = "scalvert.review/v1";
@@ -70,14 +70,10 @@ export class LedgerError extends Error {}
 //      reviews/ rather than the directory, so an empty agent-reviews directory
 //      made by another tool does not hide the old ledgers.
 //   4. $XDG_STATE_HOME/agent-reviews, else ~/.local/state/agent-reviews
+// The review harness keeps its reviews in the same root, so the lookup is
+// the harness's own: one answer for v1 ledgers and harness reviews alike.
 export function stateDir() {
-  const explicit = process.env.AGENT_REVIEWS_STATE_DIR || process.env.SCALVERT_STATE_DIR;
-  if (explicit) return explicit;
-  const base = process.env.XDG_STATE_HOME || join(homedir(), ".local", "state");
-  const current = join(base, "agent-reviews");
-  const legacy = join(homedir(), ".local", "state", "scalvert");
-  if (!existsSync(join(current, "reviews")) && existsSync(join(legacy, "reviews"))) return legacy;
-  return current;
+  return cliStateRoot();
 }
 
 export function ledgerPath(repo, key) {
@@ -432,7 +428,7 @@ export function roundFamilies(ledger, round) {
 // can be a blocker: a problem that was already there (missed in an earlier
 // round, or older than the PR) is never what holds a PR back. Raising old
 // problems as blockers round after round is what keeps a PR from converging.
-function placement(f) {
+export function placement(f) {
   const severity = f.decisions["finding-severity"]?.label ?? null;
   const origin = f.decisions["finding-origin"]?.label ?? "introduced";
   const capped = severity === "blocker" && origin !== "introduced";
@@ -443,7 +439,7 @@ function placement(f) {
   else if (effective === null) section = "unrated";
   return { severity: effective, origin, cappedFrom: capped ? "blocker" : null, section };
 }
-const SECTION_ORDER = { blockers: 0, "should-fix": 1, "pre-existing": 2, smaller: 3, unrated: 4 };
+export const SECTION_ORDER = { blockers: 0, "should-fix": 1, "pre-existing": 2, smaller: 3, unrated: 4 };
 
 const locKey = (x) => `${x.file}:${x.line ?? ""}`;
 

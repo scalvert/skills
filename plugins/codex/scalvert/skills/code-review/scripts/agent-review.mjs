@@ -26,9 +26,34 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+/*
+ * This file includes agent-review 0.2.0 (https://github.com/scalvert/agent-review), under this license:
+ *
+ * MIT License
+ *
+ * Copyright (c) 2026 Steve Calvert
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
 // cli/src/cli.mjs
-import { readFileSync as readFileSync5 } from "node:fs";
+import { readFileSync as readFileSync9 } from "node:fs";
 
 // node_modules/commander/lib/error.js
 var CommanderError = class extends Error {
@@ -106,11 +131,11 @@ var Argument = class {
   /**
    * @package
    */
-  _collectValue(value, previous) {
+  _collectValue(value2, previous) {
     if (previous === this.defaultValue || !Array.isArray(previous)) {
-      return [value];
+      return [value2];
     }
-    previous.push(value);
+    previous.push(value2);
     return previous;
   }
   /**
@@ -120,8 +145,8 @@ var Argument = class {
    * @param {string} [description]
    * @return {Argument}
    */
-  default(value, description) {
-    this.defaultValue = value;
+  default(value2, description) {
+    this.defaultValue = value2;
     this.defaultValueDescription = description;
     return this;
   }
@@ -820,8 +845,8 @@ var Option = class {
    * @param {string} [description]
    * @return {Option}
    */
-  default(value, description) {
-    this.defaultValue = value;
+  default(value2, description) {
+    this.defaultValue = value2;
     this.defaultValueDescription = description;
     return this;
   }
@@ -922,11 +947,11 @@ var Option = class {
   /**
    * @package
    */
-  _collectValue(value, previous) {
+  _collectValue(value2, previous) {
     if (previous === this.defaultValue || !Array.isArray(previous)) {
-      return [value];
+      return [value2];
     }
-    previous.push(value);
+    previous.push(value2);
     return previous;
   }
   /**
@@ -1020,7 +1045,7 @@ var DualOptions = class {
         this.positiveOptions.set(option.attributeName(), option);
       }
     });
-    this.negativeOptions.forEach((value, key) => {
+    this.negativeOptions.forEach((value2, key) => {
       if (this.positiveOptions.has(key)) {
         this.dualOptions.add(key);
       }
@@ -1033,12 +1058,12 @@ var DualOptions = class {
    * @param {Option} option
    * @returns {boolean}
    */
-  valueFromOption(value, option) {
+  valueFromOption(value2, option) {
     const optionKey = option.attributeName();
     if (!this.dualOptions.has(optionKey)) return true;
     const preset = this.negativeOptions.get(optionKey).presetArg;
     const negativeValue = preset !== void 0 ? preset : false;
-    return option.negate === (negativeValue === value);
+    return option.negate === (negativeValue === value2);
   }
 };
 function camelcase(str) {
@@ -1656,9 +1681,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
    * @param {string} invalidArgumentMessage
    * @private
    */
-  _callParseArg(target, value, previous, invalidArgumentMessage) {
+  _callParseArg(target, value2, previous, invalidArgumentMessage) {
     try {
-      return target.parseArg(value, previous);
+      return target.parseArg(value2, previous);
     } catch (err) {
       if (err.code === "commander.invalidArgument") {
         const message = `${invalidArgumentMessage} ${err.message}`;
@@ -1936,8 +1961,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
    * @param {object} value
    * @return {Command} `this` command for chaining
    */
-  setOptionValue(key, value) {
-    return this.setOptionValueWithSource(key, value, void 0);
+  setOptionValue(key, value2) {
+    return this.setOptionValueWithSource(key, value2, void 0);
   }
   /**
    * Store option value and where the value came from.
@@ -1947,11 +1972,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
    * @param {string} source - expected values are default/config/env/cli/implied
    * @return {Command} `this` command for chaining
    */
-  setOptionValueWithSource(key, value, source) {
+  setOptionValueWithSource(key, value2, source) {
     if (this._storeOptionsAsProperties) {
-      this[key] = value;
+      this[key] = value2;
     } else {
-      this._optionValues[key] = value;
+      this._optionValues[key] = value2;
     }
     this._optionValueSources[key] = source;
     return this;
@@ -2345,13 +2370,13 @@ Expecting one of '${allowedValues.join("', '")}'`);
    * @private
    */
   _processArguments() {
-    const myParseArg = (argument, value, previous) => {
-      let parsedValue = value;
-      if (value !== null && argument.parseArg) {
-        const invalidValueMessage = `error: command-argument value '${value}' is invalid for argument '${argument.name()}'.`;
+    const myParseArg = (argument, value2, previous) => {
+      let parsedValue = value2;
+      if (value2 !== null && argument.parseArg) {
+        const invalidValueMessage = `error: command-argument value '${value2}' is invalid for argument '${argument.name()}'.`;
         parsedValue = this._callParseArg(
           argument,
-          value,
+          value2,
           previous,
           invalidValueMessage
         );
@@ -2361,25 +2386,25 @@ Expecting one of '${allowedValues.join("', '")}'`);
     this._checkNumberOfArguments();
     const processedArgs = [];
     this.registeredArguments.forEach((declaredArg, index) => {
-      let value = declaredArg.defaultValue;
+      let value2 = declaredArg.defaultValue;
       if (declaredArg.variadic) {
         if (index < this.args.length) {
-          value = this.args.slice(index);
+          value2 = this.args.slice(index);
           if (declaredArg.parseArg) {
-            value = value.reduce((processed, v) => {
+            value2 = value2.reduce((processed, v) => {
               return myParseArg(declaredArg, v, processed);
             }, declaredArg.defaultValue);
           }
-        } else if (value === void 0) {
-          value = [];
+        } else if (value2 === void 0) {
+          value2 = [];
         }
       } else if (index < this.args.length) {
-        value = this.args[index];
+        value2 = this.args[index];
         if (declaredArg.parseArg) {
-          value = myParseArg(declaredArg, value, declaredArg.defaultValue);
+          value2 = myParseArg(declaredArg, value2, declaredArg.defaultValue);
         }
       }
-      processedArgs[index] = value;
+      processedArgs[index] = value2;
     });
     this.processedArgs = processedArgs;
   }
@@ -2621,7 +2646,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
     const negativeNumberArg = (arg) => {
       if (!/^-(\d+|\d*\.\d+)(e[+-]?\d+)?$/.test(arg)) return false;
       return !this._getCommandAndAncestors().some(
-        (cmd) => cmd.options.map((opt) => opt.short).some((short) => /^-\d$/.test(short))
+        (cmd) => cmd.options.map((opt) => opt.short).some((short2) => /^-\d$/.test(short2))
       );
     };
     let activeVariadicOption = null;
@@ -2644,15 +2669,15 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const option = this._findOption(arg);
         if (option) {
           if (option.required) {
-            const value = args[i++];
-            if (value === void 0) this.optionMissingArgument(option);
-            this.emit(`option:${option.name()}`, value);
+            const value2 = args[i++];
+            if (value2 === void 0) this.optionMissingArgument(option);
+            this.emit(`option:${option.name()}`, value2);
           } else if (option.optional) {
-            let value = null;
+            let value2 = null;
             if (i < args.length && (!maybeOption(args[i]) || negativeNumberArg(args[i]))) {
-              value = args[i++];
+              value2 = args[i++];
             }
-            this.emit(`option:${option.name()}`, value);
+            this.emit(`option:${option.name()}`, value2);
           } else {
             this.emit(`option:${option.name()}`);
           }
@@ -3495,17 +3520,17 @@ var BLOCK_START = /^\s{0,3}(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|\||(?:[-*_]\s*){3,}$)/;
 function spanMap(lines) {
   const out = lines.map(() => null);
   let fence = null;
-  let block = [];
+  let block2 = [];
   const flush = () => {
-    if (!block.length) return;
+    if (!block2.length) return;
     const offsets = [];
     let pos = 0;
-    for (const i of block) {
+    for (const i of block2) {
       offsets.push(pos);
       pos += lines[i].length + 1;
     }
-    const { spans, unmatched, escaped } = codeSpans(block.map((i) => lines[i]).join("\n"));
-    block.forEach((i, k) => {
+    const { spans, unmatched, escaped } = codeSpans(block2.map((i) => lines[i]).join("\n"));
+    block2.forEach((i, k) => {
       const from = offsets[k];
       const to = from + lines[i].length;
       const inLine = (p) => p >= from && p < to;
@@ -3515,7 +3540,7 @@ function spanMap(lines) {
         escaped: escaped.filter(inLine).length
       };
     });
-    block = [];
+    block2 = [];
   };
   lines.forEach((line, i) => {
     const open = line.match(/^\s*(```+|~~~+)/);
@@ -3533,7 +3558,7 @@ function spanMap(lines) {
       return;
     }
     if (BLOCK_START.test(line)) flush();
-    block.push(i);
+    block2.push(i);
   });
   flush();
   return out;
@@ -3762,12 +3787,12 @@ function validate(permissions) {
     throw new PermissionsError("permissions must be an object with allow, ask and deny lists");
   }
   for (const key of ["allow", "ask", "deny"]) {
-    const list2 = permissions[key];
-    if (list2 === void 0) continue;
-    if (!Array.isArray(list2) || list2.some((r) => typeof r !== "string" || r.trim() === "")) {
+    const list3 = permissions[key];
+    if (list3 === void 0) continue;
+    if (!Array.isArray(list3) || list3.some((r) => typeof r !== "string" || r.trim() === "")) {
       throw new PermissionsError(`permissions.${key} must be a list of rule strings`);
     }
-    for (const rule of list2) parseRule(rule);
+    for (const rule of list3) parseRule(rule);
   }
   return { allow: permissions.allow ?? [], ask: permissions.ask ?? [], deny: permissions.deny ?? [] };
 }
@@ -3809,36 +3834,36 @@ function matchPattern(pattern, command) {
 function splitCommand(command) {
   const parts = [];
   const nested = [];
-  let current = "";
+  let current2 = "";
   let quote = null;
   for (let i = 0; i < command.length; i++) {
     const c = command[i];
     if (quote) {
-      current += c;
-      if (c === "\\" && quote === '"') current += command[++i] ?? "";
+      current2 += c;
+      if (c === "\\" && quote === '"') current2 += command[++i] ?? "";
       else if (c === quote) quote = null;
       continue;
     }
     if (c === "'" || c === '"') {
       quote = c;
-      current += c;
+      current2 += c;
       continue;
     }
     const two = command.slice(i, i + 2);
     if (two === "&&" || two === "||" || two === "|&") {
-      parts.push(current);
-      current = "";
+      parts.push(current2);
+      current2 = "";
       i++;
       continue;
     }
     if (c === ";" || c === "|" || c === "&" || c === "\n") {
-      parts.push(current);
-      current = "";
+      parts.push(current2);
+      current2 = "";
       continue;
     }
-    current += c;
+    current2 += c;
   }
-  parts.push(current);
+  parts.push(current2);
   for (const m of command.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) nested.push(...splitCommand(m[1] ?? m[2]));
   return [...parts, ...nested].map((p) => p.trim().replace(/\s+/g, " ")).filter(Boolean).map((p) => p.replace(/^\(+\s*|\s*\)+$/g, "")).filter(Boolean);
 }
@@ -3987,98 +4012,41 @@ function writeCodexRules(settingsPath, out) {
   return { out, skipped };
 }
 
-// cli/src/review-context.mjs
-import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync as existsSync4, mkdirSync as mkdirSync3, mkdtempSync, writeFileSync as writeFileSync3 } from "node:fs";
-import { homedir as homedir3, tmpdir } from "node:os";
-import { join as join4 } from "node:path";
-
-// cli/src/review-plan.mjs
-import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
-import { homedir as homedir2 } from "node:os";
-import { join as join3 } from "node:path";
-
-// cli/src/review-ledger.mjs
-import {
-  closeSync,
-  existsSync as existsSync2,
-  mkdirSync as mkdirSync2,
-  openSync,
-  readFileSync as readFileSync2,
-  readdirSync,
-  renameSync,
-  statSync,
-  unlinkSync,
-  writeFileSync as writeFileSync2,
-  writeSync
-} from "node:fs";
-import { randomBytes } from "node:crypto";
-import { homedir } from "node:os";
-import { dirname as dirname2, join as join2 } from "node:path";
-var SCHEMA = "scalvert.review/v1";
-var DEFAULT_THRESHOLD = 0.7;
-var DISPOSITIONS = ["fixed", "accepted", "wrong", "intended", "not-worth-it"];
-var REAL = /* @__PURE__ */ new Set(["fixed", "accepted", "not-worth-it"]);
-var NOISE = /* @__PURE__ */ new Set(["wrong", "intended", "not-worth-it", "dismissed", "wont-fix"]);
-var RETIRED = { dismissed: "wrong", "wont-fix": "intended or not-worth-it" };
-var REQUIRED_FINDING = ["lens", "file", "title", "precondition", "scenario"];
-var CLASS_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-var MAX_ROUNDS = 3;
-var REPEAT_WINDOW = 3;
-var LedgerError = class extends Error {
-};
-function stateDir() {
-  const explicit = process.env.AGENT_REVIEWS_STATE_DIR || process.env.SCALVERT_STATE_DIR;
-  if (explicit) return explicit;
-  const base = process.env.XDG_STATE_HOME || join2(homedir(), ".local", "state");
-  const current = join2(base, "agent-reviews");
-  const legacy = join2(homedir(), ".local", "state", "scalvert");
-  if (!existsSync2(join2(current, "reviews")) && existsSync2(join2(legacy, "reviews"))) return legacy;
-  return current;
-}
-function ledgerPath(repo, key) {
-  if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? "")) throw new LedgerError(`--repo must be owner/repo, got "${repo}"`);
-  if (!key) throw new LedgerError("--key is required (a PR number or branch name)");
-  return join2(stateDir(), "reviews", repo, `${keyFile(key)}.json`);
-}
-function keyFile(key) {
-  return [...String(key)].map((ch) => /[\w.-]/.test(ch) ? ch : [...Buffer.from(ch)].map((b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("")).join("");
-}
-function openFindings(ledger) {
-  return ledger.findings.filter((f) => f.reported && !f.duplicateOf && (!f.disposition || f.disposition.as === "accepted"));
-}
-function load2(repo, key) {
-  const path2 = ledgerPath(repo, key);
-  if (!existsSync2(path2)) return { schema: SCHEMA, repo, key: String(key), rounds: [], findings: [] };
-  const ledger = JSON.parse(readFileSync2(path2, "utf8"));
-  if (ledger.schema !== SCHEMA) throw new LedgerError(`${path2}: unknown schema ${ledger.schema}`);
-  return ledger;
-}
-function save(ledger) {
-  const path2 = ledgerPath(ledger.repo, ledger.key);
-  mkdirSync2(dirname2(path2), { recursive: true });
-  const tmp = `${path2}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
-  writeFileSync2(tmp, `${JSON.stringify(ledger, null, 2)}
-`);
-  renameSync(tmp, path2);
-  return path2;
-}
-function update(repo, key, fn) {
-  const path2 = ledgerPath(repo, key);
-  mkdirSync2(dirname2(path2), { recursive: true });
-  const lock = `${path2}.lock`;
-  const token = acquire(lock);
-  try {
-    const l = load2(repo, key);
-    const result = fn(l);
-    save(l);
-    return result;
-  } finally {
-    release(lock, token);
+// node_modules/agent-review/src/core/digest.mjs
+import { createHash } from "node:crypto";
+function canonicalJson(value2) {
+  if (value2 === null || typeof value2 !== "object") {
+    if (typeof value2 === "number" && !Number.isFinite(value2)) throw new TypeError("canonicalJson: numbers must be finite");
+    if (value2 === void 0) throw new TypeError("canonicalJson: undefined has no JSON form");
+    return JSON.stringify(value2);
   }
+  if (Array.isArray(value2)) return `[${value2.map(canonicalJson).join(",")}]`;
+  const keys = Object.keys(value2).filter((k) => value2[k] !== void 0).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(value2[k])}`).join(",")}}`;
 }
-var STALE_LOCK_MS = 3e4;
-var lockTimeoutMs = () => Number(process.env.AGENT_REVIEWS_LOCK_TIMEOUT_MS) || 1e4;
+var sha256 = (data) => `sha256:${createHash("sha256").update(data).digest("hex")}`;
+var digestOf = (value2) => sha256(canonicalJson(value2));
+
+// node_modules/agent-review/src/core/store/errors.mjs
+var StoreError = class extends Error {
+  constructor(code, message, details = {}) {
+    super(message);
+    this.name = "StoreError";
+    this.code = code;
+    this.details = details;
+  }
+};
+var BUSY = "store/busy";
+var CONFLICT = "store/conflict";
+var OP_ID_REUSED = "store/op-id-reused";
+var CORRUPT = "store/corrupt";
+var INVALID = "store/invalid";
+
+// node_modules/agent-review/src/core/store/lock.mjs
+import { closeSync, openSync, readFileSync as readFileSync2, statSync, unlinkSync, writeSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+var DEFAULT_TIMEOUT_MS = 1e4;
+var DEFAULT_STALE_MS = 3e4;
 var sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 function alive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -4089,23 +4057,22 @@ function alive(pid) {
     return e.code === "EPERM";
   }
 }
-function readLock(lock) {
+function readLock(path2) {
   try {
-    return { text: readFileSync2(lock, "utf8"), mtimeMs: statSync(lock).mtimeMs };
+    return { text: readFileSync2(path2, "utf8"), mtimeMs: statSync(path2).mtimeMs };
   } catch {
     return null;
   }
 }
-function isStale({ text, mtimeMs }) {
+function isStale({ text, mtimeMs }, staleMs) {
   let pid;
   try {
     pid = JSON.parse(text).pid;
   } catch {
-    return Date.now() - mtimeMs > STALE_LOCK_MS;
+    return Date.now() - mtimeMs > staleMs;
   }
   return !alive(pid);
 }
-var newToken = () => JSON.stringify({ pid: process.pid, id: randomBytes(6).toString("hex"), at: (/* @__PURE__ */ new Date()).toISOString() });
 function create(path2, token) {
   try {
     const fd = openSync(path2, "wx");
@@ -4120,12 +4087,13 @@ function create(path2, token) {
     return false;
   }
 }
-function reclaim(lock) {
-  const breaker = `${lock}.break`;
+var newToken = () => JSON.stringify({ pid: process.pid, token: randomBytes(8).toString("hex"), at: (/* @__PURE__ */ new Date()).toISOString() });
+function reclaim(path2, staleMs) {
+  const breaker = `${path2}.break`;
   const token = newToken();
   if (!create(breaker, token)) {
     const b = readLock(breaker);
-    if (b && isStale(b)) {
+    if (b && isStale(b, staleMs)) {
       try {
         unlinkSync(breaker);
       } catch {
@@ -4134,37 +4102,2284 @@ function reclaim(lock) {
     return;
   }
   try {
-    const held = readLock(lock);
-    if (held && isStale(held)) {
+    const held = readLock(path2);
+    if (held && isStale(held, staleMs)) {
       try {
-        unlinkSync(lock);
+        unlinkSync(path2);
       } catch {
       }
     }
   } finally {
-    release(breaker, token);
+    if (readLock(breaker)?.text === token) {
+      try {
+        unlinkSync(breaker);
+      } catch {
+      }
+    }
   }
 }
-function acquire(lock) {
+function acquire(path2, { timeoutMs = DEFAULT_TIMEOUT_MS, staleMs = DEFAULT_STALE_MS } = {}) {
   const token = newToken();
-  const deadline = Date.now() + lockTimeoutMs();
+  const deadline = Date.now() + timeoutMs;
   for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
-    if (create(lock, token)) return token;
-    const held = readLock(lock);
-    if (held && isStale(held)) {
-      reclaim(lock);
-      if (!readLock(lock)) continue;
+    if (create(path2, token)) return token;
+    const held = readLock(path2);
+    if (held && isStale(held, staleMs)) {
+      reclaim(path2, staleMs);
+      if (!readLock(path2)) continue;
     }
     if (Date.now() > deadline) {
-      throw new LedgerError(`ledger busy: another writer holds ${lock}, so nothing was written. Retry; if no review is running, remove the lock file.`);
+      throw new StoreError(BUSY, `busy: another writer holds ${path2}, so nothing was written. Retry; if no review command is running, remove the lock file.`, { lock: path2 });
     }
     sleep(wait + Math.floor(Math.random() * wait));
   }
 }
-function release(lock, token) {
-  if (readLock(lock)?.text !== token) return;
+function release(path2, token) {
+  if (readLock(path2)?.text !== token) return;
   try {
-    unlinkSync(lock);
+    unlinkSync(path2);
+  } catch {
+  }
+}
+function withLock(path2, fn, options) {
+  const token = acquire(path2, options);
+  try {
+    return fn();
+  } finally {
+    release(path2, token);
+  }
+}
+
+// node_modules/agent-review/src/core/store/atomic.mjs
+import { closeSync as closeSync2, fsyncSync, openSync as openSync2, renameSync, writeSync as writeSync2 } from "node:fs";
+import { randomBytes as randomBytes2 } from "node:crypto";
+function writeFileAtomic(path2, text) {
+  const tmp = `${path2}.${process.pid}.${randomBytes2(4).toString("hex")}.tmp`;
+  const fd = openSync2(tmp, "w");
+  try {
+    writeSync2(fd, text);
+    fsyncSync(fd);
+  } finally {
+    closeSync2(fd);
+  }
+  renameSync(tmp, path2);
+}
+
+// node_modules/agent-review/src/core/store/paths.mjs
+import { existsSync as existsSync2, readdirSync } from "node:fs";
+import { join as join2 } from "node:path";
+function keyFile(key) {
+  return [...String(key)].map((ch) => /[\w.-]/.test(ch) ? ch : [...Buffer.from(ch)].map((b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("")).join("");
+}
+var decodeKeyFile = (name) => decodeURIComponent(name);
+function checkRef({ repo, key } = {}) {
+  if (typeof repo !== "string" || !/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+    throw new StoreError(INVALID, `repo must be owner/name, got ${JSON.stringify(repo)}`);
+  }
+  if (key === void 0 || key === null || String(key) === "") {
+    throw new StoreError(INVALID, "key is required: a pull request number or a branch name");
+  }
+  return { repo, key: String(key) };
+}
+function reviewPaths(root, ref) {
+  const { repo, key } = checkRef(ref);
+  const [owner2, name] = repo.split("/");
+  const dir = join2(root, "v2", owner2, name, keyFile(key));
+  return { dir, log: join2(dir, "events.jsonl"), snapshot: join2(dir, "snapshot.json"), lock: join2(dir, "lock") };
+}
+function listReviews(root) {
+  const v2 = join2(root, "v2");
+  if (!existsSync2(v2)) return [];
+  const dirs = (p) => readdirSync(p, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+  return dirs(v2).flatMap(
+    (owner2) => dirs(join2(v2, owner2)).flatMap(
+      (name) => dirs(join2(v2, owner2, name)).filter((k) => existsSync2(join2(v2, owner2, name, k, "events.jsonl"))).map((k) => ({ repo: `${owner2}/${name}`, key: decodeKeyFile(k) }))
+    )
+  );
+}
+function legacyV1Path(v1Root, ref) {
+  const { repo, key } = checkRef(ref);
+  return join2(v1Root, "reviews", repo, `${keyFile(key)}.json`);
+}
+
+// node_modules/agent-review/src/core/store/event-log.mjs
+import { closeSync as closeSync3, existsSync as existsSync3, fsyncSync as fsyncSync2, ftruncateSync, mkdirSync as mkdirSync2, openSync as openSync3, readFileSync as readFileSync3, writeSync as writeSync3 } from "node:fs";
+import { randomBytes as randomBytes3 } from "node:crypto";
+var EVENT_SCHEMA = "agent-review.event/v1";
+var SNAPSHOT_SCHEMA = "agent-review.snapshot/v1";
+var TYPE = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/;
+var ACTOR = /^(human|agent|system):[^\s].*$/;
+function checkEvent(e, i) {
+  const where = `event ${i + 1}`;
+  if (!e || typeof e !== "object") throw new StoreError(INVALID, `${where}: must be an object`);
+  if (typeof e.type !== "string" || !TYPE.test(e.type)) throw new StoreError(INVALID, `${where}: type must look like "review.started", got ${JSON.stringify(e.type)}`);
+  if (typeof e.actor !== "string" || !ACTOR.test(e.actor)) throw new StoreError(INVALID, `${where}: actor must be human:<name>, agent:<runtime> or system:<name>, got ${JSON.stringify(e.actor)}`);
+  if (e.data !== void 0 && (e.data === null || typeof e.data !== "object" || Array.isArray(e.data))) throw new StoreError(INVALID, `${where}: data must be an object`);
+  return { type: e.type, actor: e.actor, data: e.data ?? {} };
+}
+function parseLog(path2) {
+  if (!existsSync3(path2)) return { events: [], tornBytes: 0, size: 0, dropped: [] };
+  const bytes = readFileSync3(path2);
+  const end = bytes.lastIndexOf(10) + 1;
+  const events = [];
+  const offsets = [];
+  const lines = [];
+  for (let at = 0; at < end; ) {
+    const nl = bytes.indexOf(10, at);
+    offsets.push(at);
+    lines.push(bytes.subarray(at, nl).toString("utf8"));
+    at = nl + 1;
+  }
+  lines.forEach((line, i) => {
+    let e;
+    try {
+      e = JSON.parse(line);
+    } catch {
+      throw new StoreError(CORRUPT, `${path2}: line ${i + 1} is not JSON; the log is corrupt, and nothing was changed`, { path: path2, line: i + 1 });
+    }
+    if (e?.schema !== EVENT_SCHEMA) throw new StoreError(CORRUPT, `${path2}: line ${i + 1} has schema ${JSON.stringify(e?.schema)}, expected ${EVENT_SCHEMA}`, { path: path2, line: i + 1 });
+    if (e.seq !== i + 1) throw new StoreError(CORRUPT, `${path2}: line ${i + 1} has seq ${e.seq}; sequence numbers must run 1, 2, 3 with no gaps`, { path: path2, line: i + 1 });
+    events.push(e);
+  });
+  const dropped = [];
+  const tornBytes = bytes.length - end;
+  if (tornBytes) dropped.push({ kind: "partial-last-line", bytes: tornBytes });
+  let size = end;
+  const last = events.at(-1);
+  if (last && last.op.index + 1 < last.op.size) {
+    const first = events.findIndex((e) => e.op.id === last.op.id && e.op.digest === last.op.digest);
+    dropped.push({ kind: "partial-batch", opId: last.op.id, events: events.length - first, of: last.op.size });
+    size = offsets[first];
+    events.splice(first);
+  }
+  return { events, tornBytes: bytes.length - size, size, dropped };
+}
+function reduceAll(events, reducer, initial) {
+  return events.reduce((state, e) => reducer(state, e), structuredClone(initial));
+}
+function readSnapshot(path2, seq, reducerVersion) {
+  try {
+    const s = JSON.parse(readFileSync3(path2, "utf8"));
+    if (s.schema === SNAPSHOT_SCHEMA && s.seq === seq && s.reducerVersion === reducerVersion) return s.state;
+  } catch {
+  }
+  return void 0;
+}
+function openLog(root, ref, { reducer = null, initial = {}, reducerVersion = "none", lock: lockOptions } = {}) {
+  const paths = reviewPaths(root, ref);
+  function stateFor(events) {
+    if (!reducer) return void 0;
+    const seq = events.length;
+    const cached = readSnapshot(paths.snapshot, seq, reducerVersion);
+    return cached !== void 0 ? cached : reduceAll(events, reducer, initial);
+  }
+  function read() {
+    const { events, dropped } = parseLog(paths.log);
+    return { events, seq: events.length, state: stateFor(events), recovered: dropped };
+  }
+  function append(batch, { opId, expectSeq } = {}) {
+    if (!Array.isArray(batch) || batch.length === 0) throw new StoreError(INVALID, "append needs at least one event");
+    const clean = batch.map(checkEvent);
+    const digest = digestOf(clean);
+    if (opId !== void 0 && (typeof opId !== "string" || opId.length === 0 || opId.length > 200)) throw new StoreError(INVALID, "opId must be a nonempty string of at most 200 characters");
+    const id = opId ?? `auto:${randomBytes3(12).toString("hex")}`;
+    mkdirSync2(paths.dir, { recursive: true });
+    return withLock(
+      paths.lock,
+      () => {
+        const { events, tornBytes, size, dropped } = parseLog(paths.log);
+        const recovered = dropped;
+        if (tornBytes) {
+          const fd2 = openSync3(paths.log, "r+");
+          try {
+            ftruncateSync(fd2, size);
+            fsyncSync2(fd2);
+          } finally {
+            closeSync3(fd2);
+          }
+        }
+        const earlier = events.filter((e) => e.op.id === id);
+        if (earlier.length) {
+          if (earlier[0].op.digest !== digest) {
+            throw new StoreError(OP_ID_REUSED, `operation ${id} was already used for different events; use a new operation ID`, { opId: id });
+          }
+          return { seqs: earlier.map((e) => e.seq), duplicate: true, seq: events.length, state: stateFor(events), recovered };
+        }
+        if (expectSeq !== void 0 && expectSeq !== events.length) {
+          throw new StoreError(CONFLICT, `the log moved: expected seq ${expectSeq}, found ${events.length}. Read it again and retry.`, { expectSeq, seq: events.length });
+        }
+        const at = (/* @__PURE__ */ new Date()).toISOString();
+        const added = clean.map((e, i) => ({
+          schema: EVENT_SCHEMA,
+          seq: events.length + i + 1,
+          at,
+          op: { id, digest, index: i, size: clean.length },
+          ...e
+        }));
+        const fd = openSync3(paths.log, "a");
+        try {
+          writeSync3(fd, added.map((e) => `${canonicalJson(e)}
+`).join(""));
+          fsyncSync2(fd);
+        } finally {
+          closeSync3(fd);
+        }
+        const all = [...events, ...added];
+        let state;
+        if (reducer) {
+          const before = readSnapshot(paths.snapshot, events.length, reducerVersion);
+          state = before !== void 0 ? added.reduce((s, e) => reducer(s, e), before) : reduceAll(all, reducer, initial);
+          writeFileAtomic(paths.snapshot, `${JSON.stringify({ schema: SNAPSHOT_SCHEMA, reducerVersion, seq: all.length, state }, null, 2)}
+`);
+        }
+        return { seqs: added.map((e) => e.seq), duplicate: false, seq: all.length, state, recovered };
+      },
+      lockOptions
+    );
+  }
+  return { paths, read, append };
+}
+
+// node_modules/agent-review/src/core/store/legacy-v1.mjs
+import { existsSync as existsSync4, readFileSync as readFileSync4 } from "node:fs";
+var LEGACY_V1_SCHEMA = "scalvert.review/v1";
+var LEGACY_IMPORTED = "legacy.v1-imported";
+function importLegacyV1(log, ref, v1Path, { actor = "system:legacy-import" } = {}) {
+  const { repo, key } = checkRef(ref);
+  if (!existsSync4(v1Path)) return { imported: false, reason: "no v1 ledger", path: v1Path };
+  const bytes = readFileSync4(v1Path);
+  const digest = sha256(bytes);
+  let ledger;
+  try {
+    ledger = JSON.parse(bytes.toString("utf8"));
+  } catch {
+    throw new StoreError(INVALID, `${v1Path}: not JSON, so it was not imported`);
+  }
+  if (ledger.schema !== LEGACY_V1_SCHEMA) {
+    throw new StoreError(INVALID, `${v1Path}: schema ${JSON.stringify(ledger.schema)} is not ${LEGACY_V1_SCHEMA}, so it was not imported`);
+  }
+  if (ledger.repo !== repo || String(ledger.key) !== key) {
+    throw new StoreError(INVALID, `${v1Path}: holds ${ledger.repo} ${ledger.key}, not ${repo} ${key}, so it was not imported`);
+  }
+  const { events, seq } = log.read();
+  const latest = events.filter((e) => e.type === LEGACY_IMPORTED && e.data.source?.path === v1Path).at(-1);
+  if (latest?.data.source.digest === digest) return { imported: false, duplicate: true, digest, seq: latest.seq, path: v1Path };
+  const result = log.append(
+    [
+      {
+        type: LEGACY_IMPORTED,
+        actor,
+        data: {
+          provenance: "legacy",
+          source: { schema: LEGACY_V1_SCHEMA, path: v1Path, digest },
+          rounds: ledger.rounds?.length ?? 0,
+          findings: ledger.findings?.length ?? 0,
+          ledger
+        }
+      }
+    ],
+    // The ID names the content and the log position it follows, so a retry
+    // of this import is recognized and a later re-import is not.
+    { opId: `legacy-v1-import:${digest}:after-${seq}`, expectSeq: seq }
+  );
+  return { imported: !result.duplicate, duplicate: result.duplicate, digest, seq: result.seqs[0], path: v1Path };
+}
+
+// node_modules/agent-review/src/core/glob.mjs
+function checkGlob(glob) {
+  if (typeof glob !== "string" || glob.length === 0) return "must be a nonempty string";
+  if (glob.startsWith("/")) return "must be relative to the repository root, without a leading /";
+  if (glob.includes("\\")) return "must use forward slashes";
+  if (/(^|\/)\.\.(\/|$)/.test(glob)) return "must not contain ..";
+  return null;
+}
+function globToRegExp2(glob) {
+  let re = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*" && glob[i + 1] === "*") {
+      i += 1;
+      if (glob[i + 1] === "/") {
+        i += 1;
+        re += "(?:.*/)?";
+      } else re += ".*";
+    } else if (c === "*") re += "[^/]*";
+    else if (c === "?") re += "[^/]";
+    else re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${re}$`);
+}
+function matchPaths(paths, globs) {
+  const compiled = globs.map((g) => [g, globToRegExp2(g)]);
+  return paths.flatMap((p) => compiled.filter(([, re]) => re.test(p)).map(([g]) => ({ path: p, glob: g })));
+}
+
+// node_modules/agent-review/src/core/policy/defaults.mjs
+var POLICY_FILE = "agent-review.json";
+var SUPPORTED_VERSIONS = [1];
+var DEPTHS = ["quick", "standard", "deep"];
+var VERIFIER_INDEPENDENCE = ["model", "family"];
+var CATEGORIES = ["docs", "tests", "deps-patch", "deps-other", "feature", "refactor", "policy", "security-sensitive"];
+var DEFAULT_POLICY = Object.freeze({
+  version: 1,
+  review: {
+    // The depth when nobody chooses one. A default, not a floor.
+    defaultDepth: null,
+    // The lowest depth any review may run at.
+    minDepth: "quick",
+    // A changed path that matches one of these makes the review deep.
+    deepPaths: [],
+    // Lenses every review runs, whatever the depth.
+    requiredLenses: ["correctness"],
+    minReviewers: 1,
+    // Review rounds per change, counting v1 rounds. Later rounds mostly find
+    // older problems, not new ones. Only a person can start one past this.
+    maxRounds: 3
+  },
+  independence: {
+    // Distinct model families across the panel.
+    minFamilies: 2,
+    // A verifier must differ from the finding's author by this much.
+    verifier: "family",
+    secondVerifierForBlockers: false
+  },
+  evidence: {
+    finding: ["file", "line", "precondition", "scenario", "evidence"],
+    decision: ["rationale"]
+  },
+  thresholds: {
+    // Report a finding when its verification probability is at least this.
+    // These are model probabilities, not calibrated measurements.
+    report: 0.7,
+    // Below this classification probability, a person decides.
+    classify: 0.8
+  },
+  escalation: {
+    // A change to any of these paths goes to a person.
+    paths: [POLICY_FILE],
+    // A change classified as any of these goes to a person.
+    categories: ["policy", "security-sensitive"]
+  },
+  actions: {
+    // Posting comments or reviews to the repository host.
+    post: false,
+    merge: { enabled: false, disqualifying: ["blocker", "should-fix"], rules: [] }
+  }
+});
+
+// node_modules/agent-review/src/core/policy/validate.mjs
+var NAME = /^[a-z][a-z0-9-]*$/;
+var FINDING_FIELDS = ["file", "line", "precondition", "scenario", "evidence"];
+var DECISION_FIELDS = ["rationale"];
+var t = {
+  object: (fields, { required = [] } = {}) => ({ kind: "object", fields, required }),
+  login: () => ({ kind: "login" }),
+  enumOf: (values, { nullable = false } = {}) => ({ kind: "enum", values, nullable }),
+  int: (min, max) => ({ kind: "int", min, max }),
+  prob: () => ({ kind: "prob" }),
+  bool: () => ({ kind: "bool" }),
+  list: (item, { unique = true } = {}) => ({ kind: "list", item, unique }),
+  name: () => ({ kind: "name" }),
+  glob: () => ({ kind: "glob" }),
+  literal: (value2, why) => ({ kind: "literal", value: value2, why })
+};
+var V1 = t.object({
+  // For editors; the harness ignores its value.
+  $schema: { kind: "string" },
+  version: t.literal(1),
+  review: t.object({
+    defaultDepth: t.enumOf(DEPTHS, { nullable: true }),
+    minDepth: t.enumOf(DEPTHS),
+    deepPaths: t.list(t.glob()),
+    requiredLenses: t.list(t.name()),
+    minReviewers: t.int(1, 20),
+    maxRounds: t.int(1, 20)
+  }),
+  independence: t.object({
+    minFamilies: t.int(1, 5),
+    verifier: t.enumOf(VERIFIER_INDEPENDENCE),
+    secondVerifierForBlockers: t.bool()
+  }),
+  evidence: t.object({
+    finding: t.list(t.enumOf(FINDING_FIELDS)),
+    decision: t.list(t.enumOf(DECISION_FIELDS))
+  }),
+  thresholds: t.object({
+    report: t.prob(),
+    classify: t.prob()
+  }),
+  escalation: t.object({
+    paths: t.list(t.glob()),
+    categories: t.list(t.enumOf(CATEGORIES))
+  }),
+  actions: t.object({
+    post: t.bool(),
+    merge: t.object({
+      // Lets the harness decide merge eligibility. Nothing merges unless a
+      // merge executor is also configured, and none ships with the harness.
+      enabled: t.bool(),
+      // Reported findings at these severities block a merge until disposed.
+      disqualifying: t.list(t.enumOf(["blocker", "should-fix", "nit"])),
+      rules: t.list(
+        t.object(
+          {
+            name: t.name(),
+            // The change must be classified as one of these.
+            categories: t.list(t.enumOf(CATEGORIES)),
+            // The pull request's author must be one of these accounts.
+            authors: t.list(t.login()),
+            // Every commit must carry a signature the host verified.
+            requireVerifiedCommits: t.bool(),
+            // Every changed path must match one of these.
+            paths: t.list(t.glob()),
+            // "patch": every dependency change must be a semver patch bump.
+            dependencies: t.enumOf(["patch"], { nullable: true }),
+            minApprovals: t.int(0, 10)
+          },
+          { required: ["name", "categories", "authors", "paths"] }
+        ),
+        { unique: false }
+      )
+    })
+  })
+});
+var show = (v) => JSON.stringify(v);
+var kindOf = (v) => v === null ? "null" : Array.isArray(v) ? "array" : typeof v;
+function check3(spec, value2, path2, errors) {
+  const at = path2 || "(root)";
+  switch (spec.kind) {
+    case "object": {
+      if (kindOf(value2) !== "object") return errors.push({ path: at, message: `must be an object, got ${kindOf(value2)}` });
+      for (const key of Object.keys(value2)) {
+        const sub = path2 ? `${path2}.${key}` : key;
+        if (!(key in spec.fields)) errors.push({ path: sub, message: `is not a known setting; known: ${Object.keys(spec.fields).join(", ")}` });
+        else check3(spec.fields[key], value2[key], sub, errors);
+      }
+      for (const key of spec.required ?? []) {
+        if (!(key in value2)) errors.push({ path: path2 ? `${path2}.${key}` : key, message: "is required" });
+        else if (Array.isArray(value2[key]) && value2[key].length === 0) errors.push({ path: path2 ? `${path2}.${key}` : key, message: "must not be empty" });
+      }
+      return;
+    }
+    case "enum":
+      if (value2 === null && spec.nullable) return;
+      if (!spec.values.includes(value2)) errors.push({ path: at, message: `must be one of ${spec.values.join(", ")}${spec.nullable ? " or null" : ""}, got ${show(value2)}` });
+      return;
+    case "int":
+      if (!Number.isInteger(value2) || value2 < spec.min || value2 > spec.max) errors.push({ path: at, message: `must be a whole number from ${spec.min} to ${spec.max}, got ${show(value2)}` });
+      return;
+    case "prob":
+      if (typeof value2 !== "number" || !(value2 >= 0 && value2 <= 1)) errors.push({ path: at, message: `must be a number from 0 to 1, got ${show(value2)}` });
+      return;
+    case "string":
+      if (typeof value2 !== "string") errors.push({ path: at, message: `must be a string, got ${kindOf(value2)}` });
+      return;
+    case "bool":
+      if (typeof value2 !== "boolean") errors.push({ path: at, message: `must be true or false, got ${show(value2)}` });
+      return;
+    case "login":
+      if (typeof value2 !== "string" || !/^[A-Za-z0-9][A-Za-z0-9-]*(\[bot\])?$/.test(value2)) errors.push({ path: at, message: `must be an account name such as "dependabot[bot]", got ${show(value2)}` });
+      return;
+    case "name":
+      if (typeof value2 !== "string" || !NAME.test(value2)) errors.push({ path: at, message: `must be a lowercase name such as "security", got ${show(value2)}` });
+      return;
+    case "glob": {
+      const why = checkGlob(value2);
+      if (why) errors.push({ path: at, message: `${why}, got ${show(value2)}` });
+      return;
+    }
+    case "literal":
+      if (value2 !== spec.value) errors.push({ path: at, message: spec.why ? `${spec.why}; it must be ${show(spec.value)}` : `must be ${show(spec.value)}, got ${show(value2)}` });
+      return;
+    case "list": {
+      if (!Array.isArray(value2)) return errors.push({ path: at, message: `must be a list, got ${kindOf(value2)}` });
+      value2.forEach((item, i) => check3(spec.item, item, `${at}[${i}]`, errors));
+      if (spec.unique) {
+        const seen = /* @__PURE__ */ new Set();
+        value2.forEach((item, i) => {
+          const k = show(item);
+          if (seen.has(k)) errors.push({ path: `${at}[${i}]`, message: `repeats ${k}` });
+          seen.add(k);
+        });
+      }
+      return;
+    }
+  }
+}
+function validateV1(value2) {
+  const errors = [];
+  check3(V1, value2, "", errors);
+  const merge2 = value2?.actions?.merge;
+  if (merge2?.enabled === true && !(Array.isArray(merge2.rules) && merge2.rules.length)) {
+    errors.push({ path: "actions.merge.rules", message: "is required when actions.merge.enabled is true" });
+  }
+  const names = (merge2?.rules ?? []).map((r) => r?.name);
+  names.forEach((n, i) => {
+    if (n && names.indexOf(n) !== i) errors.push({ path: `actions.merge.rules[${i}].name`, message: `repeats ${show(n)}` });
+  });
+  return errors;
+}
+
+// node_modules/agent-review/src/core/policy/load.mjs
+var PolicyError = class extends Error {
+  constructor(code, message, errors = []) {
+    super(errors.length ? `${message}
+${errors.map((e) => `  ${e.path}: ${e.message}`).join("\n")}` : message);
+    this.name = "PolicyError";
+    this.code = code;
+    this.errors = errors;
+  }
+};
+var NOT_JSON = "policy/not-json";
+var NO_VERSION = "policy/no-version";
+var UNSUPPORTED_VERSION = "policy/unsupported-version";
+var INVALID2 = "policy/invalid";
+var WEAKENING = "policy/weakening";
+var isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+function merge(base, over) {
+  if (!isObject(base) || !isObject(over)) return structuredClone(over);
+  const out = structuredClone(base);
+  for (const [k, v] of Object.entries(over)) out[k] = isObject(v) && isObject(base[k]) ? merge(base[k], v) : structuredClone(v);
+  return out;
+}
+function versionZero(raw) {
+  if (!isObject(raw) || Object.keys(raw).some((k) => k !== "review") || !isObject(raw.review ?? {})) return null;
+  const review = raw.review ?? {};
+  if (Object.keys(review).some((k) => k !== "depth" && k !== "deepPaths")) return null;
+  const mapped = { version: 1, review: {} };
+  if ("depth" in review) mapped.review.defaultDepth = review.depth;
+  if ("deepPaths" in review) mapped.review.deepPaths = review.deepPaths;
+  return mapped;
+}
+function defaultPolicy() {
+  const policy = structuredClone(DEFAULT_POLICY);
+  return {
+    policy,
+    declared: null,
+    version: 1,
+    source: { kind: "default", path: null, ref: null, commit: null, digest: null },
+    effectiveDigest: digestOf(policy),
+    warnings: []
+  };
+}
+function parsePolicy(bytes, source = { kind: "file", path: POLICY_FILE }) {
+  const text = Buffer.isBuffer(bytes) ? bytes.toString("utf8") : String(bytes);
+  const where = [source.path ?? POLICY_FILE, source.commit ? `at ${source.commit.slice(0, 12)}` : null].filter(Boolean).join(" ");
+  let raw;
+  try {
+    raw = JSON.parse(text);
+  } catch (e) {
+    throw new PolicyError(NOT_JSON, `${where}: not valid JSON (${e.message})`);
+  }
+  const warnings = [];
+  let declared = raw;
+  if (!isObject(raw) || !("version" in raw)) {
+    declared = versionZero(raw);
+    if (!declared) throw new PolicyError(NO_VERSION, `${where}: "version" is required; this harness supports version ${SUPPORTED_VERSIONS.join(", ")}`);
+    warnings.push({
+      code: "policy/version-0",
+      message: `${where} has no "version". It was read as version 1: add "version": 1, and rename review.depth to review.defaultDepth.`
+    });
+  } else if (!SUPPORTED_VERSIONS.includes(raw.version)) {
+    throw new PolicyError(UNSUPPORTED_VERSION, `${where}: version ${JSON.stringify(raw.version)} is not supported; this harness supports version ${SUPPORTED_VERSIONS.join(", ")}`);
+  }
+  const errors = validateV1(declared);
+  if (errors.length) throw new PolicyError(INVALID2, `${where}: invalid policy`, errors);
+  const { $schema: _schema, ...settings } = declared;
+  const policy = merge(DEFAULT_POLICY, settings);
+  return {
+    policy,
+    declared,
+    version: 1,
+    source: { kind: source.kind ?? "file", path: source.path ?? POLICY_FILE, ref: source.ref ?? null, commit: source.commit ?? null, digest: sha256(Buffer.from(text, "utf8")) },
+    effectiveDigest: digestOf(policy),
+    warnings
+  };
+}
+
+// node_modules/agent-review/src/core/policy/overrides.mjs
+var rank = (order) => (v) => order.indexOf(v);
+var RULES = {
+  "review.defaultDepth": { kind: "any" },
+  "review.minDepth": { kind: "atLeast", rank: rank(DEPTHS) },
+  "review.deepPaths": { kind: "addOnly" },
+  "review.requiredLenses": { kind: "addOnly" },
+  "review.minReviewers": { kind: "atLeast", rank: (n) => n },
+  // A run may lower the cap, never raise it: going past it is a person's call.
+  "review.maxRounds": { kind: "atMost", rank: (n) => n },
+  "independence.minFamilies": { kind: "atLeast", rank: (n) => n },
+  "independence.verifier": { kind: "atLeast", rank: rank(VERIFIER_INDEPENDENCE) },
+  "independence.secondVerifierForBlockers": { kind: "atLeast", rank: (b) => b ? 1 : 0 },
+  "evidence.finding": { kind: "addOnly" },
+  "evidence.decision": { kind: "addOnly" },
+  // Reporting more findings is stricter, so the report bar may only drop.
+  "thresholds.report": { kind: "atMost", rank: (n) => n },
+  // Sending more classifications to a person is stricter.
+  "thresholds.classify": { kind: "atLeast", rank: (n) => n },
+  "escalation.paths": { kind: "addOnly" },
+  "escalation.categories": { kind: "addOnly" },
+  "actions.post": { kind: "atMost", rank: (b) => b ? 1 : 0 },
+  "actions.merge.enabled": { kind: "atMost", rank: (b) => b ? 1 : 0 },
+  "actions.merge.disqualifying": { kind: "addOnly" }
+  // actions.merge.rules has no entry: rules come only from the trusted policy.
+};
+function leaves(obj, prefix = "") {
+  return Object.entries(obj).flatMap(([k, v]) => {
+    const path2 = prefix ? `${prefix}.${k}` : k;
+    return v !== null && typeof v === "object" && !Array.isArray(v) ? leaves(v, path2) : [[path2, v]];
+  });
+}
+var get = (obj, path2) => path2.split(".").reduce((o, k) => o?.[k], obj);
+function set(obj, path2, value2) {
+  const keys = path2.split(".");
+  keys.slice(0, -1).reduce((o, k) => o[k] ??= {}, obj)[keys.at(-1)] = value2;
+}
+function applyOverrides(resolved, overrides, { source = "flags" } = {}) {
+  if (!overrides || Object.keys(overrides).length === 0) return { ...resolved, overrides: [] };
+  if ("version" in overrides) throw new PolicyError(INVALID2, `${source}: overrides cannot set version`);
+  const errors = validateV1(overrides).map((e) => ({ ...e, path: e.path === "(root)" ? source : e.path }));
+  if (errors.length) throw new PolicyError(INVALID2, `${source}: invalid overrides`, errors);
+  const policy = structuredClone(resolved.policy);
+  const applied = [];
+  const weakening = [];
+  for (const [path2, value2] of leaves(overrides)) {
+    const rule = RULES[path2];
+    const before = get(policy, path2);
+    if (!rule) {
+      weakening.push({ path: path2, message: "cannot be overridden" });
+      continue;
+    }
+    let after = value2;
+    if (rule.kind === "addOnly") after = [...before, ...value2.filter((v) => !before.includes(v))];
+    else if (rule.kind === "atLeast" && rule.rank(value2) < rule.rank(before)) {
+      weakening.push({ path: path2, message: `cannot go from ${JSON.stringify(before)} to ${JSON.stringify(value2)}: an override may only make the review stricter` });
+      continue;
+    } else if (rule.kind === "atMost" && rule.rank(value2) > rule.rank(before)) {
+      weakening.push({ path: path2, message: `cannot go from ${JSON.stringify(before)} to ${JSON.stringify(value2)}: an override may only make the review stricter` });
+      continue;
+    }
+    if (JSON.stringify(after) !== JSON.stringify(before)) {
+      set(policy, path2, after);
+      applied.push({ path: path2, from: before, to: after, source });
+    }
+  }
+  if (weakening.length) throw new PolicyError(WEAKENING, `${source}: these overrides would weaken the trusted policy, so none were applied`, weakening);
+  return { ...resolved, policy, effectiveDigest: digestOf(policy), overrides: applied };
+}
+
+// node_modules/agent-review/src/core/policy/depth.mjs
+var rank2 = (d) => DEPTHS.indexOf(d);
+function resolveDepth(policy, { flag = null, user = null, suggested = "standard", changedPaths = [] } = {}) {
+  for (const [name, v] of [["--depth", flag], ["user default", user], ["suggestion", suggested]]) {
+    if (v !== null && !DEPTHS.includes(v)) throw new PolicyError(INVALID2, `${name}: depth must be one of ${DEPTHS.join(", ")}, got ${JSON.stringify(v)}`);
+  }
+  const [chosen, source] = flag ? [flag, "--depth"] : policy.review.defaultDepth ? [policy.review.defaultDepth, "policy review.defaultDepth"] : user ? [user, "user default"] : [suggested, "suggested from the diff"];
+  let depth = chosen;
+  const raisedBy = [];
+  if (rank2(policy.review.minDepth) > rank2(depth)) {
+    raisedBy.push({ rule: "review.minDepth", from: depth, to: policy.review.minDepth });
+    depth = policy.review.minDepth;
+  }
+  const hits = matchPaths(changedPaths, policy.review.deepPaths);
+  if (hits.length && depth !== "deep") {
+    raisedBy.push({ rule: "review.deepPaths", from: depth, to: "deep", path: hits[0].path, glob: hits[0].glob });
+    depth = "deep";
+  }
+  return { depth, chosen, source, raisedBy };
+}
+
+// node_modules/agent-review/src/core/policy/trust.mjs
+var POLICY_CHANGE = "policy-change";
+function trustedPolicy({ git, targetRef, head, path: path2 = POLICY_FILE }) {
+  const tip = git.resolveCommit(targetRef);
+  const headCommit = git.resolveCommit(head);
+  const tipBytes = git.readFile(tip, path2);
+  const trusted = tipBytes ? parsePolicy(tipBytes, { kind: "repo", path: path2, ref: targetRef, commit: tip }) : { ...defaultPolicy(), source: { kind: "default", path: path2, ref: targetRef, commit: tip, digest: null } };
+  const headBytes = git.readFile(headCommit, path2);
+  const same = tipBytes === null && headBytes === null || tipBytes !== null && headBytes !== null && tipBytes.equals(headBytes);
+  let proposed = null;
+  const escalations = [];
+  if (!same) {
+    let valid = true;
+    let errors = [];
+    if (headBytes) {
+      try {
+        parsePolicy(headBytes, { kind: "repo", path: path2, ref: head, commit: headCommit });
+      } catch (e) {
+        valid = false;
+        errors = e.errors?.length ? e.errors : [{ path: "(file)", message: e.message }];
+      }
+    }
+    proposed = { path: path2, commit: headCommit, digest: headBytes ? sha256(headBytes) : null, deleted: headBytes === null, valid, errors };
+    escalations.push({
+      code: POLICY_CHANGE,
+      path: path2,
+      message: headBytes === null ? `this change deletes ${path2}; a person must review it, and the policy at ${targetRef} still applies` : `this change edits ${path2}; a person must review it, and the policy at ${targetRef} still applies until it merges`
+    });
+  }
+  return { trusted, target: { ref: targetRef, commit: tip }, head: headCommit, proposed, escalations };
+}
+
+// node_modules/agent-review/src/core/workflow/kinds.mjs
+var DECISION_KINDS = {
+  "finding-verification": ["confirmed", "refuted", "unclear"],
+  "finding-severity": ["blocker", "should-fix", "nit"],
+  "finding-triage": ["agent-fixable", "needs-judgment"],
+  "finding-origin": ["introduced", "missed", "pre-existing"]
+};
+var DISPOSITIONS = ["fixed", "accepted", "wrong", "intended", "not-worth-it"];
+var RUN_STATUSES = ["ok", "failed", "skipped"];
+var RUNNER_KINDS = ["executed", "attested"];
+var MODEL = /^[\w.-]+\/[\w.:@-]+$/;
+var defaultFamily = (model) => String(model).split("/")[0].toLowerCase();
+
+// node_modules/agent-review/src/core/workflow/errors.mjs
+var WorkflowError = class extends Error {
+  constructor(code, message, reasons = []) {
+    super(reasons.length ? `${message}
+${reasons.map((r) => `  - ${r.message}`).join("\n")}` : message);
+    this.name = "WorkflowError";
+    this.code = code;
+    this.reasons = reasons;
+  }
+};
+var REFUSED = "workflow/refused";
+var STALE = "workflow/stale";
+var INVALID3 = "workflow/invalid";
+var FORBIDDEN = "workflow/forbidden";
+var UNKNOWN_EVENT = "workflow/unknown-event";
+
+// node_modules/agent-review/src/core/workflow/reducer.mjs
+var REDUCER_VERSION = "review/4";
+var initialState = () => ({
+  legacy: [],
+  round: 0,
+  rounds: {},
+  findings: [],
+  escalations: []
+});
+var current = (s, round) => s.rounds[round];
+function reduce(state, e) {
+  const s = state;
+  const d = e.data;
+  switch (e.type) {
+    case LEGACY_IMPORTED:
+      s.legacy = s.legacy.filter((l) => l.path !== d.source.path);
+      s.legacy.push({ path: d.source.path, digest: d.source.digest, rounds: d.rounds, findings: d.findings, seq: e.seq });
+      break;
+    case "review.started":
+      s.round = d.round;
+      s.rounds[d.round] = {
+        round: d.round,
+        status: "reviewing",
+        startedAt: e.at,
+        startedBy: e.actor,
+        binding: d.binding,
+        policy: d.policy,
+        depth: d.depth,
+        // Started past the policy's round cap, by a person.
+        pastCap: d.pastCap ?? false,
+        plan: d.plan,
+        runs: {},
+        gaps: {},
+        report: null,
+        invalidated: null,
+        classification: null
+      };
+      break;
+    case "change.classified":
+      current(s, d.round).classification = { category: d.category, probability: d.probability, rationale: d.rationale, classifier: d.classifier, actor: e.actor, at: e.at };
+      break;
+    case "review.invalidated":
+      current(s, d.round).status = "invalidated";
+      current(s, d.round).invalidated = { reason: d.reason, changed: d.changed, at: e.at };
+      break;
+    case "run.recorded":
+      current(s, d.round).runs[d.slot] = { ...d, at: e.at, actor: e.actor };
+      break;
+    case "gap.accepted":
+      current(s, d.round).gaps[d.slot] = { reason: d.reason, actor: e.actor, at: e.at };
+      break;
+    case "finding.added":
+      s.findings.push({ class: null, instances: [], axiom: null, ...d.finding, id: d.id, round: d.round, author: d.author, duplicateOf: null, decisions: {}, disposition: null, thread: null });
+      break;
+    case "finding.linked":
+      s.findings.find((x) => x.id === d.finding).thread = { id: d.thread, url: d.url, actor: e.actor, at: e.at };
+      break;
+    case "finding.merged":
+      for (const id of d.ids) s.findings.find((f) => f.id === id).duplicateOf = d.into;
+      break;
+    case "decision.recorded": {
+      const f = s.findings.find((x) => x.id === d.finding);
+      (f.decisions[d.kind] ??= []).push({ label: d.label, probability: d.probability, rationale: d.rationale, verifier: d.verifier, actor: e.actor, at: e.at, seq: e.seq });
+      break;
+    }
+    case "finding.disposed": {
+      const f = s.findings.find((x) => x.id === d.finding);
+      f.disposition = { as: d.as, note: d.note, actor: e.actor, at: e.at };
+      break;
+    }
+    case "review.advanced":
+      current(s, d.round).status = d.to;
+      break;
+    case "review.reported":
+      current(s, d.round).status = "reported";
+      current(s, d.round).report = { ...d.report, at: e.at };
+      break;
+    case "escalation.raised":
+      s.escalations.push({ id: d.id, round: d.round, code: d.code, message: d.message, path: d.path ?? null, finding: d.finding ?? null, status: "open", raisedAt: e.at, resolution: null });
+      break;
+    case "escalation.resolved": {
+      const x = s.escalations.find((y) => y.id === d.id);
+      x.status = d.decision === "approve" ? "approved" : "rejected";
+      x.resolution = { decision: d.decision, reason: d.reason, actor: e.actor, at: e.at };
+      break;
+    }
+    default:
+      throw new WorkflowError(UNKNOWN_EVENT, `event ${e.seq} has type ${JSON.stringify(e.type)}, which this version of the harness does not know; upgrade the harness to read this review`);
+  }
+  return s;
+}
+
+// node_modules/agent-review/src/core/workflow/review.mjs
+var MAX_ATTEMPTS = 8;
+var CLEARING = ["wrong", "intended", "not-worth-it"];
+var ACTOR2 = /^(human|agent):[^\s]/;
+var reason = (code, message, extra = {}) => ({ code, message, ...extra });
+var refuse = (message, reasons) => {
+  throw new WorkflowError(REFUSED, message, reasons);
+};
+var invalid = (message) => {
+  throw new WorkflowError(INVALID3, message);
+};
+function checkActor(actor, { human = false } = {}) {
+  if (typeof actor !== "string" || !ACTOR2.test(actor)) invalid(`actor must be human:<name> or agent:<runtime>, got ${JSON.stringify(actor)}`);
+  if (human && !actor.startsWith("human:")) throw new WorkflowError(FORBIDDEN, `only a person can do this; ${actor} is not human:<name>`);
+}
+function checkModel(model, what) {
+  if (typeof model !== "string" || !MODEL.test(model)) invalid(`${what} must be provider/model, such as anthropic/opus, got ${JSON.stringify(model)}`);
+}
+var activeRound = (state) => state.round ? state.rounds[state.round] : null;
+function liveRound(state, { statuses }) {
+  const r = activeRound(state);
+  if (!r) refuse("no review has started", [reason("not-started", "start a review first")]);
+  if (r.status === "invalidated") refuse(`round ${r.round} is invalidated`, [reason("invalidated", `round ${r.round} was invalidated (${r.invalidated.reason}); start a new round`)]);
+  if (!statuses.includes(r.status)) refuse(`round ${r.round} is ${r.status}`, [reason("wrong-state", `this step needs the review to be ${statuses.join(" or ")}, but it is ${r.status}`)]);
+  return r;
+}
+function checkHead(r, head) {
+  if (head !== r.binding.head) {
+    throw new WorkflowError(STALE, `this review is bound to ${r.binding.head}, but the caller worked on ${JSON.stringify(head)}`, [
+      reason("stale-head", `review ${r.binding.head.slice(0, 12)}; if the change has new commits, start again to open a new round`)
+    ]);
+  }
+}
+function openReview(root, ref, { familyOf = defaultFamily } = {}) {
+  const log = openLog(root, ref, { reducer: reduce, initial: initialState(), reducerVersion: REDUCER_VERSION });
+  function mutate(decideEvents, { opId } = {}) {
+    for (let attempt = 1; ; attempt++) {
+      const { seq, state, events: logged } = log.read();
+      if (opId !== void 0) {
+        const done = logged.filter((e) => e.op.id === opId);
+        if (done.length) return { state, changed: false, seqs: done.map((e) => e.seq) };
+      }
+      const events = decideEvents(structuredClone(state));
+      if (events.length === 0) return { state, changed: false };
+      try {
+        const r = log.append(events, { expectSeq: seq, opId });
+        return { state: r.state, changed: !r.duplicate, seqs: r.seqs };
+      } catch (e) {
+        if (e.code !== CONFLICT || attempt >= MAX_ATTEMPTS) throw e;
+      }
+    }
+  }
+  const read = () => log.read().state;
+  function start({ git, targetRef, head, lenses = [], depth: depthFlag = null, overrides = null, userDepth = null, suggestedDepth = "standard", pastCap = false, actor, opId }) {
+    checkActor(actor);
+    const tp = trustedPolicy({ git, targetRef, head });
+    const resolved = applyOverrides(tp.trusted, overrides ?? {}, { source: "overrides" });
+    const policy = resolved.policy;
+    const mergeBase = git.mergeBase(tp.target.commit, tp.head);
+    const changedPaths = git.changedPaths(mergeBase, tp.head);
+    const depth = resolveDepth(policy, { flag: depthFlag, user: userDepth, suggested: suggestedDepth, changedPaths });
+    for (const l of lenses) if (typeof l !== "string" || !/^[a-z][a-z0-9-]*$/.test(l)) invalid(`lens names are lowercase words, got ${JSON.stringify(l)}`);
+    const names = [.../* @__PURE__ */ new Set([...policy.review.requiredLenses, ...lenses])];
+    const slots = names.map((lens) => ({ id: lens, lens }));
+    const need2 = Math.max(policy.review.minReviewers, policy.independence.minFamilies);
+    for (let i = 2; slots.length < need2; i++) slots.push({ id: `${names[0]}-${i}`, lens: names[0] });
+    const binding = { target: tp.target, head: tp.head, mergeBase, policyDigest: resolved.effectiveDigest, policySourceDigest: tp.trusted.source.digest };
+    return mutate((state) => {
+      const r = activeRound(state);
+      const events = [];
+      if (r && r.status !== "invalidated") {
+        const changed = ["head", "mergeBase", "policyDigest"].filter((k) => r.binding[k] !== binding[k]);
+        if (changed.length === 0) return [];
+        events.push({ type: "review.invalidated", actor, data: { round: r.round, reason: `${changed.join(", ")} changed`, changed } });
+      }
+      const round = state.round + 1;
+      const prior = state.round + state.legacy.reduce((n2, l) => n2 + (l.rounds ?? 0), 0);
+      const cap = policy.review.maxRounds;
+      if (prior >= cap) {
+        if (!pastCap) {
+          refuse(`this change has had ${prior} review rounds; the policy allows ${cap}`, [
+            reason("round-cap", `later rounds mostly find older problems, not new ones; consider stepping back from the approach. A person can start another round with --past-cap`, { rounds: prior, cap })
+          ]);
+        }
+        checkActor(actor, { human: true });
+      }
+      events.push({
+        type: "review.started",
+        actor,
+        data: {
+          round,
+          binding,
+          policy: { source: tp.trusted.source, effectiveDigest: resolved.effectiveDigest, overrides: resolved.overrides, warnings: tp.trusted.warnings, resolved: policy },
+          depth,
+          pastCap: prior >= cap,
+          plan: {
+            slots,
+            requirements: { minReviewers: policy.review.minReviewers, minFamilies: policy.independence.minFamilies, requiredLenses: policy.review.requiredLenses }
+          },
+          changedPaths: changedPaths.length
+        }
+      });
+      let n = state.escalations.length;
+      for (const x of tp.escalations) events.push({ type: "escalation.raised", actor: "agent:harness", data: { id: `E${++n}`, round, code: x.code, message: x.message, path: x.path } });
+      const hits = matchPaths(changedPaths, policy.escalation.paths).filter((h) => h.path !== tp.proposed?.path);
+      for (const path2 of [...new Set(hits.map((h) => h.path))]) {
+        const glob = hits.find((h) => h.path === path2).glob;
+        events.push({ type: "escalation.raised", actor: "agent:harness", data: { id: `E${++n}`, round, code: "escalation-path", message: `${path2} matches escalation.paths ${glob}; a person must review it`, path: path2 } });
+      }
+      return events;
+    }, { opId });
+  }
+  function recordRun2({ slot, status, model = null, family: family2 = null, runner = { kind: "attested", name: "unknown" }, inputsDigest = null, findings = [], reason: why = null, head, actor, opId }) {
+    checkActor(actor);
+    if (!RUN_STATUSES.includes(status)) invalid(`status must be one of ${RUN_STATUSES.join(", ")}, got ${JSON.stringify(status)}`);
+    if (!RUNNER_KINDS.includes(runner?.kind)) invalid(`runner.kind must be one of ${RUNNER_KINDS.join(", ")}`);
+    if (status === "ok") checkModel(model, "model");
+    else if (typeof why !== "string" || !why.trim()) invalid(`a ${status} run needs a reason`);
+    if (status !== "ok" && findings.length) invalid(`a ${status} run cannot have findings`);
+    if (!Array.isArray(findings)) invalid("findings must be a list");
+    return mutate((state) => {
+      const r = liveRound(state, { statuses: ["reviewing"] });
+      checkHead(r, head);
+      const planned = r.plan.slots.find((s) => s.id === slot);
+      if (!planned) refuse(`no slot ${JSON.stringify(slot)}`, [reason("unknown-slot", `slots in this round: ${r.plan.slots.map((s) => s.id).join(", ")}`)]);
+      const fam = status === "ok" ? family2 ?? familyOf(model) : null;
+      const record = { round: r.round, slot, lens: planned.lens, status, model, family: fam, runner, inputsDigest, reason: why, findings: findings.length, findingsDigest: digestOf(findings) };
+      const prior = r.runs[slot];
+      if (prior?.status === "ok") {
+        const same = prior.model === model && prior.findingsDigest === record.findingsDigest && prior.inputsDigest === inputsDigest;
+        if (same) return [];
+        refuse(`slot ${slot} already has a successful run`, [reason("slot-done", `slot ${slot} was recorded ok by ${prior.model}; a different result for the same slot is not accepted`)]);
+      }
+      const required = r.policy.resolved.evidence.finding;
+      const problems = [];
+      findings.forEach((f, i) => {
+        if (!f || typeof f !== "object") return problems.push(reason("finding-shape", `finding ${i + 1} must be an object`));
+        if (typeof f.title !== "string" || !f.title.trim()) problems.push(reason("finding-field", `finding ${i + 1}: title is required`, { index: i, field: "title" }));
+        for (const k of required) {
+          const v = f[k];
+          const ok = k === "line" ? Number.isInteger(v) && v > 0 : typeof v === "string" && v.trim().length > 0;
+          if (!ok) problems.push(reason("finding-field", `finding ${i + 1}: ${k} is required by policy evidence.finding`, { index: i, field: k }));
+        }
+        const bad = (field, why2) => problems.push(reason("finding-field", `finding ${i + 1}: ${field} ${why2}`, { index: i, field }));
+        if (f.class != null && !(typeof f.class === "string" && /^[a-z][a-z0-9-]*$/.test(f.class))) bad("class", "must be a kebab-case name, such as missing-await");
+        if (f.axiom != null && !(typeof f.axiom === "string" && f.axiom.trim())) bad("axiom", "must be a nonempty string");
+        if (f.instances != null && !(Array.isArray(f.instances) && f.instances.every((x) => x && typeof x.file === "string" && x.file && (x.line == null || Number.isInteger(x.line) && x.line > 0)))) {
+          bad("instances", "must be a list of { file, line }");
+        }
+      });
+      if (problems.length) refuse("findings are missing required evidence", problems);
+      const events = [{ type: "run.recorded", actor, data: record }];
+      let n = state.findings.length;
+      for (const f of findings) {
+        const finding = {
+          title: f.title,
+          file: f.file ?? null,
+          line: f.line ?? null,
+          precondition: f.precondition ?? null,
+          scenario: f.scenario ?? null,
+          evidence: f.evidence ?? null,
+          class: f.class ?? null,
+          instances: (f.instances ?? []).map((x) => ({ file: x.file, line: x.line ?? null })),
+          axiom: f.axiom ?? null,
+          lens: planned.lens
+        };
+        events.push({ type: "finding.added", actor, data: { round: r.round, id: `F${++n}`, author: { slot, model, family: fam }, finding } });
+      }
+      return events;
+    }, { opId });
+  }
+  function acceptGap({ slot, reason: why, actor, opId }) {
+    checkActor(actor, { human: true });
+    if (typeof why !== "string" || !why.trim()) invalid("accepting a gap needs a reason");
+    return mutate((state) => {
+      const r = liveRound(state, { statuses: ["reviewing"] });
+      if (!r.plan.slots.some((s) => s.id === slot)) refuse(`no slot ${JSON.stringify(slot)}`, [reason("unknown-slot", `slots: ${r.plan.slots.map((s) => s.id).join(", ")}`)]);
+      if (r.runs[slot]?.status === "ok") refuse(`slot ${slot} ran successfully`, [reason("no-gap", `slot ${slot} has no gap to accept`)]);
+      if (r.gaps[slot]) return [];
+      return [{ type: "gap.accepted", actor, data: { round: r.round, slot, reason: why } }];
+    }, { opId });
+  }
+  function coverageReasons(r) {
+    const out = [];
+    const ok = Object.values(r.runs).filter((x) => x.status === "ok");
+    for (const s of r.plan.slots) {
+      const run4 = r.runs[s.id];
+      if (run4?.status === "ok" || r.gaps[s.id]) continue;
+      if (!run4) out.push(reason("run-missing", `slot ${s.id} (${s.lens}) has not run`, { slot: s.id }));
+      else out.push(reason(`run-${run4.status}`, `slot ${s.id} (${s.lens}) ${run4.status}: ${run4.reason}; retry it, or a person accepts the gap`, { slot: s.id }));
+    }
+    const req = r.plan.requirements;
+    if (ok.length < req.minReviewers) out.push(reason("too-few-reviewers", `${ok.length} successful reviewer runs; the policy needs ${req.minReviewers}`, { have: ok.length, need: req.minReviewers }));
+    const families = [...new Set(ok.map((x) => x.family))];
+    if (families.length < req.minFamilies) {
+      out.push(reason("too-few-families", `reviewers came from ${families.length} model famil${families.length === 1 ? "y" : "ies"} (${families.join(", ") || "none"}); the policy needs ${req.minFamilies}`, { have: families, need: req.minFamilies }));
+    }
+    return out;
+  }
+  function advance({ actor, opId }) {
+    checkActor(actor);
+    return mutate((state) => {
+      const r = liveRound(state, { statuses: ["reviewing"] });
+      const reasons = coverageReasons(r);
+      if (reasons.length) refuse("the panel is not complete", reasons);
+      return [{ type: "review.advanced", actor, data: { round: r.round, to: "verifying" } }];
+    }, { opId });
+  }
+  function decide2({ finding, kind, label, probability, rationale = null, verifier, head, actor, opId }) {
+    checkActor(actor);
+    if (!DECISION_KINDS[kind]) invalid(`kind must be one of ${Object.keys(DECISION_KINDS).join(", ")}, got ${JSON.stringify(kind)}`);
+    if (!DECISION_KINDS[kind].includes(label)) invalid(`${kind} label must be one of ${DECISION_KINDS[kind].join(", ")}, got ${JSON.stringify(label)}`);
+    if (typeof probability !== "number" || !(probability >= 0 && probability <= 1)) invalid(`probability must be from 0 to 1, got ${JSON.stringify(probability)}`);
+    checkModel(verifier?.model, "verifier.model");
+    return mutate((state) => {
+      const r = liveRound(state, { statuses: ["verifying"] });
+      checkHead(r, head);
+      const f = state.findings.find((x) => x.id === finding);
+      if (!f || f.round !== r.round) refuse(`no finding ${JSON.stringify(finding)} in round ${r.round}`, [reason("unknown-finding", `finding ${finding} is not part of this round`)]);
+      if (f.duplicateOf) refuse(`finding ${finding} is a duplicate`, [reason("duplicate", `${finding} was merged into ${f.duplicateOf}; decide on ${f.duplicateOf}`)]);
+      const policy = r.policy.resolved;
+      const problems = [];
+      if (policy.evidence.decision.includes("rationale") && !(typeof rationale === "string" && rationale.trim())) {
+        problems.push(reason("decision-field", "rationale is required by policy evidence.decision"));
+      }
+      const fam = verifier.family ?? familyOf(verifier.model);
+      const decision = { round: r.round, finding, kind, label, probability, rationale, verifier: { model: verifier.model, family: fam } };
+      const earlier = f.decisions[kind] ?? [];
+      const same = (x) => x && x.verifier.model === verifier.model && x.label === label && x.probability === probability && x.rationale === rationale;
+      if (kind === "finding-verification" ? earlier.some(same) : same(earlier.at(-1))) return [];
+      const independence = policy.independence.verifier;
+      if (verifier.model === f.author.model) {
+        problems.push(reason("verifier-not-independent", `${verifier.model} wrote this finding; a different model must make the ${kind} decision`, { author: f.author, verifier: decision.verifier }));
+      } else if (independence === "family" && fam === f.author.family) {
+        problems.push(reason("verifier-not-independent", `${verifier.model} is in the author's family (${fam}); the policy needs a model from another family for the ${kind} decision`, { author: f.author, verifier: decision.verifier }));
+      }
+      if (kind === "finding-verification") {
+        if (earlier.some((x) => x.verifier.model === verifier.model)) {
+          problems.push(reason("verifier-repeated", `${verifier.model} already verified ${finding}; a second verification needs a different model`));
+        }
+      }
+      if (problems.length) refuse(`the ${kind} decision on ${finding} was not recorded`, problems);
+      return [{ type: "decision.recorded", actor, data: decision }];
+    }, { opId });
+  }
+  function merge2({ into, ids, actor, opId }) {
+    checkActor(actor);
+    if (!Array.isArray(ids) || ids.length === 0) invalid("merge needs the IDs of the duplicates");
+    return mutate((state) => {
+      const r = liveRound(state, { statuses: ["reviewing", "verifying"] });
+      const inRound = (id) => state.findings.find((f) => f.id === id && f.round === r.round);
+      const primary = inRound(into);
+      const problems = [];
+      if (!primary) problems.push(reason("unknown-finding", `finding ${into} is not part of this round`));
+      else if (primary.duplicateOf) problems.push(reason("duplicate", `${into} is itself a duplicate of ${primary.duplicateOf}`));
+      for (const id of ids) {
+        const f = inRound(id);
+        if (!f) problems.push(reason("unknown-finding", `finding ${id} is not part of this round`));
+        else if (id === into) problems.push(reason("self-merge", `${id} cannot be merged into itself`));
+        else if (Object.keys(f.decisions).length) problems.push(reason("has-decisions", `${id} already has decisions; merge duplicates before verifying`));
+      }
+      if (problems.length) refuse("the merge was not recorded", problems);
+      const todo = ids.filter((id) => inRound(id).duplicateOf !== into);
+      return todo.length ? [{ type: "finding.merged", actor, data: { round: r.round, into, ids: todo } }] : [];
+    }, { opId });
+  }
+  function reportPlan(state, r) {
+    const policy = r.policy.resolved;
+    const missing = [];
+    const reported = [];
+    const dropped = [];
+    const escalate2 = [];
+    for (const f of state.findings.filter((x) => x.round === r.round && !x.duplicateOf)) {
+      const v = f.decisions["finding-verification"] ?? [];
+      if (v.length === 0) {
+        missing.push(reason("unverified", `${f.id} has no verification`, { finding: f.id }));
+        continue;
+      }
+      const labels = new Set(v.map((x) => x.label));
+      if (labels.size > 1) {
+        if (!f.decisions["finding-severity"]?.length) missing.push(reason("no-severity", `${f.id} is disputed and has no severity; rate it so a person can settle it`, { finding: f.id }));
+        if (!f.decisions["finding-origin"]?.length) missing.push(reason("no-origin", `${f.id} is disputed and has no origin`, { finding: f.id }));
+        escalate2.push({ finding: f.id, code: "verifiers-disagree", message: `verifiers disagree on ${f.id} (${v.map((x) => `${x.verifier.model}: ${x.label}`).join(", ")}); a person decides whether it is real` });
+        continue;
+      }
+      const confirmed = labels.has("confirmed") && Math.min(...v.map((x) => x.probability)) >= policy.thresholds.report;
+      if (!confirmed) {
+        dropped.push(f.id);
+        continue;
+      }
+      const sev = f.decisions["finding-severity"]?.at(-1)?.label;
+      if (!sev) missing.push(reason("no-severity", `${f.id} is confirmed but has no severity`, { finding: f.id }));
+      if (!f.decisions["finding-origin"]?.length) missing.push(reason("no-origin", `${f.id} is confirmed but has no origin`, { finding: f.id }));
+      if (sev === "blocker" && policy.independence.secondVerifierForBlockers && new Set(v.map((x) => x.verifier.model)).size < 2) {
+        missing.push(reason("second-verifier", `${f.id} is a blocker; the policy needs a second verifier from a different model`, { finding: f.id }));
+      }
+      reported.push(f.id);
+    }
+    return { missing, reported, dropped, escalate: escalate2 };
+  }
+  function report2({ actor, opId }) {
+    checkActor(actor);
+    return mutate((state) => {
+      const r = liveRound(state, { statuses: ["verifying"] });
+      const p = reportPlan(state, r);
+      if (p.missing.length) refuse("the report is not ready", p.missing);
+      let n = state.escalations.length;
+      const open = new Set(state.escalations.filter((x) => x.round === r.round && x.finding).map((x) => x.finding));
+      const events = p.escalate.filter((x) => !open.has(x.finding)).map((x) => ({ type: "escalation.raised", actor: "agent:harness", data: { id: `E${++n}`, round: r.round, code: x.code, message: x.message, finding: x.finding } }));
+      const gaps = Object.entries(r.gaps).map(([slot, g]) => ({ slot, reason: g.reason, acceptedBy: g.actor }));
+      events.push({
+        type: "review.reported",
+        actor,
+        data: { round: r.round, report: { reported: p.reported, dropped: p.dropped, escalated: p.escalate.map((x) => x.finding), coverage: { complete: gaps.length === 0, gaps } } }
+      });
+      return events;
+    }, { opId });
+  }
+  function resolveEscalation({ id, decision, reason: why, actor, opId }) {
+    checkActor(actor, { human: true });
+    if (!["approve", "reject"].includes(decision)) invalid(`decision must be approve or reject, got ${JSON.stringify(decision)}`);
+    if (typeof why !== "string" || !why.trim()) invalid("resolving an escalation needs a reason");
+    return mutate((state) => {
+      const x = state.escalations.find((y) => y.id === id);
+      if (!x) refuse(`no escalation ${JSON.stringify(id)}`, [reason("unknown-escalation", `open escalations: ${state.escalations.filter((y) => y.status === "open").map((y) => y.id).join(", ") || "none"}`)]);
+      if (x.status !== "open") {
+        if (x.resolution.decision === decision && x.resolution.reason === why) return [];
+        refuse(`escalation ${id} is already ${x.status}`, [reason("resolved", `${id} was ${x.status} by ${x.resolution.actor}`)]);
+      }
+      if (x.round !== state.round || state.rounds[x.round].status === "invalidated") {
+        refuse(`escalation ${id} belongs to an invalidated round`, [reason("invalidated", "start the review again; the new round raises its own escalations")]);
+      }
+      return [{ type: "escalation.resolved", actor, data: { id, decision, reason: why } }];
+    }, { opId });
+  }
+  function dispose2({ finding, as, note = null, actor, opId }) {
+    checkActor(actor);
+    if (!DISPOSITIONS.includes(as)) invalid(`disposition must be one of ${DISPOSITIONS.join(", ")}, got ${JSON.stringify(as)}`);
+    return mutate((state) => {
+      const r = liveRound(state, { statuses: ["reported"] });
+      const f = state.findings.find((x) => x.id === finding && x.round === r.round);
+      const approved = state.escalations.some((x) => x.round === r.round && x.finding === finding && x.status === "approved");
+      const open = r.report.reported.includes(finding) || r.report.escalated.includes(finding) && approved;
+      if (!f || !open) refuse(`${finding} is not a reported finding in round ${r.round}`, [reason("not-reported", `reported findings: ${r.report.reported.join(", ") || "none"}`)]);
+      if (f.decisions["finding-triage"]?.at(-1)?.label === "needs-judgment") checkActor(actor, { human: true });
+      const disqualifying = r.policy.resolved.actions?.merge?.disqualifying ?? ["blocker", "should-fix"];
+      const sev = f.decisions["finding-severity"]?.at(-1)?.label ?? null;
+      if (CLEARING.includes(as) && (sev === null || disqualifying.includes(sev))) checkActor(actor, { human: true });
+      if (f.disposition?.as === as && f.disposition?.note === note) return [];
+      return [{ type: "finding.disposed", actor, data: { round: r.round, finding, as, note } }];
+    }, { opId });
+  }
+  function classify({ category, probability, rationale = null, classifier, head, actor, opId }) {
+    checkActor(actor);
+    if (!CATEGORIES.includes(category)) invalid(`category must be one of ${CATEGORIES.join(", ")}, got ${JSON.stringify(category)}`);
+    if (typeof probability !== "number" || !(probability >= 0 && probability <= 1)) invalid(`probability must be from 0 to 1, got ${JSON.stringify(probability)}`);
+    checkModel(classifier?.model, "classifier.model");
+    return mutate((state) => {
+      const r = liveRound(state, { statuses: ["reviewing", "verifying", "reported"] });
+      checkHead(r, head);
+      if (r.policy.resolved.evidence.decision.includes("rationale") && !(typeof rationale === "string" && rationale.trim())) {
+        refuse("the classification was not recorded", [reason("decision-field", "rationale is required by policy evidence.decision")]);
+      }
+      const c = r.classification;
+      if (c && c.category !== category) checkActor(actor, { human: true });
+      if (c && c.category === category && c.probability === probability && c.rationale === rationale && c.classifier.model === classifier.model) return [];
+      const fam = classifier.family ?? familyOf(classifier.model);
+      return [{ type: "change.classified", actor, data: { round: r.round, category, probability, rationale, classifier: { model: classifier.model, family: fam } } }];
+    }, { opId });
+  }
+  function link2({ finding, thread, url = null, actor, opId }) {
+    checkActor(actor);
+    if (typeof thread !== "string" || !thread.trim()) invalid("link needs a thread ID");
+    if (url != null && !/^https:\/\//.test(url)) invalid(`url must be an https URL, got ${JSON.stringify(url)}`);
+    return mutate((state) => {
+      const f = state.findings.find((x) => x.id === finding);
+      if (!f) refuse(`no finding ${JSON.stringify(finding)}`, [reason("unknown-finding", `finding ${finding} is not in this review`)]);
+      if (f.thread?.id === thread && f.thread.url === url) return [];
+      return [{ type: "finding.linked", actor, data: { finding, thread, url } }];
+    }, { opId });
+  }
+  return { log, read, start, recordRun: recordRun2, acceptGap, advance, decide: decide2, merge: merge2, report: report2, resolveEscalation, dispose: dispose2, classify, link: link2, coverageReasons, reportPlan };
+}
+
+// node_modules/agent-review/src/core/workflow/next.mjs
+var needsClassification = (r) => r.policy.resolved.actions?.merge?.enabled === true && !r.classification;
+var pendingSlots = (r) => r.plan.slots.filter((s) => r.runs[s.id]?.status !== "ok" && !r.gaps[s.id]);
+function next(state) {
+  const r = activeRound(state);
+  const open = state.escalations.filter((x) => x.status === "open" && x.round === state.round);
+  const human = open.map((x) => ({ escalation: x.id, code: x.code, ask: x.message }));
+  if (!r) {
+    return {
+      status: "not-started",
+      waitingOn: "agent",
+      action: { do: "start" },
+      human,
+      note: state.legacy.length ? "this review has v1 history only; it has not been reviewed under a version 1 policy" : null
+    };
+  }
+  if (r.status === "invalidated") {
+    return { status: "invalidated", round: r.round, waitingOn: "agent", action: { do: "start", why: r.invalidated.reason }, human: [] };
+  }
+  const base = { round: r.round, head: r.binding.head, depth: r.depth.depth };
+  if (r.status === "reviewing") {
+    const pending = pendingSlots(r);
+    if (pending.length) {
+      const failed = pending.filter((s) => r.runs[s.id]);
+      return {
+        status: "reviewing",
+        ...base,
+        waitingOn: "agent",
+        action: {
+          do: "run",
+          slots: pending.map((s) => ({ slot: s.id, lens: s.lens, retry: Boolean(r.runs[s.id]), lastError: r.runs[s.id]?.reason ?? null })),
+          requirements: r.plan.requirements,
+          familiesSoFar: [...new Set(Object.values(r.runs).filter((x) => x.status === "ok").map((x) => x.family))]
+        },
+        human: [...human, ...failed.map((s) => ({ slot: s.id, code: "run-failed", ask: `slot ${s.id} failed (${r.runs[s.id].reason}); retry it, or accept the gap` }))]
+      };
+    }
+    return { status: "reviewing", ...base, waitingOn: "agent", action: { do: "advance" }, human };
+  }
+  if (r.status === "verifying") {
+    const findings = state.findings.filter((f) => f.round === r.round && !f.duplicateOf);
+    const policy = r.policy.resolved;
+    const verify = findings.filter((f) => !(f.decisions["finding-verification"] ?? []).length).map((f) => ({
+      finding: f.id,
+      author: f.author,
+      verifierMust: policy.independence.verifier === "family" ? { notFamily: f.author.family } : { notModel: f.author.model }
+    }));
+    if (verify.length) return { status: "verifying", ...base, waitingOn: "agent", action: { do: "verify", findings: verify }, human };
+    const decide2 = [];
+    const again = [];
+    for (const f of findings) {
+      const v = f.decisions["finding-verification"];
+      const confirmed = v.every((x) => x.label === "confirmed") && Math.min(...v.map((x) => x.probability)) >= policy.thresholds.report;
+      const disputed = new Set(v.map((x) => x.label)).size > 1;
+      if (!confirmed && !disputed) continue;
+      const wanted = disputed ? ["finding-severity", "finding-origin"] : ["finding-severity", "finding-origin", "finding-triage"];
+      const kinds = wanted.filter((k) => !f.decisions[k]?.length);
+      if (kinds.length) decide2.push({ finding: f.id, kinds, verifierMust: policy.independence.verifier === "family" ? { notFamily: f.author.family } : { notModel: f.author.model } });
+      if (disputed) continue;
+      if (f.decisions["finding-severity"]?.at(-1)?.label === "blocker" && policy.independence.secondVerifierForBlockers && new Set(v.map((x) => x.verifier.model)).size < 2) {
+        again.push({ finding: f.id, verifierMust: { notModels: [f.author.model, ...v.map((x) => x.verifier.model)], ...policy.independence.verifier === "family" ? { notFamily: f.author.family } : {} } });
+      }
+    }
+    if (decide2.length) return { status: "verifying", ...base, waitingOn: "agent", action: { do: "decide", findings: decide2 }, human };
+    if (again.length) return { status: "verifying", ...base, waitingOn: "agent", action: { do: "verify-again", findings: again }, human };
+    if (needsClassification(r)) return { status: "verifying", ...base, waitingOn: "agent", action: { do: "classify", categories: CATEGORIES }, human };
+    return { status: "verifying", ...base, waitingOn: "agent", action: { do: "report" }, human };
+  }
+  const calls = state.findings.filter((f) => f.round === r.round && r.report.reported.includes(f.id) && !f.disposition && f.decisions["finding-triage"]?.at(-1)?.label === "needs-judgment").map((f) => ({ finding: f.id, code: "needs-judgment", ask: `${f.id}: ${f.title} (${f.file ?? "no file"}${f.line ? `:${f.line}` : ""}) needs your call` }));
+  if (open.length) return { status: "reported", ...base, waitingOn: "human", action: { do: "resolve", escalations: open.map((x) => x.id) }, human: [...human, ...calls], report: r.report };
+  if (needsClassification(r)) return { status: "complete", ...base, waitingOn: "agent", action: { do: "classify", categories: CATEGORIES }, human: calls, report: r.report };
+  return { status: "complete", ...base, waitingOn: calls.length ? "human" : null, action: calls.length ? { do: "dispose", findings: calls.map((c) => c.finding) } : null, human: calls, report: r.report };
+}
+function inbox(reviews) {
+  const items = [];
+  for (const { ref, state } of reviews) {
+    const n = next(state);
+    for (const h of n.human) items.push({ repo: ref.repo, key: ref.key, round: n.round ?? null, ...h });
+  }
+  return items;
+}
+
+// node_modules/agent-review/src/core/decide/semver.mjs
+var VERSION = /^v?(\d+)\.(\d+)\.(\d+)$/;
+function versionChange(from, to) {
+  const a = VERSION.exec(String(from ?? ""));
+  const b = VERSION.exec(String(to ?? ""));
+  if (!a || !b) return "other";
+  const [, aM, am, ap] = a.map(Number);
+  const [, bM, bm, bp] = b.map(Number);
+  if (bM === aM && bm === am && bp > ap) return "patch";
+  if (bM === aM && (bm > am || bm === am && bp === ap)) return bm > am ? "minor" : "none";
+  if (bM > aM) return "major";
+  return "other";
+}
+
+// node_modules/agent-review/src/core/decide/eligibility.mjs
+var ELIGIBLE = "eligible";
+var BLOCKED = "blocked";
+var ESCALATE = "escalate";
+var CLEARED = /* @__PURE__ */ new Set(["wrong", "intended", "not-worth-it"]);
+var HOST_COMMITTER = "web-flow";
+var block = (code, message, extra = {}) => ({ effect: BLOCKED, code, message, ...extra });
+var escalate = (code, message, extra = {}) => ({ effect: ESCALATE, code, message, ...extra });
+function ruleReasons(rule, { facts, classification }) {
+  const out = [];
+  const r = { requireVerifiedCommits: true, dependencies: null, minApprovals: 0, ...rule };
+  if (!classification || !r.categories.includes(classification.category)) {
+    out.push(`the change is classified ${classification?.category ?? "nothing yet"}, not ${r.categories.join(" or ")}`);
+  }
+  const login = facts.author?.login;
+  if (!login || !r.authors.includes(login)) out.push(`the author is ${login ?? "unknown"}, not ${r.authors.join(" or ")}`);
+  if (r.requireVerifiedCommits) {
+    const commits = facts.commits ?? [];
+    if (commits.length === 0) out.push("the commits are unknown");
+    if (facts.commitsComplete === false) out.push("the host listed only part of the commits, so not all can be checked");
+    for (const c of commits) {
+      const sha = String(c.sha).slice(0, 12);
+      if (c.verified !== true) out.push(`commit ${sha} has no verified signature`);
+      if (!c.author || !r.authors.includes(c.author)) out.push(`commit ${sha} was authored by ${c.author ?? "an unknown account"}`);
+      if (c.committer !== HOST_COMMITTER) out.push(`commit ${sha} was committed by ${c.committer ?? "an unknown account"}, not signed by the host`);
+    }
+  }
+  const paths = facts.changedPaths ?? [];
+  if (paths.length === 0) out.push("no changed paths are known");
+  const allowed = new Set(matchPaths(paths, r.paths).map((m) => m.path));
+  for (const p of paths) if (!allowed.has(p)) out.push(`${p} is outside the rule's paths`);
+  if (r.dependencies === "patch") {
+    const changes = facts.dependencyChanges;
+    if (!Array.isArray(changes) || changes.length === 0) out.push("there is no usable dependency evidence (no changes found, or a lockfile format the harness cannot read), so none can be shown to be patch updates");
+    else {
+      for (const d of changes) {
+        const kind = d.change === "changed" ? versionChange(d.from, d.to) : d.change;
+        if (kind === "other" && d.detail) out.push(`${d.name} (${d.source}): ${d.detail}, so it is not a patch update`);
+        else if (kind !== "patch") out.push(`${d.name} ${d.from ?? "(none)"} -> ${d.to ?? "(none)"} is ${kind}, not a patch update`);
+      }
+    }
+  }
+  const need2 = Math.max(r.minApprovals, facts.approvals?.required ?? 0);
+  if ((facts.approvals?.count ?? 0) < need2) out.push(`${facts.approvals?.count ?? 0} approvals; ${need2} needed`);
+  return out;
+}
+function evaluateEligibility({ state, facts }) {
+  const reasons = [];
+  const r = activeRound(state);
+  const provenance = {
+    round: r?.round ?? null,
+    binding: r?.binding ?? null,
+    observed: {
+      at: facts.observedAt ?? null,
+      head: facts.head ?? null,
+      mergeBase: facts.mergeBase ?? null,
+      target: facts.target ?? null,
+      policyDigest: facts.policyDigest ?? null,
+      checks: digestOf(facts.checks ?? null),
+      approvals: facts.approvals ?? null
+    },
+    factsDigest: digestOf(facts),
+    // Where the facts came from: "github" when the harness fetched them,
+    // otherwise whatever the caller said (a file is "file"). Only fetched
+    // facts make a real decision; anything else is a simulation.
+    factsSource: facts.source ?? "caller",
+    rule: null
+  };
+  const done = (outcome) => ({ outcome, reasons, provenance });
+  if (!r) {
+    reasons.push(block("no-review", state.legacy?.length ? "only v1 history exists; there is no review under a version 1 policy" : "no review has started"));
+    return done(BLOCKED);
+  }
+  if (r.status === "invalidated") {
+    reasons.push(block("review-invalidated", `round ${r.round} was invalidated (${r.invalidated.reason}); review the new head`));
+    return done(BLOCKED);
+  }
+  if (facts.head !== r.binding.head) reasons.push(block("head-changed", `the head is now ${String(facts.head).slice(0, 12)}; the review covers ${r.binding.head.slice(0, 12)}`));
+  if (facts.mergeBase !== r.binding.mergeBase) reasons.push(block("merge-base-changed", `the merge base is now ${String(facts.mergeBase).slice(0, 12)}; the review covers ${r.binding.mergeBase.slice(0, 12)}`));
+  if (facts.policyDigest !== r.binding.policyDigest) reasons.push(block("policy-changed", "the trusted policy changed since the review started"));
+  if (facts.target?.commit && facts.localTarget?.commit && facts.target.commit !== facts.localTarget.commit) {
+    reasons.push(block("target-not-fetched", `the local ${facts.localTarget.ref} is at ${facts.localTarget.commit.slice(0, 12)}, but the host's ${facts.target.ref} is at ${facts.target.commit.slice(0, 12)}; fetch it, then start the review again`));
+  }
+  const policy = r.policy.resolved;
+  const merge2 = { enabled: false, disqualifying: ["blocker", "should-fix"], rules: [], ...policy.actions?.merge ?? {} };
+  if (!merge2.enabled) reasons.push(block("merge-disabled", "the policy does not enable merge eligibility (actions.merge.enabled)"));
+  const open = state.escalations.filter((x) => x.round === r.round && x.status === "open");
+  if (r.status !== "reported") reasons.push(block("review-incomplete", `the review is ${r.status}, not reported`));
+  for (const x of open) reasons.push(escalate("escalation-open", `${x.id} is open: ${x.message}`, { escalation: x.id }));
+  for (const x of state.escalations.filter((y) => y.round === r.round && y.status === "rejected" && !y.finding)) {
+    reasons.push(block("escalation-rejected", `${x.id} was rejected by ${x.resolution.actor}: ${x.resolution.reason}`, { escalation: x.id }));
+  }
+  if (r.report) {
+    if (!r.report.coverage.complete) reasons.push(block("coverage-gaps", `the panel ran with gaps: ${r.report.coverage.gaps.map((g) => g.slot).join(", ")}`));
+    const byId = new Map(state.findings.map((f) => [f.id, f]));
+    const approvedEscalations = new Set(state.escalations.filter((x) => x.round === r.round && x.finding && x.status === "approved").map((x) => x.finding));
+    for (const id of [...r.report.reported, ...r.report.escalated.filter((x) => approvedEscalations.has(x))]) {
+      const f = byId.get(id);
+      const sev = f.decisions["finding-severity"]?.at(-1)?.label ?? null;
+      if (f.disposition && CLEARED.has(f.disposition.as)) continue;
+      if (f.decisions["finding-triage"]?.at(-1)?.label === "needs-judgment" && !f.disposition) {
+        reasons.push(escalate("needs-judgment", `${id} needs a person's call: ${f.title}`, { finding: id }));
+      } else if (sev === null || merge2.disqualifying.includes(sev)) {
+        reasons.push(block("disqualifying-finding", `${id} (${sev ?? "unrated"}) is unresolved${f.disposition ? ` (${f.disposition.as})` : ""}: ${f.title}`, { finding: id }));
+      }
+    }
+  }
+  const c = r.classification;
+  if (!c) reasons.push(escalate("unclassified", "the change has not been classified"));
+  else {
+    if (c.probability < policy.thresholds.classify) reasons.push(escalate("uncertain-classification", `classified ${c.category} with probability ${c.probability}, below ${policy.thresholds.classify}`));
+    if (policy.escalation.categories.includes(c.category)) reasons.push(escalate("escalation-category", `the change is classified ${c.category}, which goes to a person`));
+  }
+  const runs = (facts.checks?.runs ?? []).filter((x) => x.headSha === facts.head);
+  if (facts.checks?.required == null) reasons.push(block("required-checks-unknown", "the required checks are unknown, so they cannot be shown to pass"));
+  else {
+    for (const name of facts.checks.required) {
+      const run4 = runs.filter((x) => x.name === name).at(-1);
+      if (!run4) reasons.push(block("check-missing", `required check ${name} has not run on ${String(facts.head).slice(0, 12)}`));
+      else if (run4.status !== "completed" || run4.conclusion !== "success") reasons.push(block("check-not-green", `required check ${name} is ${run4.status}${run4.conclusion ? `/${run4.conclusion}` : ""}`));
+    }
+  }
+  for (const run4 of runs) if (["failure", "timed_out", "cancelled", "action_required"].includes(run4.conclusion)) reasons.push(block("check-failed", `check ${run4.name} ended ${run4.conclusion}`));
+  if (!facts.branchProtection?.known) reasons.push(block("branch-protection-unknown", "branch protection could not be read"));
+  else if (facts.branchProtection.satisfied !== true) reasons.push(block("branch-protection", "branch protection is not satisfied"));
+  if (merge2.enabled && c) {
+    const misses = [];
+    const hit = merge2.rules.find((rule) => {
+      const why = ruleReasons(rule, { facts, classification: c });
+      if (why.length) misses.push({ rule: rule.name, why });
+      return why.length === 0;
+    });
+    if (hit) provenance.rule = hit.name;
+    else reasons.push(block("no-rule-matches", "no merge rule matches; merge by hand", { rules: misses }));
+  }
+  if (reasons.some((x) => x.effect === BLOCKED)) return done(BLOCKED);
+  if (reasons.some((x) => x.effect === ESCALATE)) return done(ESCALATE);
+  return done(ELIGIBLE);
+}
+
+// node_modules/agent-review/src/core/decide/merge.mjs
+var dryRunExecutor = Object.freeze({
+  name: "dry-run",
+  dryRun: true,
+  merge: ({ repo, number, sha }) => ({ merged: false, dryRun: true, wouldMerge: { repo, number, sha } })
+});
+var KEYS = [
+  ["head", (p) => p.observed.head],
+  ["merge base", (p) => p.observed.mergeBase],
+  ["policy", (p) => p.observed.policyDigest],
+  ["checks", (p) => p.observed.checks],
+  ["approvals", (p) => JSON.stringify(p.observed.approvals)],
+  ["matched rule", (p) => p.rule],
+  ["facts source", (p) => p.factsSource]
+];
+function prepareMerge({ eligibility, recheck, executor = dryRunExecutor, repo, number }) {
+  const why = (code, message, extra = {}) => ({ code, message, ...extra });
+  if (eligibility.outcome !== ELIGIBLE) {
+    throw new WorkflowError(REFUSED, "the change is not eligible to merge", [why("not-eligible", `the decision was ${eligibility.outcome}`), ...eligibility.reasons]);
+  }
+  if (!executor?.dryRun) {
+    throw new WorkflowError(REFUSED, "no merge executor is available", [why("no-executor", "this harness performs dry runs only")]);
+  }
+  const fresh = recheck();
+  const changed = KEYS.filter(([, get2]) => get2(fresh.provenance) !== get2(eligibility.provenance)).map(([name]) => name);
+  if (fresh.outcome !== ELIGIBLE || changed.length) {
+    throw new WorkflowError(REFUSED, "the eligibility decision is stale", [
+      ...changed.map((name) => why("stale-eligibility", `the ${name} changed after eligibility was decided`)),
+      ...fresh.outcome !== ELIGIBLE ? [why("no-longer-eligible", `a fresh check says ${fresh.outcome}`), ...fresh.reasons] : []
+    ]);
+  }
+  const simulated = fresh.provenance.factsSource !== "github";
+  return { executor: executor.name, simulated, decidedOn: eligibility.provenance, recheckedOn: fresh.provenance, result: executor.merge({ repo, number, sha: fresh.provenance.observed.head }) };
+}
+
+// node_modules/agent-review/src/core/decide/local-facts.mjs
+function overridesOf(round) {
+  const out = {};
+  for (const { path: path2, to } of round.policy.overrides ?? []) {
+    const keys = path2.split(".");
+    keys.slice(0, -1).reduce((o, k) => o[k] ??= {}, out)[keys.at(-1)] = to;
+  }
+  return out;
+}
+function localFacts({ git, round, targetRef, head }) {
+  const tp = trustedPolicy({ git, targetRef, head });
+  const resolved = applyOverrides(tp.trusted, overridesOf(round), { source: "round overrides" });
+  return {
+    target: tp.target,
+    head: tp.head,
+    mergeBase: git.mergeBase(tp.target.commit, tp.head),
+    policyDigest: resolved.effectiveDigest
+  };
+}
+
+// node_modules/agent-review/src/cli/run.mjs
+import { readFileSync as readFileSync5 } from "node:fs";
+import { parseArgs } from "node:util";
+
+// node_modules/agent-review/src/adapters/git.mjs
+import { execFileSync } from "node:child_process";
+function gitAdapter(cwd) {
+  const git = (args, opts = {}) => execFileSync("git", ["-C", cwd, ...args], { maxBuffer: 256 << 20, stdio: ["ignore", "pipe", "pipe"], ...opts });
+  return {
+    resolveCommit(ref) {
+      try {
+        return git(["rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`], { encoding: "utf8" }).trim();
+      } catch {
+        throw new Error(`git: ${JSON.stringify(ref)} is not a commit in ${cwd}`);
+      }
+    },
+    readFile(commit, path2) {
+      try {
+        git(["cat-file", "-e", `${commit}:${path2}`]);
+      } catch {
+        return null;
+      }
+      return git(["cat-file", "blob", `${commit}:${path2}`]);
+    },
+    // The remote's default branch, such as origin/main, if it is known.
+    defaultTarget(remote = "origin") {
+      try {
+        return git(["symbolic-ref", "--short", `refs/remotes/${remote}/HEAD`], { encoding: "utf8" }).trim() || null;
+      } catch {
+        return null;
+      }
+    },
+    mergeBase(a, b) {
+      return git(["merge-base", a, b], { encoding: "utf8" }).trim();
+    },
+    // Paths changed between two commits, as git stores them (-z, so names
+    // that git would quote come back unquoted).
+    changedPaths(base, head) {
+      return git(["diff", "--name-only", "--no-renames", "-z", base, head], { encoding: "utf8" }).split("\0").filter(Boolean);
+    }
+  };
+}
+
+// node_modules/agent-review/src/cli/render.mjs
+var short = (sha) => sha ? sha.slice(0, 12) : "";
+function action(a) {
+  if (!a) return "nothing; the review is complete";
+  switch (a.do) {
+    case "start":
+      return a.why ? `start a new round (${a.why})` : "start the review";
+    case "run":
+      return `run ${a.slots.map((s) => s.retry ? `${s.slot} (retry: ${s.lastError})` : s.slot).join(", ")}; needs ${a.requirements.minFamilies} model families, has ${a.familiesSoFar.length ? a.familiesSoFar.join(", ") : "none"}`;
+    case "advance":
+      return "advance to verification";
+    case "verify":
+      return `verify ${a.findings.map((f) => `${f.finding} (not ${f.verifierMust.notFamily ?? f.verifierMust.notModel})`).join(", ")}`;
+    case "decide":
+      return `decide ${a.findings.map((f) => `${f.finding}: ${f.kinds.map((k) => k.replace("finding-", "")).join(", ")}`).join("; ")}`;
+    case "classify":
+      return "classify the change (review classify)";
+    case "verify-again":
+      return `second verifier for ${a.findings.map((f) => f.finding).join(", ")}`;
+    case "report":
+      return "write the report";
+    case "resolve":
+      return `a person resolves ${a.escalations.join(", ")}`;
+    case "dispose":
+      return `a person decides ${a.findings.join(", ")} (review dispose)`;
+    default:
+      return a.do;
+  }
+}
+function renderNext(n) {
+  const head = n.round ? `round ${n.round} at ${short(n.head)}, ${n.depth}` : "no round yet";
+  const lines = [`${n.status} (${head})`];
+  if (n.note) lines.push(`note: ${n.note}`);
+  lines.push(`next: ${action(n.action)}${n.waitingOn ? ` [${n.waitingOn}]` : ""}`);
+  for (const h of n.human ?? []) lines.push(`for a person: ${h.ask}${h.escalation ? ` (${h.escalation})` : ""}`);
+  if (n.report) {
+    const r = n.report;
+    lines.push(`report: ${r.reported.length} reported${r.reported.length ? ` (${r.reported.join(", ")})` : ""}, ${r.dropped.length} dropped, ${r.escalated.length} escalated${r.coverage.complete ? "" : `; coverage gaps: ${r.coverage.gaps.map((g) => g.slot).join(", ")}`}`);
+  }
+  return lines.join("\n");
+}
+function renderInbox(items) {
+  if (!items.length) return "Nothing needs you.";
+  return items.map((i) => `${i.repo} ${i.key}: ${i.ask}${i.escalation ? ` (${i.escalation})` : ""}`).join("\n");
+}
+function renderEligibility(e) {
+  const from = e.provenance.factsSource === "github" ? "" : `; simulated from ${e.provenance.factsSource} facts`;
+  const lines = [`${e.outcome}${e.outcome === "eligible" && e.provenance.rule ? ` (rule ${e.provenance.rule})` : ""}${from}`];
+  for (const r of e.reasons) {
+    lines.push(`  ${r.effect === "blocked" ? "blocks" : "for a person"}: ${r.message}`);
+    for (const miss of r.rules ?? []) lines.push(`    rule ${miss.rule}: ${miss.why.join("; ")}`);
+  }
+  return lines.join("\n");
+}
+function renderError(e) {
+  const reasons = e.reasons ?? e.errors ?? [];
+  return [`refused: ${e.message.split("\n")[0]}`, ...reasons.map((r) => `  - ${r.path ? `${r.path}: ` : ""}${r.message}`)].join("\n");
+}
+
+// node_modules/agent-review/src/cli/state-root.mjs
+import { existsSync as existsSync5 } from "node:fs";
+import { homedir } from "node:os";
+import { join as join3 } from "node:path";
+function cliStateRoot(env = process.env, home = homedir()) {
+  const explicit = env.AGENT_REVIEWS_STATE_DIR || env.SCALVERT_STATE_DIR;
+  if (explicit) return explicit;
+  const current2 = join3(env.XDG_STATE_HOME || join3(home, ".local", "state"), "agent-reviews");
+  const legacy = join3(home, ".local", "state", "scalvert");
+  const hasReviews = (root) => existsSync5(join3(root, "reviews")) || existsSync5(join3(root, "v2"));
+  if (!hasReviews(current2) && existsSync5(join3(legacy, "reviews"))) return legacy;
+  return current2;
+}
+
+// node_modules/agent-review/src/adapters/github.mjs
+import { execFileSync as execFileSync2 } from "node:child_process";
+function ghApi(path2) {
+  try {
+    return JSON.parse(execFileSync2("gh", ["api", "-H", "Accept: application/vnd.github+json", path2], { encoding: "utf8", maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "pipe"] }));
+  } catch (e) {
+    const err = new Error(`gh api ${path2}: ${String(e.stderr ?? e.message).trim()}`);
+    err.status = /HTTP (\d{3})/.exec(String(e.stderr))?.[1] ? Number(/HTTP (\d{3})/.exec(String(e.stderr))[1]) : null;
+    throw err;
+  }
+}
+function pages(api, path2) {
+  const out = [];
+  for (let page = 1; page <= 30; page++) {
+    const batch = api(`${path2}${path2.includes("?") ? "&" : "?"}per_page=100&page=${page}`);
+    const items = Array.isArray(batch) ? batch : batch.check_runs ?? [];
+    out.push(...items);
+    if (items.length < 100) break;
+  }
+  return out;
+}
+function githubFacts({ repo, number, api = ghApi, now = () => (/* @__PURE__ */ new Date()).toISOString() }) {
+  const pr = api(`repos/${repo}/pulls/${number}`);
+  const head = pr.head.sha;
+  const commits = pages(api, `repos/${repo}/pulls/${number}/commits`).map((c) => ({
+    sha: c.sha,
+    verified: c.commit?.verification?.verified === true,
+    reason: c.commit?.verification?.reason ?? null,
+    author: c.author?.login ?? null,
+    // "web-flow" when GitHub itself committed and signed it.
+    committer: c.committer?.login ?? null
+  }));
+  const commitsComplete = commits.length < 250;
+  const files = pages(api, `repos/${repo}/pulls/${number}/files`);
+  const changedPaths = [...new Set(files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean)))];
+  const runs = pages(api, `repos/${repo}/commits/${head}/check-runs`).map((r) => ({ name: r.name, headSha: r.head_sha, status: r.status, conclusion: r.conclusion, source: "check-run" }));
+  const STATUS = { success: ["completed", "success"], failure: ["completed", "failure"], error: ["completed", "failure"], pending: ["in_progress", null] };
+  for (const s of api(`repos/${repo}/commits/${head}/status`).statuses ?? []) {
+    const [status, conclusion] = STATUS[s.state] ?? ["completed", "failure"];
+    runs.push({ name: s.context, headSha: head, status, conclusion, source: "status" });
+  }
+  let required = null;
+  let requiredApprovals = 0;
+  let protectionKnown = false;
+  try {
+    const p = api(`repos/${repo}/branches/${encodeURIComponent(pr.base.ref)}/protection`);
+    protectionKnown = true;
+    const rsc = p.required_status_checks;
+    required = rsc ? [.../* @__PURE__ */ new Set([...rsc.contexts ?? [], ...(rsc.checks ?? []).map((c) => c.context)])] : [];
+    requiredApprovals = p.required_pull_request_reviews?.required_approving_review_count ?? 0;
+  } catch (e) {
+    if (e.status !== 404 && e.status !== 403) throw e;
+  }
+  const latest = /* @__PURE__ */ new Map();
+  for (const r of pages(api, `repos/${repo}/pulls/${number}/reviews`)) if (r.user?.login) latest.set(r.user.login, r);
+  const ignored = [];
+  let approvals = 0;
+  for (const r of [...latest.values()].filter((x) => x.state === "APPROVED" && x.commit_id === head)) {
+    let permission = null;
+    try {
+      permission = api(`repos/${repo}/collaborators/${encodeURIComponent(r.user.login)}/permission`).permission;
+    } catch (e) {
+      if (e.status !== 404 && e.status !== 403) throw e;
+    }
+    if (["admin", "maintain", "write"].includes(permission)) approvals += 1;
+    else ignored.push({ login: r.user.login, permission });
+  }
+  const target = api(`repos/${repo}/branches/${encodeURIComponent(pr.base.ref)}`);
+  return {
+    observedAt: now(),
+    target: { ref: pr.base.ref, commit: target.commit.sha },
+    head,
+    author: { login: pr.user?.login ?? null, type: pr.user?.type ?? null },
+    commits,
+    commitsComplete,
+    changedPaths,
+    checks: { required, runs },
+    approvals: { count: approvals, required: requiredApprovals, ignored },
+    // GitHub reports "clean" only when the pull request can merge with every
+    // protection rule satisfied.
+    branchProtection: { known: protectionKnown, satisfied: protectionKnown ? pr.mergeable_state === "clean" : null, mergeableState: pr.mergeable_state ?? null }
+  };
+}
+
+// node_modules/agent-review/src/adapters/npm.mjs
+var SECTIONS = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
+var BUMP_FIELDS = /* @__PURE__ */ new Set(["version", "resolved", "integrity", "dependencies", "optionalDependencies", "peerDependencies", "peerDependenciesMeta", "engines", "funding", "license", "deprecated"]);
+var isObject2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+function readJson(git, commit, path2) {
+  const bytes = git.readFile(commit, path2);
+  if (!bytes) return null;
+  try {
+    return JSON.parse(bytes.toString("utf8"));
+  } catch {
+    return void 0;
+  }
+}
+var changedFields = (a, b) => [.../* @__PURE__ */ new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})])].filter((k) => canonicalJson(a?.[k] ?? null) !== canonicalJson(b?.[k] ?? null));
+var host = (url) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return null;
+  }
+};
+function legacyEntries(tree, prefix = "", out = {}) {
+  for (const [name, e] of Object.entries(tree ?? {})) {
+    const key = `${prefix}${name}`;
+    out[key] = { version: e.version, resolved: e.resolved, integrity: e.integrity };
+    if (e.dependencies) legacyEntries(e.dependencies, `${key}/`, out);
+  }
+  return out;
+}
+function compareEntries(a, b, source, changes) {
+  for (const key of /* @__PURE__ */ new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (key === "") continue;
+    const name = key.replace(/^.*node_modules\//, "");
+    const x = a[key];
+    const y = b[key];
+    const where = `${source} ${key}`;
+    if (!x) {
+      changes.push({ name, from: null, to: y.version ?? null, change: "added", source: where });
+      continue;
+    }
+    if (!y) {
+      changes.push({ name, from: x.version ?? null, to: null, change: "removed", source: where });
+      continue;
+    }
+    const fields = changedFields(x, y);
+    if (fields.length === 0) continue;
+    if (x.version === y.version) {
+      changes.push({ name, from: x.version, to: y.version, change: "other", detail: `${fields.join(", ")} changed without a version change`, source: where });
+      continue;
+    }
+    const odd = fields.filter((f) => !BUMP_FIELDS.has(f));
+    const problems = [];
+    if (odd.length) problems.push(`${odd.join(", ")} changed`);
+    if (x.resolved && y.resolved && host(x.resolved) !== host(y.resolved)) problems.push(`the registry changed from ${host(x.resolved)} to ${host(y.resolved)}`);
+    if (problems.length) changes.push({ name, from: x.version, to: y.version, change: "other", detail: problems.join("; "), source: where });
+    else changes.push({ name, from: x.version, to: y.version, change: "changed", source: where });
+  }
+}
+var range = (r) => {
+  const m = /^([\^~]?)(\d+\.\d+\.\d+)$/.exec(String(r).trim());
+  return m ? { op: m[1], version: m[2] } : null;
+};
+function comparePackageJson(pa, pb, source, changes) {
+  const rest = (p) => Object.fromEntries(Object.entries(p ?? {}).filter(([k]) => !SECTIONS.includes(k)));
+  const other = changedFields(rest(pa), rest(pb));
+  if (other.length) changes.push({ name: source, from: null, to: null, change: "other", detail: `${other.join(", ")} changed`, source });
+  for (const section of SECTIONS) {
+    const x = pa?.[section] ?? {};
+    const y = pb?.[section] ?? {};
+    for (const name of /* @__PURE__ */ new Set([...Object.keys(x), ...Object.keys(y)])) {
+      if (x[name] === y[name]) continue;
+      const where = `${source} ${section}`;
+      if (x[name] === void 0) changes.push({ name, from: null, to: y[name], change: "added", source: where });
+      else if (y[name] === void 0) changes.push({ name, from: x[name], to: null, change: "removed", source: where });
+      else {
+        const a = range(x[name]);
+        const b = range(y[name]);
+        if (!a || !b) changes.push({ name, from: x[name], to: y[name], change: "other", detail: "not a simple version range", source: where });
+        else if (a.op !== b.op) changes.push({ name, from: x[name], to: y[name], change: "other", detail: `the range operator changed from "${a.op}" to "${b.op}"`, source: where });
+        else changes.push({ name, from: a.version, to: b.version, change: "changed", source: where });
+      }
+    }
+  }
+}
+function npmDependencyChanges(git, base, head) {
+  const before = readJson(git, base, "package-lock.json");
+  const after = readJson(git, head, "package-lock.json");
+  if (!before || !after || !isObject2(before.packages) || !isObject2(after.packages)) return null;
+  const changes = [];
+  const top = (l) => Object.fromEntries(Object.entries(l).filter(([k]) => k !== "packages" && k !== "dependencies"));
+  const topFields = changedFields(top(before), top(after));
+  if (topFields.length) changes.push({ name: "package-lock.json", from: null, to: null, change: "other", detail: `${topFields.join(", ")} changed`, source: "package-lock.json" });
+  compareEntries(before.packages, after.packages, "package-lock.json", changes);
+  if (before.dependencies || after.dependencies) compareEntries(legacyEntries(before.dependencies), legacyEntries(after.dependencies), "package-lock.json dependencies", changes);
+  comparePackageJson(before.packages[""], after.packages[""], "package-lock.json root", changes);
+  comparePackageJson(readJson(git, base, "package.json") ?? {}, readJson(git, head, "package.json") ?? {}, "package.json", changes);
+  return changes;
+}
+
+// node_modules/agent-review/src/cli/run.mjs
+var UsageError = class extends Error {
+};
+var COMMON = {
+  repo: { type: "string" },
+  key: { type: "string" },
+  actor: { type: "string" },
+  state: { type: "string" },
+  cwd: { type: "string" },
+  "op-id": { type: "string" },
+  json: { type: "boolean" },
+  text: { type: "boolean" },
+  help: { type: "boolean", short: "h" }
+};
+var COMMANDS = {
+  "review start": {
+    summary: "Start a review round bound to the head, merge base and trusted policy, or confirm the current one.",
+    options: { target: { type: "string" }, head: { type: "string" }, lenses: { type: "string" }, depth: { type: "string" }, "user-depth": { type: "string" }, "past-cap": { type: "boolean" } },
+    run: (o, h) => h.review().start({ git: h.git(), targetRef: h.target(o.target), head: o.head ?? "HEAD", lenses: list(o.lenses), depth: o.depth ?? null, userDepth: o["user-depth"] ?? null, pastCap: o["past-cap"] === true, actor: h.actor(), opId: o["op-id"] })
+  },
+  "review run": {
+    summary: "Record one reviewer slot's run: ok with findings, or failed or skipped with a reason.",
+    options: { slot: { type: "string" }, status: { type: "string" }, model: { type: "string" }, family: { type: "string" }, findings: { type: "string" }, reason: { type: "string" }, runner: { type: "string" }, head: { type: "string" } },
+    run: (o, h) => h.review().recordRun({
+      slot: need(o, "slot"),
+      status: need(o, "status"),
+      model: o.model ?? null,
+      family: o.family ?? null,
+      findings: o.findings ? readJson2(o.findings) : [],
+      reason: o.reason ?? null,
+      // Runs recorded from the command line are always attested.
+      runner: { kind: "attested", name: o.runner ?? "cli" },
+      head: h.head(need(o, "head")),
+      actor: h.actor(),
+      opId: o["op-id"]
+    })
+  },
+  "review accept-gap": {
+    summary: "Let the panel go ahead without a slot that did not run. People only.",
+    options: { slot: { type: "string" }, reason: { type: "string" } },
+    run: (o, h) => h.review().acceptGap({ slot: need(o, "slot"), reason: need(o, "reason"), actor: h.actor(), opId: o["op-id"] })
+  },
+  "review advance": {
+    summary: "Move from reviewing to verifying, once the panel is complete.",
+    options: {},
+    run: (o, h) => h.review().advance({ actor: h.actor(), opId: o["op-id"] })
+  },
+  "review merge": {
+    summary: "Mark findings as duplicates of a primary finding.",
+    options: { into: { type: "string" }, ids: { type: "string" } },
+    run: (o, h) => h.review().merge({ into: need(o, "into"), ids: list(need(o, "ids")), actor: h.actor(), opId: o["op-id"] })
+  },
+  "review decide": {
+    summary: "Record a verification, severity, triage or origin decision on a finding.",
+    options: {
+      finding: { type: "string" },
+      kind: { type: "string" },
+      label: { type: "string" },
+      probability: { type: "string" },
+      rationale: { type: "string" },
+      "rationale-file": { type: "string" },
+      "verifier-model": { type: "string" },
+      "verifier-family": { type: "string" },
+      head: { type: "string" }
+    },
+    run: (o, h) => {
+      if (o.rationale != null && o["rationale-file"] != null) throw new UsageError("use --rationale or --rationale-file, not both");
+      const p = Number(need(o, "probability"));
+      return h.review().decide({
+        finding: need(o, "finding"),
+        kind: need(o, "kind"),
+        label: need(o, "label"),
+        probability: p,
+        rationale: o["rationale-file"] != null ? readText(o["rationale-file"]).trim() : o.rationale ?? null,
+        verifier: { model: need(o, "verifier-model"), family: o["verifier-family"] ?? null },
+        head: h.head(need(o, "head")),
+        actor: h.actor(),
+        opId: o["op-id"]
+      });
+    }
+  },
+  "review report": {
+    summary: "Produce the report, once every finding has the decisions it needs.",
+    options: {},
+    run: (o, h) => h.review().report({ actor: h.actor(), opId: o["op-id"] })
+  },
+  "review resolve": {
+    summary: "Approve or reject an escalation. People only.",
+    options: { escalation: { type: "string" }, decision: { type: "string" }, reason: { type: "string" } },
+    run: (o, h) => h.review().resolveEscalation({ id: need(o, "escalation"), decision: need(o, "decision"), reason: need(o, "reason"), actor: h.actor(), opId: o["op-id"] })
+  },
+  "review dispose": {
+    summary: "Record what became of a reported finding. A needs-judgment finding is a person's call.",
+    // --note-file reads the note from a file, or stdin with -, so text copied
+    // from a pull request never passes through a shell string.
+    options: { finding: { type: "string" }, as: { type: "string" }, note: { type: "string" }, "note-file": { type: "string" } },
+    run: (o, h) => {
+      if (o.note != null && o["note-file"] != null) throw new UsageError("use --note or --note-file, not both");
+      const note = o["note-file"] != null ? readText(o["note-file"]).trim() : o.note ?? null;
+      return h.review().dispose({ finding: need(o, "finding"), as: need(o, "as"), note, actor: h.actor(), opId: o["op-id"] });
+    }
+  },
+  "review link": {
+    summary: "Record the host's review thread that carries a finding, such as a pull request comment.",
+    options: { finding: { type: "string" }, thread: { type: "string" }, url: { type: "string" } },
+    run: (o, h) => h.review().link({ finding: need(o, "finding"), thread: need(o, "thread"), url: o.url ?? null, actor: h.actor(), opId: o["op-id"] })
+  },
+  "review classify": {
+    summary: "Classify the change as a whole, such as deps-patch or feature. Evidence for the merge policy, never permission.",
+    options: { category: { type: "string" }, probability: { type: "string" }, rationale: { type: "string" }, "classifier-model": { type: "string" }, "classifier-family": { type: "string" }, head: { type: "string" } },
+    run: (o, h) => h.review().classify({
+      category: need(o, "category"),
+      probability: Number(need(o, "probability")),
+      rationale: o.rationale ?? null,
+      classifier: { model: need(o, "classifier-model"), family: o["classifier-family"] ?? null },
+      head: h.head(need(o, "head")),
+      actor: h.actor(),
+      opId: o["op-id"]
+    })
+  },
+  "eligibility check": {
+    summary: "Decide whether the reviewed change may merge under the policy: eligible, blocked or escalate, with every reason. Never merges.",
+    options: { pr: { type: "string" }, facts: { type: "string" }, target: { type: "string" } },
+    readOnly: true,
+    run: (o, h) => evaluateEligibility({ state: h.review().read(), facts: h.facts(o.facts) })
+  },
+  "merge dry-run": {
+    summary: "Decide eligibility, recheck it from fresh facts, and show what a merge would do. Never merges.",
+    options: { pr: { type: "string" }, facts: { type: "string" }, "recheck-facts": { type: "string" }, target: { type: "string" } },
+    readOnly: true,
+    run: (o, h) => {
+      const review = h.review();
+      const eligibility = evaluateEligibility({ state: review.read(), facts: h.facts(o.facts) });
+      return prepareMerge({
+        eligibility,
+        recheck: () => evaluateEligibility({ state: review.read(), facts: h.facts(o["recheck-facts"] ?? o.facts) }),
+        executor: dryRunExecutor,
+        repo: o.repo,
+        number: o.pr ?? o.key
+      });
+    }
+  },
+  "review next": {
+    summary: "What the review needs next, and who it waits on.",
+    options: {},
+    readOnly: true,
+    run: (o, h) => next(h.review().read())
+  },
+  "review status": {
+    summary: "The full review state.",
+    options: {},
+    readOnly: true,
+    run: (o, h) => h.review().read()
+  },
+  inbox: {
+    summary: "Everything waiting on a person, across reviews.",
+    options: {},
+    readOnly: true,
+    noRef: true,
+    run: (o, h) => {
+      const refs = listReviews(h.root()).filter((r) => !o.repo || r.repo === o.repo);
+      const items = [];
+      const readable = [];
+      for (const ref of refs) {
+        try {
+          readable.push({ ref, state: openReview(h.root(), ref).read() });
+        } catch (e) {
+          items.push({ repo: ref.repo, key: ref.key, round: null, code: "unreadable", ask: `this review cannot be read (${e.code ?? "error"}): ${e.message.split("\n")[0]}` });
+        }
+      }
+      return [...inbox(readable), ...items];
+    }
+  },
+  "policy check": {
+    summary: "Validate a policy file, or show the trusted policy for a target ref.",
+    options: { file: { type: "string" }, target: { type: "string" }, head: { type: "string" } },
+    readOnly: true,
+    noRef: true,
+    run: (o, h) => {
+      if (o.file) {
+        const p = parsePolicy(readFileSync5(o.file), { kind: "file", path: o.file });
+        return { valid: true, version: p.version, warnings: p.warnings, policy: p.policy, effectiveDigest: p.effectiveDigest };
+      }
+      const t2 = trustedPolicy({ git: h.git(), targetRef: h.target(o.target), head: o.head ?? "HEAD", path: POLICY_FILE });
+      return { valid: true, source: t2.trusted.source, warnings: t2.trusted.warnings, policy: t2.trusted.policy, effectiveDigest: t2.trusted.effectiveDigest, proposed: t2.proposed, escalations: t2.escalations };
+    }
+  }
+};
+var list = (s) => s ? s.split(",").map((x) => x.trim()).filter(Boolean) : [];
+function need(o, name) {
+  if (o[name] == null || o[name] === "") throw new UsageError(`--${name} is required`);
+  return o[name];
+}
+function readText(path2) {
+  return path2 === "-" ? readFileSync5(0, "utf8") : readFileSync5(path2, "utf8");
+}
+function readJson2(path2) {
+  try {
+    return JSON.parse(readText(path2));
+  } catch (e) {
+    throw new UsageError(`${path2}: not valid JSON (${e.message})`);
+  }
+}
+function usage() {
+  const lines = ["Usage: agent-review <command> [options]", "", "Commands:"];
+  for (const [name, c] of Object.entries(COMMANDS)) lines.push(`  ${name.padEnd(18)} ${c.summary}`);
+  lines.push("", "Common options: --repo owner/name --key <pr|branch> --actor human:<name>|agent:<runtime> --state <dir> --cwd <repo dir> --op-id <id>");
+  lines.push("The actor can also come from AGENT_REVIEW_ACTOR. Every mutating command needs one.");
+  lines.push("Output is JSON, or short text at a terminal. --json and --text choose explicitly.");
+  return lines.join("\n");
+}
+function main(argv, { env = process.env, stdout = process.stdout, stderr = process.stderr } = {}) {
+  const name = COMMANDS[`${argv[0]} ${argv[1]}`] ? `${argv[0]} ${argv[1]}` : argv[0];
+  const cmd = COMMANDS[name];
+  if (!cmd) {
+    (argv.length && !["-h", "--help", "help"].includes(argv[0]) ? stderr : stdout).write(`${usage()}
+`);
+    return argv.length && !["-h", "--help", "help"].includes(argv[0]) ? 2 : 0;
+  }
+  const rest = argv.slice(name.split(" ").length);
+  let textOut = false;
+  try {
+    let parsed;
+    try {
+      parsed = parseArgs({ args: rest, options: { ...COMMON, ...cmd.options }, strict: true, allowPositionals: false });
+    } catch (e) {
+      throw new UsageError(e.message);
+    }
+    const o = parsed.values;
+    if (o.help) {
+      stdout.write(`agent-review ${name}: ${cmd.summary}
+Options: ${Object.keys(cmd.options).map((k) => `--${k}`).join(" ") || "(none)"}
+`);
+      return 0;
+    }
+    const cwd = o.cwd ?? process.cwd();
+    let gitCache;
+    const h = {
+      root: () => o.state ?? cliStateRoot(env),
+      git: () => gitCache ??= gitAdapter(cwd),
+      head: (ref) => /^[0-9a-f]{40}$/.test(ref) ? ref : h.git().resolveCommit(ref),
+      actor: () => {
+        const a = o.actor ?? env.AGENT_REVIEW_ACTOR;
+        if (!a) throw new UsageError("--actor is required: human:<name> or agent:<runtime> (or set AGENT_REVIEW_ACTOR)");
+        return a;
+      },
+      // The target branch: --target, else the remote's default branch (such
+      // as origin/main), else main.
+      target: (flag) => flag ?? h.git().defaultTarget() ?? "main",
+      review: () => {
+        if (cmd.noRef) throw new Error("internal: command has no review");
+        const ref = { repo: need(o, "repo"), key: need(o, "key") };
+        const review = openReview(h.root(), ref);
+        if (review.log.read().seq === 0) importLegacyV1(review.log, ref, legacyV1Path(h.root(), ref));
+        return review;
+      },
+      // Facts for eligibility: from a file, or fresh from GitHub plus the
+      // local repository. Read again on every call, so a recheck is real.
+      facts: (file) => {
+        if (file) return { ...readJson2(file), source: "file" };
+        if (!o.pr) throw new UsageError("give --pr <number> to read facts from GitHub, or --facts <file>");
+        const host2 = githubFacts({ repo: need(o, "repo"), number: o.pr });
+        const round = activeRound(h.review().read());
+        if (!round) return { ...host2, mergeBase: null, policyDigest: null, dependencyChanges: null };
+        const git = h.git();
+        let local;
+        try {
+          local = localFacts({ git, round, targetRef: o.target ?? round.binding.target.ref, head: host2.head });
+        } catch (e) {
+          throw new UsageError(`${e.message}. Fetch the pull request first: git fetch origin pull/${o.pr}/head`);
+        }
+        return { ...host2, source: "github", localTarget: local.target, mergeBase: local.mergeBase, policyDigest: local.policyDigest, dependencyChanges: npmDependencyChanges(git, local.mergeBase, host2.head) };
+      }
+    };
+    if (o.json && o.text) throw new UsageError("use --json or --text, not both");
+    textOut = o.text || !o.json && Boolean(stdout.isTTY);
+    const result = cmd.run(o, h);
+    const mutation = result && typeof result === "object" && "state" in result && "changed" in result;
+    const out = mutation ? { changed: result.changed, next: next(result.state) } : result;
+    if (textOut) {
+      const text = mutation ? `${result.changed ? "recorded" : "no change (already recorded)"}
+${renderNext(out.next)}` : name === "review next" ? renderNext(out) : name === "inbox" ? renderInbox(out) : name === "eligibility check" ? renderEligibility(out) : JSON.stringify(out, null, 2);
+      stdout.write(`${text}
+`);
+    } else stdout.write(`${JSON.stringify(out, null, 2)}
+`);
+    return 0;
+  } catch (e) {
+    if (e instanceof UsageError) {
+      stderr.write(`agent-review ${name}: ${e.message}
+`);
+      return 2;
+    }
+    if (e.code && /^(workflow|policy|store)\//.test(e.code)) {
+      stderr.write(textOut ? `${renderError(e)}
+` : `${JSON.stringify({ error: { code: e.code, message: e.message.split("\n")[0], reasons: e.reasons ?? e.errors ?? [] } }, null, 2)}
+`);
+      return 1;
+    }
+    stderr.write(`agent-review ${name}: ${e.message}
+`);
+    return 1;
+  }
+}
+
+// cli/src/review-ledger.mjs
+import {
+  closeSync as closeSync4,
+  existsSync as existsSync6,
+  mkdirSync as mkdirSync3,
+  openSync as openSync4,
+  readFileSync as readFileSync6,
+  readdirSync as readdirSync2,
+  renameSync as renameSync2,
+  statSync as statSync2,
+  unlinkSync as unlinkSync2,
+  writeFileSync as writeFileSync2,
+  writeSync as writeSync4
+} from "node:fs";
+import { randomBytes as randomBytes4 } from "node:crypto";
+import { dirname as dirname2, join as join4 } from "node:path";
+var SCHEMA = "scalvert.review/v1";
+var DEFAULT_THRESHOLD = 0.7;
+var DISPOSITIONS2 = ["fixed", "accepted", "wrong", "intended", "not-worth-it"];
+var REAL = /* @__PURE__ */ new Set(["fixed", "accepted", "not-worth-it"]);
+var NOISE = /* @__PURE__ */ new Set(["wrong", "intended", "not-worth-it", "dismissed", "wont-fix"]);
+var RETIRED = { dismissed: "wrong", "wont-fix": "intended or not-worth-it" };
+var REQUIRED_FINDING = ["lens", "file", "title", "precondition", "scenario"];
+var CLASS_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+var MAX_ROUNDS = 3;
+var REPEAT_WINDOW = 3;
+var LedgerError = class extends Error {
+};
+function stateDir() {
+  return cliStateRoot();
+}
+function ledgerPath(repo, key) {
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? "")) throw new LedgerError(`--repo must be owner/repo, got "${repo}"`);
+  if (!key) throw new LedgerError("--key is required (a PR number or branch name)");
+  return join4(stateDir(), "reviews", repo, `${keyFile2(key)}.json`);
+}
+function keyFile2(key) {
+  return [...String(key)].map((ch) => /[\w.-]/.test(ch) ? ch : [...Buffer.from(ch)].map((b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("")).join("");
+}
+function openFindings(ledger) {
+  return ledger.findings.filter((f) => f.reported && !f.duplicateOf && (!f.disposition || f.disposition.as === "accepted"));
+}
+function load2(repo, key) {
+  const path2 = ledgerPath(repo, key);
+  if (!existsSync6(path2)) return { schema: SCHEMA, repo, key: String(key), rounds: [], findings: [] };
+  const ledger = JSON.parse(readFileSync6(path2, "utf8"));
+  if (ledger.schema !== SCHEMA) throw new LedgerError(`${path2}: unknown schema ${ledger.schema}`);
+  return ledger;
+}
+function save(ledger) {
+  const path2 = ledgerPath(ledger.repo, ledger.key);
+  mkdirSync3(dirname2(path2), { recursive: true });
+  const tmp = `${path2}.${process.pid}.${randomBytes4(4).toString("hex")}.tmp`;
+  writeFileSync2(tmp, `${JSON.stringify(ledger, null, 2)}
+`);
+  renameSync2(tmp, path2);
+  return path2;
+}
+function update(repo, key, fn) {
+  const path2 = ledgerPath(repo, key);
+  mkdirSync3(dirname2(path2), { recursive: true });
+  const lock = `${path2}.lock`;
+  const token = acquire2(lock);
+  try {
+    const l = load2(repo, key);
+    const result = fn(l);
+    save(l);
+    return result;
+  } finally {
+    release2(lock, token);
+  }
+}
+var STALE_LOCK_MS = 3e4;
+var lockTimeoutMs = () => Number(process.env.AGENT_REVIEWS_LOCK_TIMEOUT_MS) || 1e4;
+var sleep2 = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+function alive2(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
+}
+function readLock2(lock) {
+  try {
+    return { text: readFileSync6(lock, "utf8"), mtimeMs: statSync2(lock).mtimeMs };
+  } catch {
+    return null;
+  }
+}
+function isStale2({ text, mtimeMs }) {
+  let pid;
+  try {
+    pid = JSON.parse(text).pid;
+  } catch {
+    return Date.now() - mtimeMs > STALE_LOCK_MS;
+  }
+  return !alive2(pid);
+}
+var newToken2 = () => JSON.stringify({ pid: process.pid, id: randomBytes4(6).toString("hex"), at: (/* @__PURE__ */ new Date()).toISOString() });
+function create2(path2, token) {
+  try {
+    const fd = openSync4(path2, "wx");
+    try {
+      writeSync4(fd, token);
+    } finally {
+      closeSync4(fd);
+    }
+    return true;
+  } catch (e) {
+    if (e.code !== "EEXIST") throw e;
+    return false;
+  }
+}
+function reclaim2(lock) {
+  const breaker = `${lock}.break`;
+  const token = newToken2();
+  if (!create2(breaker, token)) {
+    const b = readLock2(breaker);
+    if (b && isStale2(b)) {
+      try {
+        unlinkSync2(breaker);
+      } catch {
+      }
+    }
+    return;
+  }
+  try {
+    const held = readLock2(lock);
+    if (held && isStale2(held)) {
+      try {
+        unlinkSync2(lock);
+      } catch {
+      }
+    }
+  } finally {
+    release2(breaker, token);
+  }
+}
+function acquire2(lock) {
+  const token = newToken2();
+  const deadline = Date.now() + lockTimeoutMs();
+  for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
+    if (create2(lock, token)) return token;
+    const held = readLock2(lock);
+    if (held && isStale2(held)) {
+      reclaim2(lock);
+      if (!readLock2(lock)) continue;
+    }
+    if (Date.now() > deadline) {
+      throw new LedgerError(`ledger busy: another writer holds ${lock}, so nothing was written. Retry; if no review is running, remove the lock file.`);
+    }
+    sleep2(wait + Math.floor(Math.random() * wait));
+  }
+}
+function release2(lock, token) {
+  if (readLock2(lock)?.text !== token) return;
+  try {
+    unlinkSync2(lock);
   } catch {
   }
 }
@@ -4188,7 +6403,7 @@ function addFindings(ledger, findings) {
   for (const f of findings) {
     const missing = REQUIRED_FINDING.filter((k) => !f[k]);
     if (missing.length) throw new LedgerError(`finding "${f.title ?? "?"}" is missing ${missing.join(", ")}`);
-    if (f.model != null) checkModel(f.model, `finding "${f.title}" model`);
+    if (f.model != null) checkModel2(f.model, `finding "${f.title}" model`);
     if (f.class != null && !CLASS_NAME.test(f.class)) {
       throw new LedgerError(`finding "${f.title}" class must be kebab-case, such as unescaped-shell-arg, got "${f.class}"`);
     }
@@ -4222,7 +6437,7 @@ function addFindings(ledger, findings) {
 function decide(ledger, id, kind, decision) {
   const finding = ledger.findings.find((f) => f.id === id);
   if (!finding) throw new LedgerError(`no finding ${id}`);
-  if (decision?.model != null) checkModel(decision.model, "decision model");
+  if (decision?.model != null) checkModel2(decision.model, "decision model");
   const checked = check2(kind, decision);
   if (kind === "finding-origin" && checked.label === "missed" && finding.round === 1) {
     throw new LedgerError(`${id} is from round 1; "missed" needs an earlier round. Use introduced or pre-existing.`);
@@ -4261,7 +6476,7 @@ function link(ledger, id, { thread, url }) {
 }
 function dispose(ledger, id, as, note) {
   if (RETIRED[as]) throw new LedgerError(`--as ${as} was split; use ${RETIRED[as]}`);
-  if (!DISPOSITIONS.includes(as)) throw new LedgerError(`--as must be one of ${DISPOSITIONS.join(", ")}`);
+  if (!DISPOSITIONS2.includes(as)) throw new LedgerError(`--as must be one of ${DISPOSITIONS2.join(", ")}`);
   const finding = ledger.findings.find((f) => f.id === id);
   if (!finding) throw new LedgerError(`no finding ${id}`);
   finding.disposition = { as, note: note ?? null, at: (/* @__PURE__ */ new Date()).toISOString() };
@@ -4269,25 +6484,25 @@ function dispose(ledger, id, as, note) {
 }
 var LENS_NAME = /^[a-z][a-z-]*$/;
 var MODEL_ID = /^[\w.-]+\/[\w.:@-]+$/;
-function checkModel(model, what = "model") {
+function checkModel2(model, what = "model") {
   if (typeof model !== "string" || !MODEL_ID.test(model)) {
     throw new LedgerError(`${what} must look like provider/model-id, got "${model}"`);
   }
   return model;
 }
 function recordRun(ledger, { lens, model, findings = 0 }) {
-  const current = ledger.rounds.at(-1);
-  if (!current) throw new LedgerError("start a round before recording a run");
+  const current2 = ledger.rounds.at(-1);
+  if (!current2) throw new LedgerError("start a round before recording a run");
   if (typeof lens !== "string" || !LENS_NAME.test(lens)) {
     throw new LedgerError(`--lens must be one lens name such as correctness, got "${lens}"`);
   }
-  if (current.lenses.length && !current.lenses.includes(lens)) {
-    throw new LedgerError(`lens "${lens}" is not in this round (${current.lenses.join(", ")})`);
+  if (current2.lenses.length && !current2.lenses.includes(lens)) {
+    throw new LedgerError(`lens "${lens}" is not in this round (${current2.lenses.join(", ")})`);
   }
-  checkModel(model, "--model");
-  current.runs ??= [];
-  current.runs.push({ lens, model, findings: Number(findings) || 0, at: (/* @__PURE__ */ new Date()).toISOString() });
-  return current.runs.length;
+  checkModel2(model, "--model");
+  current2.runs ??= [];
+  current2.runs.push({ lens, model, findings: Number(findings) || 0, at: (/* @__PURE__ */ new Date()).toISOString() });
+  return current2.runs.length;
 }
 var GATEWAYS = /* @__PURE__ */ new Set(["glean", "openrouter", "bedrock", "vertex"]);
 var NAMED_FAMILIES = [
@@ -4366,10 +6581,10 @@ function matchingEarlier(ledger, finding) {
   });
 }
 function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = false, keep = [] } = {}) {
-  const current = ledger.rounds.at(-1);
-  const round = current?.round;
-  const ran = new Set((current?.runs ?? []).map((r) => r.lens));
-  const missingLenses = (current?.lenses ?? []).filter((l) => !ran.has(l));
+  const current2 = ledger.rounds.at(-1);
+  const round = current2?.round;
+  const ran = new Set((current2?.runs ?? []).map((r) => r.lens));
+  const missingLenses = (current2?.lenses ?? []).filter((l) => !ran.has(l));
   if (missingLenses.length && !allowMissing) {
     throw new LedgerError(
       `no recorded run for lens(es) ${missingLenses.join(", ")}. Run them and record each with "ran", or pass --allow-missing and name the skipped lenses in the report.`
@@ -4416,9 +6631,9 @@ function report(ledger, threshold = DEFAULT_THRESHOLD, { allowMissing = false, k
     recurs: recurrences(ledger, f).map((e) => ({ id: e.id, round: e.round, file: e.file, line: e.line ?? null })),
     foundBy: foundBy(ledger, f)
   }));
-  const tally = (list2) => {
+  const tally = (list3) => {
     const out = Object.fromEntries(Object.keys(SECTION_ORDER).map((s) => [s, 0]));
-    for (const f of list2) out[f.section] += 1;
+    for (const f of list3) out[f.section] += 1;
     return out;
   };
   const counts = tally(findings);
@@ -4526,25 +6741,199 @@ function summarize(ledgers) {
   };
 }
 function allLedgers() {
-  const root = join2(stateDir(), "reviews");
+  const root = join4(stateDir(), "reviews");
   const out = [];
   const walk = (dir) => {
-    if (!existsSync2(dir)) return;
-    for (const entry of readdirSync(dir)) {
-      const p = join2(dir, entry);
-      if (statSync(p).isDirectory()) walk(p);
-      else if (entry.endsWith(".json")) out.push(JSON.parse(readFileSync2(p, "utf8")));
+    if (!existsSync6(dir)) return;
+    for (const entry of readdirSync2(dir)) {
+      const p = join4(dir, entry);
+      if (statSync2(p).isDirectory()) walk(p);
+      else if (entry.endsWith(".json")) out.push(JSON.parse(readFileSync6(p, "utf8")));
     }
   };
   walk(root);
   return out.filter((l) => l.schema === SCHEMA);
 }
 
+// cli/src/harness.mjs
+var HARNESS_COMMANDS = {
+  review: "The review workflow: start, run, merge, decide, report, dispose, link, next, status and policy. Run review --help for the commands.",
+  eligibility: "Whether a reviewed change may merge under the repo's policy. Never merges.",
+  merge: "merge dry-run: what a merge would do, after a fresh recheck. Never merges.",
+  inbox: "Everything waiting on a person, across reviews."
+};
+var FAMILY_FLAGS = { "--model": "--family", "--verifier-model": "--verifier-family", "--classifier-model": "--classifier-family" };
+function value(args, flag) {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === flag) return args[i + 1];
+    if (args[i].startsWith(`${flag}=`)) return args[i].slice(flag.length + 1);
+  }
+  return void 0;
+}
+function withFamilies(args) {
+  const out = [...args];
+  for (const [modelFlag, familyFlag] of Object.entries(FAMILY_FLAGS)) {
+    const model = value(args, modelFlag);
+    if (model && value(args, familyFlag) === void 0) {
+      const fam = family(model);
+      if (fam) out.push(familyFlag, fam);
+    }
+  }
+  return out;
+}
+function translate(args) {
+  if (args[0] === "review" && args[1] === "policy") return ["policy", "check", ...args.slice(2)];
+  return args;
+}
+function runHarness(args, io) {
+  return main(withFamilies(translate(args)), io);
+}
+var stateRoot = () => cliStateRoot();
+function reportedIn(state, f) {
+  const r = state.rounds[f.round];
+  if (!r?.report) return false;
+  if (r.report.reported.includes(f.id)) return true;
+  return r.report.escalated.includes(f.id) && state.escalations.some((x) => x.finding === f.id && x.round === f.round && x.status === "approved");
+}
+function decisionsOf(f) {
+  const out = {};
+  for (const [kind, list3] of Object.entries(f.decisions)) {
+    if (!list3.length) continue;
+    const d = kind === "finding-verification" ? list3.reduce((a, b) => b.probability < a.probability ? b : a) : list3.at(-1);
+    out[kind] = { label: d.label, probability: d.probability, model: d.verifier.model, rationale: d.rationale, verifiers: list3.length };
+  }
+  return out;
+}
+function harnessLedger(state, ref) {
+  const rounds = Object.values(state.rounds).sort((a, b) => a.round - b.round).map((r) => {
+    const lensOf = Object.fromEntries(r.plan.slots.map((s) => [s.id, s.lens]));
+    return {
+      round: r.round,
+      status: r.status,
+      base: r.binding.mergeBase,
+      head: r.binding.head,
+      target: r.binding.target,
+      lenses: [...new Set(r.plan.slots.map((s) => s.lens))],
+      depth: r.depth?.depth ?? null,
+      pastCap: r.pastCap ?? false,
+      runs: Object.entries(r.runs).filter(([, run4]) => run4.status === "ok").map(([slot, run4]) => ({ slot, lens: lensOf[slot], model: run4.model, family: run4.family }))
+    };
+  });
+  const findings = state.findings.map((f) => ({
+    id: f.id,
+    round: f.round,
+    lens: f.lens,
+    model: f.author.model,
+    family: f.author.family,
+    file: f.file,
+    line: f.line,
+    title: f.title,
+    precondition: f.precondition,
+    scenario: f.scenario,
+    evidence: f.evidence,
+    class: f.class ?? null,
+    instances: f.instances ?? [],
+    axiom: f.axiom ?? null,
+    duplicateOf: f.duplicateOf,
+    decisions: decisionsOf(f),
+    reported: reportedIn(state, f),
+    disposition: f.disposition ? { as: f.disposition.as, note: f.disposition.note, at: f.disposition.at, by: f.disposition.actor } : null,
+    thread: f.thread ? { id: f.thread.id, url: f.thread.url, at: f.thread.at } : null
+  }));
+  return { schema: "agent-review.view/v1", repo: ref.repo, key: String(ref.key), rounds, findings, escalations: state.escalations };
+}
+function loadHarness(repo, key, root = stateRoot()) {
+  const ref = { repo, key: String(key) };
+  const state = openReview(root, ref).read();
+  return { state, ledger: harnessLedger(state, ref) };
+}
+function allHarnessLedgers(root = stateRoot()) {
+  const ledgers = [];
+  const unreadable = [];
+  for (const ref of listReviews(root)) {
+    try {
+      ledgers.push(harnessLedger(openReview(root, ref).read(), ref));
+    } catch (e) {
+      unreadable.push({ repo: ref.repo, key: ref.key, error: e.code ?? e.message });
+    }
+  }
+  return { ledgers, unreadable };
+}
+function presentReport(state, view) {
+  const current2 = view.rounds.at(-1);
+  if (!current2) throw new LedgerError("this review has no rounds; start one with review start");
+  if (current2.status !== "reported") {
+    throw new LedgerError(`round ${current2.round} is ${current2.status}, not reported; run review next to see what it needs`);
+  }
+  const round = current2.round;
+  const reported = view.findings.filter((f) => f.round === round && f.reported && !f.duplicateOf);
+  const repeats = [];
+  const shown = [];
+  for (const f of reported) {
+    const earlier = possibleRepeats(view, f);
+    if (earlier.length) repeats.push({ id: f.id, file: f.file, line: f.line, title: f.title, earlier: earlier.map((e) => ({ id: e.id, round: e.round, disposition: e.disposition?.as ?? "open" })) });
+    else shown.push(f);
+  }
+  const placed = new Map(shown.map((f) => [f, placement(f)]));
+  shown.sort(
+    (a, b) => SECTION_ORDER[placed.get(a).section] - SECTION_ORDER[placed.get(b).section] || String(a.file).localeCompare(String(b.file)) || (a.line ?? 0) - (b.line ?? 0)
+  );
+  const findings = shown.map((f, i) => ({
+    ...f,
+    // n is the number a person sees (1, 2, 3). The id is the harness's key
+    // for later commands; it is never shown.
+    n: i + 1,
+    ...placed.get(f),
+    instances: allInstances(view, f),
+    recurs: recurrences(view, f).map((e) => ({ id: e.id, round: e.round, file: e.file, line: e.line ?? null })),
+    foundBy: foundBy(view, f)
+  }));
+  const tally = (list3) => {
+    const out = Object.fromEntries(Object.keys(SECTION_ORDER).map((s) => [s, 0]));
+    for (const f of list3) out[f.section] += 1;
+    return out;
+  };
+  const counts = tally(findings);
+  const earlierOpen = tally(openFindings(view).filter((f) => f.round < round).map(placement));
+  const holding = (c) => c.blockers + c["should-fix"] + c.unrated;
+  const waiting = view.escalations.filter((x) => x.round === round && x.status === "open").map((x) => ({ escalation: x.id, code: x.code, finding: x.finding, path: x.path, message: x.message }));
+  const dropped = view.findings.filter((f) => f.round === round && !f.duplicateOf && !f.reported && !waiting.some((w) => w.finding === f.id)).map((f) => f.id);
+  return {
+    round,
+    head: current2.head,
+    depth: current2.depth,
+    // needs-a-person: an escalation is open. needs-changes: a blocker,
+    // should-fix or unrated finding, new or still open from earlier.
+    verdict: waiting.length ? "needs-a-person" : holding(counts) + holding(earlierOpen) === 0 ? "ready" : "needs-changes",
+    counts,
+    earlierOpen,
+    findings,
+    waiting,
+    repeats,
+    dropped,
+    merged: view.findings.filter((f) => f.round === round && f.duplicateOf).map((f) => f.id),
+    lenses: current2.lenses,
+    families: roundFamilies(view, round)
+  };
+}
+function presentOpen(view) {
+  return openFindings(view).map((f) => ({ id: f.id, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario, thread: f.thread?.id ?? null }));
+}
+
+// cli/src/review-context.mjs
+import { execFileSync as execFileSync3 } from "node:child_process";
+import { copyFileSync, existsSync as existsSync8, mkdirSync as mkdirSync4, mkdtempSync, writeFileSync as writeFileSync3 } from "node:fs";
+import { homedir as homedir3, tmpdir } from "node:os";
+import { join as join6 } from "node:path";
+
 // cli/src/review-plan.mjs
-var DEPTHS = ["quick", "standard", "deep"];
+import { existsSync as existsSync7, readFileSync as readFileSync7 } from "node:fs";
+import { homedir as homedir2 } from "node:os";
+import { join as join5 } from "node:path";
+var DEPTHS2 = ["quick", "standard", "deep"];
 var HOSTS = ["tau", "claude-code", "codex"];
 var TIERS = ["fast", "strong", "tiebreak"];
-var MODEL = /^[\w.-]+\/[\w.:@-]+$/;
+var MODEL2 = /^[\w.-]+\/[\w.:@-]+$/;
 var STANDARD_MAX_LENSES = 6;
 var PlanError = class extends Error {
 };
@@ -4572,48 +6961,38 @@ var DOC_FILE = /(^|\/)(docs?\/|README|CHANGELOG)|\.mdx?$/i;
 var QUICK_MAX_LINES = 100;
 function userConfigPath() {
   if (process.env.AGENT_REVIEWS_CONFIG) return process.env.AGENT_REVIEWS_CONFIG;
-  const base = process.env.XDG_CONFIG_HOME || join3(homedir2(), ".config");
-  return join3(base, "agent-reviews", "config.json");
+  const base = process.env.XDG_CONFIG_HOME || join5(homedir2(), ".config");
+  return join5(base, "agent-reviews", "config.json");
 }
 var checkDepth = (depth, where) => {
-  if (depth != null && !DEPTHS.includes(depth)) throw new PlanError(`${where}: depth must be one of ${DEPTHS.join(", ")}, got "${depth}"`);
+  if (depth != null && !DEPTHS2.includes(depth)) throw new PlanError(`${where}: depth must be one of ${DEPTHS2.join(", ")}, got "${depth}"`);
   return depth ?? null;
 };
 function checkUserConfig(config, where = "user config") {
   if (config === null || typeof config !== "object" || Array.isArray(config)) throw new PlanError(`${where} must be a JSON object`);
   checkDepth(config.depth, where);
   if (config.host != null && !HOSTS.includes(config.host)) throw new PlanError(`${where}: host must be one of ${HOSTS.join(", ")}`);
-  for (const [host, tiers] of Object.entries(config.hosts ?? {})) {
+  for (const [host2, tiers] of Object.entries(config.hosts ?? {})) {
     for (const [tier, models] of Object.entries(tiers ?? {})) {
-      if (!TIERS.includes(tier)) throw new PlanError(`${where}: hosts.${host}.${tier} is not a tier (${TIERS.join(", ")})`);
-      if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL.test(m))) {
-        throw new PlanError(`${where}: hosts.${host}.${tier} must be a list of provider/model IDs, such as anthropic/opus`);
+      if (!TIERS.includes(tier)) throw new PlanError(`${where}: hosts.${host2}.${tier} is not a tier (${TIERS.join(", ")})`);
+      if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL2.test(m))) {
+        throw new PlanError(`${where}: hosts.${host2}.${tier} must be a list of provider/model IDs, such as anthropic/opus`);
       }
     }
   }
   return config;
 }
 function loadUserConfig(path2 = userConfigPath()) {
-  if (!existsSync3(path2)) return { path: path2, config: {} };
+  if (!existsSync7(path2)) return { path: path2, config: {} };
   let config;
   try {
-    config = JSON.parse(readFileSync3(path2, "utf8"));
+    config = JSON.parse(readFileSync7(path2, "utf8"));
   } catch (e) {
     throw new PlanError(`${path2}: ${e.message}`);
   }
   return { path: path2, config: checkUserConfig(config, path2) };
 }
-function checkRepoConfig(config, where = "agent-review.json") {
-  if (config === null || typeof config !== "object" || Array.isArray(config)) throw new PlanError(`${where} must be a JSON object`);
-  const review = config.review ?? {};
-  checkDepth(review.depth, `${where} review`);
-  const deepPaths = review.deepPaths ?? [];
-  if (!Array.isArray(deepPaths) || deepPaths.some((p) => typeof p !== "string" || !p)) {
-    throw new PlanError(`${where}: review.deepPaths must be a list of path globs`);
-  }
-  return { depth: review.depth ?? null, deepPaths };
-}
-function globToRegExp2(glob) {
+function globToRegExp3(glob) {
   let re = "";
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i];
@@ -4634,7 +7013,7 @@ function suggestDepth(files) {
   if (files.length && files.every((f) => DOC_FILE.test(f.path)) && lines <= QUICK_MAX_LINES) return "quick";
   return "standard";
 }
-function resolveDepth({ flag, repo, user, files }) {
+function resolveDepth2({ flag, repo, user, files }) {
   checkDepth(flag, "--depth");
   let depth;
   let source;
@@ -4642,7 +7021,11 @@ function resolveDepth({ flag, repo, user, files }) {
   else if (repo?.depth) [depth, source] = [repo.depth, "agent-review.json"];
   else if (user?.depth) [depth, source] = [user.depth, "user config"];
   else [depth, source] = [suggestDepth(files), "suggested from the diff"];
-  const hit = (repo?.deepPaths ?? []).map((g) => [g, globToRegExp2(g)]).flatMap(([g, re]) => files.filter((f) => re.test(f.path)).map((f) => ({ glob: g, path: f.path })));
+  const floor = repo?.minDepth;
+  if (floor && DEPTHS2.indexOf(floor) > DEPTHS2.indexOf(depth)) {
+    [depth, source] = [floor, `agent-review.json minDepth (raised from ${depth})`];
+  }
+  const hit = (repo?.deepPaths ?? []).map((g) => [g, globToRegExp3(g)]).flatMap(([g, re]) => files.filter((f) => re.test(f.path)).map((f) => ({ glob: g, path: f.path })));
   if (hit.length && depth !== "deep") {
     return { depth: "deep", source: `agent-review.json deepPaths (${hit[0].path} matches ${hit[0].glob})`, raisedFrom: depth };
   }
@@ -4673,9 +7056,9 @@ var byFamily = (models) => {
   }
   return [...groups.entries()];
 };
-function resolvePlan({ depth, lenses, host, config = {} }) {
+function resolvePlan({ depth, lenses, host: host2, config = {} }) {
   const rules = DEPTH_RULES[depth];
-  const tiers = host && config.hosts?.[host] || {};
+  const tiers = host2 && config.hosts?.[host2] || {};
   const warnings = [];
   const used = { fast: 0, strong: 0 };
   const reviewers = lenses.map((lens) => {
@@ -4686,16 +7069,16 @@ function resolvePlan({ depth, lenses, host, config = {} }) {
   });
   const families = new Set(reviewers.map((r) => r.family).filter(Boolean));
   if (reviewers.every((r) => r.model) && families.size < 2) {
-    const other = TIERS.flatMap((t) => tiers[t] ?? []).find((m) => !families.has(family(m)));
+    const other = TIERS.flatMap((t2) => tiers[t2] ?? []).find((m) => !families.has(family(m)));
     if (other && reviewers.length > 1) Object.assign(reviewers.at(-1), { model: other, family: family(other), tier: "borrowed" });
     else warnings.push("only one model family is configured; the review will not be cross-checked");
   }
   const missing = [...new Set(reviewers.filter((r) => !r.model).map((r) => r.tier))];
-  if (!host) warnings.push("host unknown (pass --host): pick each model yourself, following the tiers");
-  else if (missing.length) warnings.push(`no ${missing.join(" or ")} models configured for ${host} in the user config: pick those yourself`);
+  if (!host2) warnings.push("host unknown (pass --host): pick each model yourself, following the tiers");
+  else if (missing.length) warnings.push(`no ${missing.join(" or ")} models configured for ${host2} in the user config: pick those yourself`);
   return {
     depth,
-    host: host ?? null,
+    host: host2 ?? null,
     lenses,
     reviewers,
     verifier: { tier: rules.verifierTier, models: tiers[rules.verifierTier] ?? [], thinking: rules.thinking.verifier },
@@ -4718,7 +7101,7 @@ function pickTiebreak(plan, exclude = [], config = {}) {
 }
 
 // cli/src/review-context.mjs
-var run = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], ...opts }).trim();
+var run = (cmd, args, opts = {}) => execFileSync3(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], ...opts }).trim();
 var tryRun = (cmd, args, opts) => {
   try {
     return run(cmd, args, opts);
@@ -4759,25 +7142,25 @@ function parseNumstatZ(text) {
   });
 }
 function axiomsPath() {
-  return process.env.AXIOMS_PATH ?? join4(homedir3(), ".config", "scalvert", "axioms.md");
+  return process.env.AXIOMS_PATH ?? join6(homedir3(), ".config", "scalvert", "axioms.md");
 }
 function generatedPaths(paths, head, cwd) {
   if (paths.length === 0) return /* @__PURE__ */ new Set();
   const out = tryRun("git", ["check-attr", "--source", head, "-z", "linguist-generated", "--", ...paths], cwd) ?? tryRun("git", ["check-attr", "-z", "linguist-generated", "--", ...paths], cwd);
-  const set = /* @__PURE__ */ new Set();
-  if (!out) return set;
+  const set2 = /* @__PURE__ */ new Set();
+  if (!out) return set2;
   const parts = out.split("\0");
   for (let i = 0; i + 2 < parts.length; i += 3) {
-    if (parts[i + 2] === "true" || parts[i + 2] === "set") set.add(parts[i]);
+    if (parts[i + 2] === "true" || parts[i + 2] === "set") set2.add(parts[i]);
   }
-  return set;
+  return set2;
 }
 function prSpec(pr, cwd) {
   const issues = (pr.closingIssuesReferences ?? []).map((i) => tryRun("gh", ["issue", "view", String(i.number), "--json", "number,title,body", "-q", '"#\\(.number) \\(.title)\\n\\n\\(.body)"'], cwd)).filter(Boolean);
-  return [`# ${pr.title}`, "", pr.url, "", pr.body || "(no description)", ...issues.map((t) => `
+  return [`# ${pr.title}`, "", pr.url, "", pr.body || "(no description)", ...issues.map((t2) => `
 ---
 
-${t}`)].join("\n");
+${t2}`)].join("\n");
 }
 function repoSlug() {
   const url = tryRun("git", ["config", "--get", "remote.origin.url"]) ?? "";
@@ -4787,8 +7170,8 @@ function repoSlug() {
 function pin(o) {
   const root = run("git", ["rev-parse", "--show-toplevel"]);
   const cwd = { cwd: root };
-  const out = o.out ?? mkdtempSync(join4(tmpdir(), "review-"));
-  mkdirSync3(out, { recursive: true });
+  const out = o.out ?? mkdtempSync(join6(tmpdir(), "review-"));
+  mkdirSync4(out, { recursive: true });
   let base;
   let head;
   let key;
@@ -4821,27 +7204,27 @@ function pin(o) {
     throw new Error(`--since ${o.since} is not an ancestor of ${head}; history was rewritten. Pin the full change without --since.`);
   }
   const from = o.since ?? mergeBase;
-  const numstat = (range) => parseNumstatZ(run("git", ["diff", "--no-renames", "--numstat", "-z", range], cwd));
+  const numstat = (range2) => parseNumstatZ(run("git", ["diff", "--no-renames", "--numstat", "-z", range2], cwd));
   const allFiles = numstat(`${from}..${head}`);
   const generated = generatedPaths(allFiles.map((f) => f.path), head, cwd);
   const files = allFiles.filter((f) => !generated.has(f.path));
   const exclude = [...generated].map((p) => `:(exclude,literal)${p}`);
   const diff = run("git", ["diff", "--no-renames", "--no-color", "-U5", `${from}..${head}`, "--", ".", ...exclude], cwd);
   const commits = run("git", ["log", "--no-color", "--format=%h %s", `${from}..${head}`], cwd);
-  writeFileSync3(join4(out, "diff.patch"), `${diff}
+  writeFileSync3(join6(out, "diff.patch"), `${diff}
 `);
-  writeFileSync3(join4(out, "files.json"), `${JSON.stringify(files, null, 2)}
+  writeFileSync3(join6(out, "files.json"), `${JSON.stringify(files, null, 2)}
 `);
-  writeFileSync3(join4(out, "commits.txt"), `${commits}
+  writeFileSync3(join6(out, "commits.txt"), `${commits}
 `);
-  if (spec) writeFileSync3(join4(out, "spec.md"), `${spec}
+  if (spec) writeFileSync3(join6(out, "spec.md"), `${spec}
 `);
   const copied = {};
   const rulesChanged = [];
   for (const name of ["AGENTS.md", "REVIEW.md"]) {
     const text = tryRun("git", ["show", `${mergeBase}:${name}`], cwd);
     if (text !== null) {
-      writeFileSync3(join4(out, name), `${text}
+      writeFileSync3(join6(out, name), `${text}
 `);
       copied[name] = true;
     }
@@ -4853,16 +7236,17 @@ function pin(o) {
     const where = `agent-review.json at ${mergeBase.slice(0, 7)}`;
     let parsed;
     try {
-      parsed = JSON.parse(repoText);
+      parsed = parsePolicy(repoText, { kind: "file", path: where }).policy;
     } catch (e) {
-      throw new Error(`${where}: ${e.message}`);
+      const details = (e.errors ?? []).map((x) => `${x.path}: ${x.message}`).join("; ");
+      throw new Error(`${where}: ${e.message}${details ? ` (${details})` : ""}`);
     }
-    repoConfig = checkRepoConfig(parsed, where);
+    repoConfig = { depth: parsed.review.defaultDepth, minDepth: parsed.review.minDepth, deepPaths: parsed.review.deepPaths };
   }
   if (allFiles.some((f) => f.path === "agent-review.json")) rulesChanged.push("agent-review.json");
   const axioms = axiomsPath();
-  if (existsSync4(axioms)) {
-    copyFileSync(axioms, join4(out, "axioms.md"));
+  if (existsSync8(axioms)) {
+    copyFileSync(axioms, join6(out, "axioms.md"));
     copied["axioms.md"] = true;
   }
   const changedText = diff.split("\n").filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---")).join("\n");
@@ -4871,10 +7255,10 @@ function pin(o) {
   const prFiles = from === mergeBase ? allFiles : numstat(`${mergeBase}..${head}`);
   const user = loadUserConfig();
   if (o.host && !HOSTS.includes(o.host)) throw new Error(`--host must be one of ${HOSTS.join(", ")}`);
-  const host = o.host ?? detectHost() ?? user.config.host ?? null;
-  const depth = resolveDepth({ flag: o.depth, repo: repoConfig, user: user.config, files: prFiles });
+  const host2 = o.host ?? detectHost() ?? user.config.host ?? null;
+  const depth = resolveDepth2({ flag: o.depth, repo: repoConfig, user: user.config, files: prFiles });
   const lenses = lensesFor(depth.depth, chosen, { hasSpec });
-  const plan = resolvePlan({ depth: depth.depth, lenses, host, config: user.config });
+  const plan = resolvePlan({ depth: depth.depth, lenses, host: host2, config: user.config });
   const context = {
     repo: repoSlug(),
     key,
@@ -4892,17 +7276,17 @@ function pin(o) {
     depthSource: depth.source,
     lenses,
     plan,
-    userConfig: { path: user.path, found: existsSync4(user.path) },
+    userConfig: { path: user.path, found: existsSync8(user.path) },
     dir: out
   };
-  writeFileSync3(join4(out, "context.json"), `${JSON.stringify(context, null, 2)}
+  writeFileSync3(join6(out, "context.json"), `${JSON.stringify(context, null, 2)}
 `);
   return context;
 }
 
 // cli/src/review-threads.mjs
-import { execFileSync as execFileSync2 } from "node:child_process";
-var run2 = (cmd, args) => execFileSync2(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 32 * 1024 * 1024 }).trim();
+import { execFileSync as execFileSync4 } from "node:child_process";
+var run2 = (cmd, args) => execFileSync4(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 32 * 1024 * 1024 }).trim();
 var THREADS_QUERY = `query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
@@ -4922,8 +7306,8 @@ function repoSlug2(override) {
   return run2("gh", ["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]);
 }
 function shapeThreads(nodes, { includeResolved = false } = {}) {
-  return nodes.filter((t) => includeResolved || !t.isResolved).map((t) => {
-    const comments = t.comments.nodes.map((c) => ({
+  return nodes.filter((t2) => includeResolved || !t2.isResolved).map((t2) => {
+    const comments = t2.comments.nodes.map((c) => ({
       id: c.id,
       databaseId: c.databaseId,
       author: c.author?.login ?? "ghost",
@@ -4932,15 +7316,15 @@ function shapeThreads(nodes, { includeResolved = false } = {}) {
       createdAt: c.createdAt
     }));
     return {
-      threadId: t.id,
-      path: t.path,
+      threadId: t2.id,
+      path: t2.path,
       // `line` is on the PR head. An outdated thread has none: its
       // `originalLine` is on an older commit and must not be blamed at HEAD.
-      line: t.line ?? null,
-      originalLine: t.originalLine ?? null,
-      commentsTruncated: Boolean(t.comments.pageInfo?.hasNextPage),
-      outdated: t.isOutdated,
-      resolved: t.isResolved,
+      line: t2.line ?? null,
+      originalLine: t2.originalLine ?? null,
+      commentsTruncated: Boolean(t2.comments.pageInfo?.hasNextPage),
+      outdated: t2.isOutdated,
+      resolved: t2.isResolved,
       author: comments[0]?.author ?? null,
       url: comments[0]?.url ?? null,
       comments
@@ -4975,7 +7359,7 @@ function owner({ path: path2, line, repo }) {
     porcelain = run2("git", blameArgs);
   } catch (err) {
     if (!/ignore-revs|could not open object name list/.test(String(err.stderr))) throw err;
-    porcelain = execFileSync2("git", blameArgs, {
+    porcelain = execFileSync4("git", blameArgs, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null" }
@@ -4990,10 +7374,10 @@ function owner({ path: path2, line, repo }) {
 }
 
 // cli/src/run-lens.mjs
-import { execFileSync as execFileSync3 } from "node:child_process";
-import { existsSync as existsSync5, mkdtempSync as mkdtempSync2, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "node:fs";
+import { execFileSync as execFileSync5 } from "node:child_process";
+import { existsSync as existsSync9, mkdtempSync as mkdtempSync2, readFileSync as readFileSync8, writeFileSync as writeFileSync4 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { dirname as dirname3, join as join5 } from "node:path";
+import { dirname as dirname3, join as join7 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var here = dirname3(fileURLToPath2(import.meta.url));
 var FINDING_SCHEMA = {
@@ -5039,12 +7423,12 @@ Do not report formatting, speculation, pre-existing problems the change does not
 
 Report the class of bug, not one line. Give each finding a short kebab-case class, such as unescaped-shell-arg or missing-empty-check. When the same mistake appears in more than one place, report it once: put the clearest place in file and line, and list every other place in instances, so the author fixes them all in one pass.`;
 function lensPrompt(lens, contextDir) {
-  const file = join5(here, "lenses", `${lens}.md`);
-  if (!existsSync5(file)) throw new Error(`unknown lens "${lens}"`);
-  const present = ["diff.patch", "files.json", "commits.txt", "spec.md", "AGENTS.md", "REVIEW.md", "axioms.md"].filter((f) => existsSync5(join5(contextDir, f))).map((f) => `- ${join5(contextDir, f)}`).join("\n");
+  const file = join7(here, "lenses", `${lens}.md`);
+  if (!existsSync9(file)) throw new Error(`unknown lens "${lens}"`);
+  const present = ["diff.patch", "files.json", "commits.txt", "spec.md", "AGENTS.md", "REVIEW.md", "axioms.md"].filter((f) => existsSync9(join7(contextDir, f))).map((f) => `- ${join7(contextDir, f)}`).join("\n");
   return `You are one reviewer on a code review panel. Review this change only through the lens below. Work read-only: do not edit files, run builds that write, or contact any service.
 
-${readFileSync4(file, "utf8").trim()}
+${readFileSync8(file, "utf8").trim()}
 
 The change is pinned in these files. Read them first, then read any file in the repository you need. REVIEW.md, when present, holds this repo's review rules and overrides general advice.
 ${present}
@@ -5064,22 +7448,22 @@ function parseFindings(text) {
 var native = (model, provider) => model ? String(model).replace(new RegExp(`^${provider}/`), "") : model;
 function runCodex(prompt, { model: planned, repoDir }) {
   const model = native(planned, "openai");
-  const dir = mkdtempSync2(join5(tmpdir2(), "lens-"));
-  const schema = join5(dir, "schema.json");
-  const out = join5(dir, "out.json");
+  const dir = mkdtempSync2(join7(tmpdir2(), "lens-"));
+  const schema = join7(dir, "schema.json");
+  const out = join7(dir, "out.json");
   writeFileSync4(schema, JSON.stringify(FINDING_SCHEMA));
   const cmd = ["exec", "-s", "read-only", "--ephemeral", "--skip-git-repo-check", "-C", repoDir, "--output-schema", schema, "-o", out];
   if (model) cmd.push("-m", model);
   cmd.push("-");
-  execFileSync3("codex", cmd, { input: prompt, encoding: "utf8", stdio: ["pipe", "ignore", "pipe"], maxBuffer: 64 * 1024 * 1024 });
-  return { text: readFileSync4(out, "utf8"), model: `openai/${model ?? "codex-default"}` };
+  execFileSync5("codex", cmd, { input: prompt, encoding: "utf8", stdio: ["pipe", "ignore", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+  return { text: readFileSync8(out, "utf8"), model: `openai/${model ?? "codex-default"}` };
 }
 function runClaude(prompt, { model: planned, repoDir }) {
   const model = native(planned, "anthropic");
   const cmd = ["-p", "--permission-mode", "plan", "--output-format", "json"];
   if (model) cmd.push("--model", model);
   cmd.push(prompt);
-  const raw = execFileSync3("claude", cmd, { cwd: repoDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+  const raw = execFileSync5("claude", cmd, { cwd: repoDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
   const result = JSON.parse(raw);
   return { text: result.result ?? "", model: `anthropic/${model ?? "claude-default"}` };
 }
@@ -5093,26 +7477,26 @@ function runLens(lens, { via, context, model, repoDir = process.cwd() }) {
 }
 
 // cli/src/cli.mjs
-var VERSION = true ? "0.3.1" : JSON.parse(readFileSync5(new URL("../../package.json", import.meta.url), "utf8")).version;
+var VERSION2 = true ? "0.3.1" : JSON.parse(readFileSync9(new URL("../../package.json", import.meta.url), "utf8")).version;
 var print = (v) => console.log(typeof v === "string" ? v : JSON.stringify(v, null, 2));
-var list = (s) => s ? String(s).split(",").filter(Boolean) : [];
+var list2 = (s) => s ? String(s).split(",").filter(Boolean) : [];
 async function readStdin() {
   let data = "";
   for await (const chunk of process.stdin) data += chunk;
   return data;
 }
 function buildProgram(state = { exitCode: 0 }) {
-  const program2 = new Command("agent-review").description("Pin, run, record and gate agent code reviews, and check what an agent may do in a repo.").version(VERSION).enablePositionalOptions().showHelpAfterError("(run with --help for usage)").exitOverride();
-  program2.command("pin").description("Pin a change into one directory (diff, files, commits, spec, AGENTS.md, REVIEW.md, axioms) and pick its lenses. Prints context.json.").option("--pr <number>", "pin a pull request").option("--base <ref>", "base ref for a local branch (default: origin/HEAD)").option("--since <sha>", "pin only the commits after this one (a follow-up round)").option("--out <dir>", "output directory (default: a new temp dir)").addOption(new Option("--depth <depth>", "review depth (default: repo, then user config, then suggested from the diff)").choices(DEPTHS)).addOption(new Option("--host <host>", "host that runs the reviewers, for the model plan (default: detected)").choices(HOSTS)).action((o) => print(pin(o)));
+  const program2 = new Command("agent-review").description("Pin, run, record and gate agent code reviews, and check what an agent may do in a repo.").version(VERSION2).enablePositionalOptions().showHelpAfterError("(run with --help for usage)").exitOverride();
+  program2.command("pin").description("Pin a change into one directory (diff, files, commits, spec, AGENTS.md, REVIEW.md, axioms) and pick its lenses. Prints context.json.").option("--pr <number>", "pin a pull request").option("--base <ref>", "base ref for a local branch (default: origin/HEAD)").option("--since <sha>", "pin only the commits after this one (a follow-up round)").option("--out <dir>", "output directory (default: a new temp dir)").addOption(new Option("--depth <depth>", "review depth (default: repo, then user config, then suggested from the diff)").choices(DEPTHS2)).addOption(new Option("--host <host>", "host that runs the reviewers, for the model plan (default: detected)").choices(HOSTS)).action((o) => print(pin(o)));
   const plan = program2.command("plan").description("The model plan that pin writes: which model and thinking level each review role gets.");
   const planOf = (dir) => {
-    const context = JSON.parse(readFileSync5(`${dir}/context.json`, "utf8"));
+    const context = JSON.parse(readFileSync9(`${dir}/context.json`, "utf8"));
     if (!context.plan) throw new LedgerError(`${dir}/context.json has no plan; pin it again with this version`);
     return context.plan;
   };
   plan.command("show").description("Print the plan for a pinned change.").requiredOption("--context <dir>", "directory written by pin").action((o) => print(planOf(o.context)));
   plan.command("verifier").description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--author <provider/model>", "model that wrote the finding").action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config)));
-  plan.command("tiebreak").description("Pick a tie-break model from a family no earlier model on the finding used.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--exclude <m1,m2>", "models that already judged the finding").action((o) => print(pickTiebreak(planOf(o.context), list(o.exclude), loadUserConfig().config)));
+  plan.command("tiebreak").description("Pick a tie-break model from a family no earlier model on the finding used.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--exclude <m1,m2>", "models that already judged the finding").action((o) => print(pickTiebreak(planOf(o.context), list2(o.exclude), loadUserConfig().config)));
   plan.command("config").description("Print the user config path and its checked contents.").action(() => print(loadUserConfig()));
   const lens = program2.command("lens").description("Review lens prompts, and running a lens on another model family.");
   lens.command("prompt <lens>").description("Print the prompt a reviewer gets for one lens.").requiredOption("--context <dir>", "directory written by pin").action((name, o) => print(lensPrompt(name, o.context)));
@@ -5121,13 +7505,13 @@ function buildProgram(state = { exitCode: 0 }) {
   const keyed = (name, description) => led.command(name).description(description).requiredOption("--repo <owner/repo>", "repository").requiredOption("--key <pr|branch>", "PR number or branch name");
   const withLedger = (fn) => (o) => print(update(o.repo, o.key, (l) => fn(l, o)));
   keyed("path", "Print the ledger file path.").action((o) => print(ledgerPath(o.repo, o.key)));
-  keyed("start", "Start a review round.").requiredOption("--base <sha>", "merge base").requiredOption("--head <sha>", "reviewed head").option("--lenses <a,b>", "lenses chosen for this round").option("--models <m1,m2>", "models planned for this round").option("--past-cap", `start a round past ${MAX_ROUNDS}, only when a person asks for it`).addOption(new Option("--depth <depth>", "review depth, from context.json").choices(DEPTHS)).action(
+  keyed("start", "Start a review round.").requiredOption("--base <sha>", "merge base").requiredOption("--head <sha>", "reviewed head").option("--lenses <a,b>", "lenses chosen for this round").option("--models <m1,m2>", "models planned for this round").option("--past-cap", `start a round past ${MAX_ROUNDS}, only when a person asks for it`).addOption(new Option("--depth <depth>", "review depth, from context.json").choices(DEPTHS2)).action(
     withLedger((l, o) => ({
       round: startRound(l, {
         base: o.base,
         head: o.head,
-        lenses: list(o.lenses),
-        models: list(o.models),
+        lenses: list2(o.lenses),
+        models: list2(o.models),
         pastCap: o.pastCap === true,
         depth: o.depth ?? null
       }),
@@ -5135,7 +7519,7 @@ function buildProgram(state = { exitCode: 0 }) {
     }))
   );
   keyed("add", "Add findings from a file, or from JSON on stdin.").option("--file <findings.json>", "findings file").action(async (o) => {
-    const text = o.file ? readFileSync5(o.file, "utf8") : await readStdin();
+    const text = o.file ? readFileSync9(o.file, "utf8") : await readStdin();
     withLedger((l) => ({ added: addFindings(l, JSON.parse(text)) }))(o);
   });
   keyed("decide", "Record a classifier decision for a finding.").requiredOption("--id <id>", "finding ID").requiredOption("--kind <kind>", `decision kind: ${Object.keys(KINDS).join(", ")}`).requiredOption("--json <decision>", "the decision as JSON").action(withLedger((l, o) => decide(l, o.id, o.kind, JSON.parse(o.json))));
@@ -5145,15 +7529,15 @@ function buildProgram(state = { exitCode: 0 }) {
       return { lens: o.lens, model: o.model };
     })
   );
-  keyed("merge", "Merge duplicate findings into one primary (same root cause).").requiredOption("--into <F1>", "primary finding").requiredOption("--ids <F4,F7>", "duplicates").action(withLedger((l, o) => ({ into: o.into, foundBy: mergeFindings(l, o.into, list(o.ids)) })));
+  keyed("merge", "Merge duplicate findings into one primary (same root cause).").requiredOption("--into <F1>", "primary finding").requiredOption("--ids <F4,F7>", "duplicates").action(withLedger((l, o) => ({ into: o.into, foundBy: mergeFindings(l, o.into, list2(o.ids)) })));
   keyed("report", "Gate and print the confirmed findings for the current round.").option("--threshold <p>", "minimum verification probability", String(DEFAULT_THRESHOLD)).option("--allow-missing", "report even when a chosen lens has no recorded run").option("--keep <F9,F10>", "new findings that look like earlier ones but are different bugs").action(
     withLedger(
-      (l, o) => report(l, Number(o.threshold), { allowMissing: o.allowMissing === true, keep: list(o.keep) })
+      (l, o) => report(l, Number(o.threshold), { allowMissing: o.allowMissing === true, keep: list2(o.keep) })
     )
   );
   keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").action(async (o) => {
     if (o.note != null && o.noteFile != null) throw new LedgerError("use --note or --note-file, not both");
-    const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync5(o.noteFile, "utf8")).trim() : o.note;
+    const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync9(o.noteFile, "utf8")).trim() : o.note;
     withLedger((l) => {
       dispose(l, o.id, o.as, note);
       return { id: o.id, disposition: o.as };
@@ -5176,9 +7560,22 @@ function buildProgram(state = { exitCode: 0 }) {
   keyed("last-head", "Print the head reviewed in the last round.").action((o) => print(load2(o.repo, o.key).rounds.at(-1)?.head ?? ""));
   led.command("summary").description("Summarize dispositions, noise, rounds and repeated bug classes for one ledger, one repo, or every ledger.").option("--repo <owner/repo>", "repository").option("--key <pr|branch>", "PR number or branch name (needs --repo)").action((o) => {
     if (o.key && !o.repo) throw new LedgerError("--key needs --repo");
-    const ledgers = o.key ? [load2(o.repo, o.key)] : allLedgers().filter((l) => !o.repo || l.repo === o.repo);
-    print(summarize(ledgers));
+    const harness = allHarnessLedgers();
+    const ledgers = [...allLedgers(), ...harness.ledgers].filter(
+      (l) => l.rounds.length && (!o.repo || l.repo === o.repo) && (!o.key || l.key === String(o.key))
+    );
+    const unreadable = harness.unreadable.filter((u) => (!o.repo || u.repo === o.repo) && (!o.key || u.key === String(o.key)));
+    print({ ...summarize(ledgers), ...unreadable.length ? { unreadable } : {} });
   });
+  const fnd = program2.command("findings").description("A harness review's findings, arranged for a person: the report, the open findings, and the last reviewed head.");
+  const keyedFindings = (name, description) => fnd.command(name).description(description).requiredOption("--repo <owner/repo>", "repository").requiredOption("--key <pr|branch>", "PR number or branch name");
+  keyedFindings("report", "The latest round's report: sections, numbers, every place each finding covers, the verdict, and what waits on a person.").action((o) => {
+    const { state: state2, ledger: view } = loadHarness(o.repo, o.key);
+    print(presentReport(state2, view));
+  });
+  keyedFindings("open", "Findings reported in any round and not yet closed, with their review threads.").action((o) => print(presentOpen(loadHarness(o.repo, o.key).ledger)));
+  keyedFindings("last-head", "The head the latest round reviewed.").action((o) => print(loadHarness(o.repo, o.key).ledger.rounds.at(-1)?.head ?? ""));
+  for (const [name, description] of Object.entries(HARNESS_COMMANDS)) program2.command(name).description(description);
   const rubric = program2.command("rubric").description("Rubrics for the judgments the review skills make, and a validator for the answers.");
   rubric.command("list").description("List decision kinds and their labels.").action(() => {
     for (const [name, spec] of Object.entries(KINDS)) console.log(`${name}: ${spec.labels.join(" | ")}`);
@@ -5211,7 +7608,7 @@ function buildProgram(state = { exitCode: 0 }) {
   threads.command("list").description("Unresolved review threads, oldest first.").requiredOption("--pr <number>", "pull request").option("--repo <owner/repo>", "repository (default: the current one)").option("--all", "include resolved threads").action((o) => print(listThreads(o)));
   threads.command("owner").description("The commit that last changed a line, and the open PR that contains it.").requiredOption("--path <file>", "file").requiredOption("--line <n>", "line").option("--repo <owner/repo>", "repository (default: the current one)").action((o) => print(owner(o)));
   program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding IDs, code outside backticks, broken Markdown").action(async (files, o) => {
-    const inputs = files.length ? files.map((f) => [f, readFileSync5(f, "utf8")]) : [["<stdin>", await readStdin()]];
+    const inputs = files.length ? files.map((f) => [f, readFileSync9(f, "utf8")]) : [["<stdin>", await readStdin()]];
     const run4 = o.github ? checkGithub : check;
     const all = inputs.flatMap(([file, text]) => run4(text).map((f) => ({ file, ...f })));
     if (o.json) console.log(JSON.stringify(all, null, 2));
@@ -5219,14 +7616,15 @@ function buildProgram(state = { exitCode: 0 }) {
     if (!o.json && all.length === 0) console.log("prose: OK");
     if (all.length) state.exitCode = 1;
   });
-  program2.hook("preAction", (_, action) => {
+  program2.hook("preAction", (_, action2) => {
     const names = [];
-    for (let c = action; c; c = c.parent) names.unshift(c.name());
+    for (let c = action2; c; c = c.parent) names.unshift(c.name());
     state.label = names.join(" ");
   });
   return program2;
 }
 async function run3(argv) {
+  if (Object.hasOwn(HARNESS_COMMANDS, argv[2] ?? "")) return runHarness(argv.slice(2));
   const state = { exitCode: 0, label: "agent-review" };
   try {
     await buildProgram(state).parseAsync(argv);

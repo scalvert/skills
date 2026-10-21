@@ -21,15 +21,19 @@
 //     }
 //   }
 //
-// A repo can set its default depth, and paths that always get a deep review,
-// in agent-review.json at its root. pin reads that file from the merge base,
-// so a change cannot lower its own review:
+// A repo can set its default depth, a lowest depth, and paths that always get
+// a deep review, in its review policy, agent-review.json at its root. pin
+// reads that file from the merge base with the review harness's parser, so a
+// change cannot lower its own review, and the harness checks the same file
+// again at the target branch's tip:
 //
-//   { "review": { "depth": "standard", "deepPaths": ["src/auth/**", ".github/workflows/**"] } }
+//   { "version": 1, "review": { "defaultDepth": "standard", "minDepth": "standard", "deepPaths": ["src/auth/**"] } }
+//
+// The old form, { "review": { "depth", "deepPaths" } }, still works.
 //
 // Depth comes from, first match wins: --depth, the repo's depth, the user's
-// depth, then a suggestion from the diff. A changed path that matches
-// deepPaths raises any of them to deep.
+// depth, then a suggestion from the diff. minDepth then raises it to at least
+// that depth, and a changed path that matches deepPaths raises it to deep.
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -157,6 +161,10 @@ export function resolveDepth({ flag, repo, user, files }) {
   else if (repo?.depth) [depth, source] = [repo.depth, "agent-review.json"];
   else if (user?.depth) [depth, source] = [user.depth, "user config"];
   else [depth, source] = [suggestDepth(files), "suggested from the diff"];
+  const floor = repo?.minDepth;
+  if (floor && DEPTHS.indexOf(floor) > DEPTHS.indexOf(depth)) {
+    [depth, source] = [floor, `agent-review.json minDepth (raised from ${depth})`];
+  }
   const hit = (repo?.deepPaths ?? [])
     .map((g) => [g, globToRegExp(g)])
     .flatMap(([g, re]) => files.filter((f) => re.test(f.path)).map((f) => ({ glob: g, path: f.path })));

@@ -10,6 +10,7 @@ import { Command, CommanderError, Option } from "commander";
 import { check as checkProse, checkGithub } from "./check-prose.mjs";
 import { KINDS, check as checkDecision, rubricText } from "./classify.mjs";
 import { PRESETS, SHIMMED, checkCommand, checkTool, load as loadPermissions, writeCodexRules, writeShims } from "./permissions.mjs";
+import { HARNESS_COMMANDS, allHarnessLedgers, loadHarness, presentOpen, presentReport, runHarness } from "./harness.mjs";
 import { pin } from "./review-context.mjs";
 import { DEPTHS, HOSTS, loadUserConfig, pickTiebreak, pickVerifier } from "./review-plan.mjs";
 import * as ledger from "./review-ledger.mjs";
@@ -199,11 +200,35 @@ export function buildProgram(state = { exitCode: 0 }) {
     .option("--key <pr|branch>", "PR number or branch name (needs --repo)")
     .action((o) => {
       if (o.key && !o.repo) throw new ledger.LedgerError("--key needs --repo");
-      const ledgers = o.key
-        ? [ledger.load(o.repo, o.key)]
-        : ledger.allLedgers().filter((l) => !o.repo || l.repo === o.repo);
-      print(ledger.summarize(ledgers));
+      // v1 ledgers and harness reviews both count. A change reviewed under
+      // both counts once in each.
+      const harness = allHarnessLedgers();
+      const ledgers = [...ledger.allLedgers(), ...harness.ledgers].filter(
+        (l) => l.rounds.length && (!o.repo || l.repo === o.repo) && (!o.key || l.key === String(o.key)),
+      );
+      const unreadable = harness.unreadable.filter((u) => (!o.repo || u.repo === o.repo) && (!o.key || u.key === String(o.key)));
+      print({ ...ledger.summarize(ledgers), ...(unreadable.length ? { unreadable } : {}) });
     });
+
+  const fnd = program
+    .command("findings")
+    .description("A harness review's findings, arranged for a person: the report, the open findings, and the last reviewed head.");
+  const keyedFindings = (name, description) =>
+    fnd
+      .command(name)
+      .description(description)
+      .requiredOption("--repo <owner/repo>", "repository")
+      .requiredOption("--key <pr|branch>", "PR number or branch name");
+  keyedFindings("report", "The latest round's report: sections, numbers, every place each finding covers, the verdict, and what waits on a person.").action((o) => {
+    const { state, ledger: view } = loadHarness(o.repo, o.key);
+    print(presentReport(state, view));
+  });
+  keyedFindings("open", "Findings reported in any round and not yet closed, with their review threads.").action((o) => print(presentOpen(loadHarness(o.repo, o.key).ledger)));
+  keyedFindings("last-head", "The head the latest round reviewed.").action((o) => print(loadHarness(o.repo, o.key).ledger.rounds.at(-1)?.head ?? ""));
+
+  // Listed for --help. run() hands these to the harness before commander
+  // parses anything, so the harness sees its arguments unchanged.
+  for (const [name, description] of Object.entries(HARNESS_COMMANDS)) program.command(name).description(description);
 
   const rubric = program.command("rubric").description("Rubrics for the judgments the review skills make, and a validator for the answers.");
   rubric
@@ -311,6 +336,7 @@ export function buildProgram(state = { exitCode: 0 }) {
 // Runs the program and returns the exit code instead of exiting, so tests can
 // call it in-process.
 export async function run(argv) {
+  if (Object.hasOwn(HARNESS_COMMANDS, argv[2] ?? "")) return runHarness(argv.slice(2));
   const state = { exitCode: 0, label: "agent-review" };
   try {
     await buildProgram(state).parseAsync(argv);

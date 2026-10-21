@@ -20,7 +20,8 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkRepoConfig, detectHost, HOSTS, lensesFor, loadUserConfig, resolveDepth, resolvePlan } from "./review-plan.mjs";
+import { parsePolicy } from "agent-review";
+import { detectHost, HOSTS, lensesFor, loadUserConfig, resolveDepth, resolvePlan } from "./review-plan.mjs";
 
 const run = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], ...opts }).trim();
@@ -197,14 +198,18 @@ export function pin(o) {
   const repoText = tryRun("git", ["show", `${mergeBase}:agent-review.json`], cwd);
   let repoConfig = null;
   if (repoText !== null) {
+    // The harness's parser: the same file the harness enforces, in either
+    // its old form or version 1, refused when it has settings it does not
+    // know.
     const where = `agent-review.json at ${mergeBase.slice(0, 7)}`;
     let parsed;
     try {
-      parsed = JSON.parse(repoText);
+      parsed = parsePolicy(repoText, { kind: "file", path: where }).policy;
     } catch (e) {
-      throw new Error(`${where}: ${e.message}`);
+      const details = (e.errors ?? []).map((x) => `${x.path}: ${x.message}`).join("; ");
+      throw new Error(`${where}: ${e.message}${details ? ` (${details})` : ""}`);
     }
-    repoConfig = checkRepoConfig(parsed, where);
+    repoConfig = { depth: parsed.review.defaultDepth, minDepth: parsed.review.minDepth, deepPaths: parsed.review.deepPaths };
   }
   if (allFiles.some((f) => f.path === "agent-review.json")) rulesChanged.push("agent-review.json");
   const axioms = axiomsPath();

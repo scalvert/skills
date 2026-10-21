@@ -1,0 +1,209 @@
+// The review skills on the review harness, end to end through the bundled
+// CLI, as an agent runs them: the harness enforces each step, and the
+// skills' findings commands present the result.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { withFamilies } from "../cli/src/harness.mjs";
+
+const CLI = new URL("../shared/scalvert/scripts/agent-review.mjs", import.meta.url).pathname;
+// Model IDs as Tau gives them: one gateway, two families.
+const OPUS = "glean/CLAUDE_5_5_OPUS";
+const SOL = "glean/GPT6_1_SOL";
+const K = ["--repo", "acme/widgets", "--key", "7"];
+
+function repo() {
+  const dir = mkdtempSync(join(tmpdir(), "skills-harness-"));
+  const git = (...a) => execFileSync("git", ["-C", dir, "-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false", ...a], { encoding: "utf8" }).trim();
+  git("init", "-q", "-b", "main");
+  writeFileSync(join(dir, "a.js"), "1\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "base");
+  git("checkout", "-q", "-b", "fix");
+  const change = (text) => {
+    writeFileSync(join(dir, "a.js"), text);
+    git("commit", "-q", "-am", text.trim());
+    return git("rev-parse", "HEAD");
+  };
+  return { dir, change, head: change("2\n") };
+}
+
+function cli(dir, state) {
+  return (args, { input } = {}) => {
+    const r = spawnSync("node", [CLI, ...args], {
+      cwd: dir,
+      input,
+      encoding: "utf8",
+      env: { ...process.env, AGENT_REVIEWS_STATE_DIR: state, AGENT_REVIEW_ACTOR: "agent:test" },
+    });
+    let json = null;
+    try {
+      json = JSON.parse(r.stdout);
+    } catch {}
+    return { ...r, json, err: (() => { try { return JSON.parse(r.stderr).error; } catch { return null; } })() };
+  };
+}
+
+const finding = (over = {}) =>
+  JSON.stringify([{ title: "the retry loop never ends", file: "a.js", line: 1, precondition: "the server is down", scenario: "fetch retries forever", evidence: "a.js:1 has no limit", class: "unbounded-retry", instances: [{ file: "b.js", line: 4 }], ...over }]);
+
+test("a review through the harness: gateway families, refused skips, the report, threads and the summary", () => {
+  const { dir, change, head } = repo();
+  const state = mkdtempSync(join(tmpdir(), "skills-state-"));
+  const run = cli(dir, state);
+  const ok = (args, opts) => {
+    const r = run(args, opts);
+    assert.equal(r.status, 0, `${args.join(" ")}\n${r.stderr}`);
+    return r;
+  };
+
+  ok(["review", "start", ...K, "--head", "fix", "--target", "main", "--lenses", "correctness,security", "--depth", "standard"]);
+  // Skipping the panel is refused, with every reason.
+  const early = run(["review", "advance", ...K]);
+  assert.equal(early.status, 1);
+  assert.deepEqual(early.err.reasons.map((r) => r.code), ["run-missing", "run-missing", "too-few-reviewers", "too-few-families"]);
+
+  ok(["review", "run", ...K, "--slot", "correctness", "--status", "ok", "--model", OPUS, "--findings", "-", "--head", "fix"], { input: finding() });
+  ok(["review", "run", ...K, "--slot", "security", "--status", "ok", "--model", SOL, "--head", "fix"]);
+  // Two families behind one gateway: the skills fill in each one.
+  ok(["review", "advance", ...K]);
+
+  // The author's own family cannot verify it.
+  const self = run(["review", "decide", ...K, "--finding", "F1", "--kind", "finding-verification", "--label", "confirmed", "--probability", "0.9", "--rationale", "r", "--verifier-model", "glean/CLAUDE_5_5_SONNET", "--head", "fix"]);
+  assert.equal(self.status, 1);
+  assert.deepEqual(self.err.reasons.map((r) => r.code), ["verifier-not-independent"]);
+  for (const [kind, label] of [["finding-verification", "confirmed"], ["finding-severity", "should-fix"], ["finding-origin", "introduced"], ["finding-triage", "agent-fixable"]]) {
+    ok(["review", "decide", ...K, "--finding", "F1", "--kind", kind, "--label", label, "--probability", "0.9", "--rationale", "read the loop", "--verifier-model", SOL, "--head", "fix"]);
+  }
+  ok(["review", "report", ...K]);
+
+  const report = ok(["findings", "report", ...K]).json;
+  assert.equal(report.verdict, "needs-changes");
+  assert.deepEqual(report.counts, { blockers: 0, "should-fix": 1, "pre-existing": 0, smaller: 0, unrated: 0 });
+  assert.deepEqual(report.findings.map((f) => [f.n, f.id, f.section, f.instances]), [[1, "F1", "should-fix", [{ file: "b.js", line: 4 }]]]);
+  assert.deepEqual(report.findings[0].foundBy, { reviewers: 1, lenses: ["correctness"], families: ["anthropic"] });
+  assert.deepEqual(report.families, ["anthropic", "openai"]);
+
+  ok(["review", "link", ...K, "--finding", "F1", "--thread", "PRRT_1", "--url", "https://github.com/acme/widgets/pull/7#discussion_r1"]);
+  assert.deepEqual(ok(["findings", "open", ...K]).json.map((f) => [f.id, f.thread]), [["F1", "PRRT_1"]]);
+  assert.equal(ok(["findings", "last-head", ...K]).stdout.trim(), head);
+  ok(["review", "dispose", ...K, "--finding", "F1", "--as", "fixed"]);
+  assert.deepEqual(ok(["findings", "open", ...K]).json, []);
+
+  const summary = ok(["ledger", "summary", "--repo", "acme/widgets"]).json;
+  assert.equal(summary.ledgers, 1);
+  assert.deepEqual([summary.reported, summary.dispositions], [1, { fixed: 1 }]);
+  assert.deepEqual(summary.byModel[OPUS], { reported: 1, disposed: 1, fixed: 1, noise: 0, noiseRate: 0 });
+
+  // Round 2: the same bug comes back after the fix. It is reported again,
+  // marked as recurring, because the fix did not hold.
+  change("3\n");
+  ok(["review", "start", ...K, "--head", "fix", "--target", "main", "--lenses", "correctness,security"]);
+  ok(["review", "run", ...K, "--slot", "correctness", "--status", "ok", "--model", OPUS, "--findings", "-", "--head", "fix"], { input: finding({ line: 2 }) });
+  ok(["review", "run", ...K, "--slot", "security", "--status", "ok", "--model", SOL, "--head", "fix"]);
+  ok(["review", "advance", ...K]);
+  for (const [kind, label] of [["finding-verification", "confirmed"], ["finding-severity", "should-fix"], ["finding-origin", "introduced"]]) {
+    ok(["review", "decide", ...K, "--finding", "F2", "--kind", kind, "--label", label, "--probability", "0.9", "--rationale", "r", "--verifier-model", SOL, "--head", "fix"]);
+  }
+  ok(["review", "report", ...K]);
+  const second = ok(["findings", "report", ...K]).json;
+  assert.equal(second.round, 2);
+  assert.deepEqual(second.findings.map((f) => [f.id, f.recurs.map((r) => r.id)]), [["F2", ["F1"]]]);
+  assert.deepEqual(second.repeats, []);
+});
+
+test("a finding that repeats an open or waved-off earlier one is left out, and disputes wait on a person", () => {
+  const { dir, change } = repo();
+  const state = mkdtempSync(join(tmpdir(), "skills-state-"));
+  const run = cli(dir, state);
+  const ok = (args, opts) => {
+    const r = run(args, opts);
+    assert.equal(r.status, 0, `${args.join(" ")}\n${r.stderr}`);
+    return r;
+  };
+  const round = (findings, decide) => {
+    ok(["review", "start", ...K, "--head", "fix", "--target", "main", "--lenses", "correctness,security"]);
+    ok(["review", "run", ...K, "--slot", "correctness", "--status", "ok", "--model", OPUS, "--findings", "-", "--head", "fix"], { input: findings });
+    ok(["review", "run", ...K, "--slot", "security", "--status", "ok", "--model", SOL, "--head", "fix"]);
+    ok(["review", "advance", ...K]);
+    decide();
+    ok(["review", "report", ...K]);
+    return ok(["findings", "report", ...K]).json;
+  };
+  const d = (id, kind, label, model = SOL) => ok(["review", "decide", ...K, "--finding", id, "--kind", kind, "--label", label, "--probability", "0.9", "--rationale", "r", "--verifier-model", model, "--head", "fix"]);
+  const rate = (id) => {
+    d(id, "finding-severity", "should-fix");
+    d(id, "finding-origin", "introduced");
+  };
+
+  round(finding(), () => {
+    d("F1", "finding-verification", "confirmed");
+    rate("F1");
+  });
+  // Clearing a should-fix is a person's call, and a note copied from GitHub
+  // comes in through a file, so shell text in it never runs.
+  const waveOff = run(["review", "dispose", ...K, "--finding", "F1", "--as", "intended"]);
+  assert.equal(waveOff.status, 1);
+  assert.equal(waveOff.err.code, "workflow/forbidden");
+  const reply = "Retrying forever is on purpose: $(touch pwned) the queue owns backoff.";
+  ok(["review", "dispose", ...K, "--finding", "F1", "--as", "intended", "--note-file", "-", "--actor", "human:steve"], { input: reply });
+  const status = ok(["review", "status", ...K]).json;
+  assert.equal(status.findings.find((f) => f.id === "F1").disposition.note, reply);
+  assert.ok(!existsSync(join(dir, "pwned")));
+
+  change("3\n");
+  const second = round(finding({ title: "retries without a limit" }), () => {
+    d("F2", "finding-verification", "confirmed");
+    rate("F2");
+  });
+  assert.deepEqual(second.findings, [], "a person said it was intended; it does not come back");
+  assert.deepEqual(second.repeats.map((r) => [r.id, r.earlier]), [["F2", [{ id: "F1", round: 1, disposition: "intended" }]]]);
+  assert.equal(second.verdict, "ready");
+
+  change("4\n");
+  const third = round(finding({ file: "c.js", class: "other" }), () => {
+    d("F3", "finding-verification", "confirmed");
+    d("F3", "finding-verification", "refuted", "google/gemini-3");
+    rate("F3");
+  });
+  assert.equal(third.verdict, "needs-a-person");
+  assert.deepEqual(third.waiting.map((w) => [w.code, w.finding]), [["verifiers-disagree", "F3"]]);
+  assert.deepEqual(third.dropped, []);
+});
+
+test("past the round cap, an agent is refused and a person can go on", () => {
+  const { dir, change } = repo();
+  const state = mkdtempSync(join(tmpdir(), "skills-state-"));
+  const run = cli(dir, state);
+  for (const n of ["3", "4"]) {
+    assert.equal(run(["review", "start", ...K, "--head", "fix", "--target", "main"]).status, 0);
+    change(`${n}\n`);
+  }
+  assert.equal(run(["review", "start", ...K, "--head", "fix", "--target", "main"]).status, 0);
+  change("5\n");
+  const capped = run(["review", "start", ...K, "--head", "fix", "--target", "main"]);
+  assert.equal(capped.status, 1);
+  assert.deepEqual(capped.err.reasons.map((r) => r.code), ["round-cap"]);
+  assert.equal(run(["review", "start", ...K, "--head", "fix", "--target", "main", "--past-cap", "--actor", "human:steve"]).status, 0);
+});
+
+test("review policy is the harness's policy check; policy is still the permission rules", () => {
+  const { dir } = repo();
+  const run = cli(dir, mkdtempSync(join(tmpdir(), "skills-state-")));
+  const p = run(["review", "policy", "--target", "main"]);
+  assert.equal(p.status, 0, p.stderr);
+  assert.equal(p.json.policy.review.maxRounds, 3);
+  const perms = run(["policy", "preset", "local-only"]);
+  assert.equal(perms.status, 0, perms.stderr);
+  assert.ok(perms.json.permissions);
+});
+
+test("families are filled in for gateway models, and a family the caller gives wins", () => {
+  assert.deepEqual(withFamilies(["review", "run", "--model", OPUS]), ["review", "run", "--model", OPUS, "--family", "anthropic"]);
+  assert.deepEqual(withFamilies(["review", "decide", `--verifier-model=${SOL}`]), ["review", "decide", `--verifier-model=${SOL}`, "--verifier-family", "openai"]);
+  assert.deepEqual(withFamilies(["review", "run", "--model", OPUS, "--family", "x"]), ["review", "run", "--model", OPUS, "--family", "x"]);
+  assert.deepEqual(withFamilies(["review", "next"]), ["review", "next"]);
+});

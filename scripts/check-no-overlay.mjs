@@ -40,7 +40,12 @@ for (const file of walk(root)) {
   if (!/\.(md|mjs|json)$/.test(file)) continue;
   // Manifests name the author on purpose.
   if (/\.(claude|codex)-plugin\//.test(file)) continue;
-  const text = readFileSync(file, "utf8");
+  // A bundled package's license must keep its copyright line as written, so
+  // those lines name the author on purpose too. Nothing else is skipped.
+  const text = readFileSync(file, "utf8")
+    .split("\n")
+    .filter((line) => !/^ \* Copyright \(c\) \d{4} /.test(line))
+    .join("\n");
   for (const pattern of PERSONAL) {
     const m = text.match(pattern);
     if (m) problems.push(`${relative(root, file)}: personal marker "${m[0]}"`);
