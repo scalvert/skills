@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { withFamilies } from "../cli/src/harness.mjs";
@@ -28,7 +28,7 @@ function repo() {
     git("commit", "-q", "-am", text.trim());
     return git("rev-parse", "HEAD");
   };
-  return { dir, change, head: change("2\n") };
+  return { dir, git, change, head: change("2\n") };
 }
 
 function cli(dir, state) {
@@ -115,7 +115,7 @@ test("a review through the harness: gateway families, refused skips, the report,
   assert.deepEqual(second.repeats, []);
 });
 
-test("a finding that repeats an open or waved-off earlier one is left out, and disputes wait on a person", () => {
+test("a finding that may repeat a waved-off one is marked, never hidden; earlier findings close in later rounds; disputes wait on a person", () => {
   const { dir, change } = repo();
   const state = mkdtempSync(join(tmpdir(), "skills-state-"));
   const run = cli(dir, state);
@@ -159,9 +159,10 @@ test("a finding that repeats an open or waved-off earlier one is left out, and d
     d("F2", "finding-verification", "confirmed");
     rate("F2");
   });
-  assert.deepEqual(second.findings, [], "a person said it was intended; it does not come back");
-  assert.deepEqual(second.repeats.map((r) => [r.id, r.earlier]), [["F2", [{ id: "F1", round: 1, disposition: "intended" }]]]);
-  assert.equal(second.verdict, "ready");
+  // Nearness and class are a hint, not proof: the finding stays, marked.
+  assert.deepEqual(second.findings.map((f) => [f.id, f.section, f.repeatOf]), [["F2", "should-fix", [{ id: "F1", round: 1, disposition: "intended" }]]]);
+  assert.deepEqual(second.repeats, [{ id: "F2", n: 1, earlier: [{ id: "F1", round: 1, disposition: "intended" }] }]);
+  assert.equal(second.verdict, "needs-changes");
 
   change("4\n");
   const third = round(finding({ file: "c.js", class: "other" }), () => {
@@ -172,6 +173,114 @@ test("a finding that repeats an open or waved-off earlier one is left out, and d
   assert.equal(third.verdict, "needs-a-person");
   assert.deepEqual(third.waiting.map((w) => [w.code, w.finding]), [["verifiers-disagree", "F3"]]);
   assert.deepEqual(third.dropped, []);
+  assert.deepEqual(third.earlierOpen["should-fix"], 1, "F2 from round 2 is still open");
+  // In round 3, F2 from round 2 turns out fixed; it can be closed now.
+  ok(["review", "dispose", ...K, "--finding", "F2", "--as", "fixed"]);
+  assert.deepEqual(ok(["findings", "open", ...K]).json, []);
+  assert.equal(ok(["findings", "report", ...K]).json.earlierOpen["should-fix"], 0);
+});
+
+test("a finding a person must judge, or a policy change a person rejected, holds the verdict", () => {
+  const { dir, change, git } = repo();
+  const run = cli(dir, mkdtempSync(join(tmpdir(), "skills-state-")));
+  const ok = (args, opts) => {
+    const r = run(args, opts);
+    assert.equal(r.status, 0, `${args.join(" ")}\n${r.stderr}`);
+    return r;
+  };
+  ok(["review", "start", ...K, "--head", "fix", "--target", "main", "--lenses", "correctness,security"]);
+  ok(["review", "run", ...K, "--slot", "correctness", "--status", "ok", "--model", OPUS, "--findings", "-", "--head", "fix"], { input: finding() });
+  ok(["review", "run", ...K, "--slot", "security", "--status", "ok", "--model", SOL, "--head", "fix"]);
+  ok(["review", "advance", ...K]);
+  for (const [kind, label] of [["finding-verification", "confirmed"], ["finding-severity", "nit"], ["finding-origin", "introduced"], ["finding-triage", "needs-judgment"]]) {
+    ok(["review", "decide", ...K, "--finding", "F1", "--kind", kind, "--label", label, "--probability", "0.9", "--rationale", "r", "--verifier-model", SOL, "--head", "fix"]);
+  }
+  ok(["review", "report", ...K]);
+  const judged = ok(["findings", "report", ...K]).json;
+  assert.equal(judged.verdict, "needs-a-person", "only a nit, but a person must decide it");
+  assert.deepEqual(judged.waiting.map((w) => [w.code, w.finding]), [["needs-judgment", "F1"]]);
+
+  // The change edits the review policy; a person rejects that.
+  writeFileSync(join(dir, "agent-review.json"), `${JSON.stringify({ version: 1, review: { minReviewers: 1 } })}\n`);
+  git("add", "-A");
+  change("5\n");
+  ok(["review", "start", ...K, "--head", "fix", "--target", "main", "--lenses", "correctness,security"]);
+  ok(["review", "run", ...K, "--slot", "correctness", "--status", "ok", "--model", OPUS, "--head", "fix"]);
+  ok(["review", "run", ...K, "--slot", "security", "--status", "ok", "--model", SOL, "--head", "fix"]);
+  ok(["review", "advance", ...K]);
+  ok(["review", "report", ...K]);
+  ok(["review", "dispose", ...K, "--finding", "F1", "--as", "not-worth-it", "--actor", "human:steve"]);
+  const raised = ok(["findings", "report", ...K]).json;
+  assert.equal(raised.verdict, "needs-a-person");
+  const esc = raised.waiting.find((w) => w.escalation).escalation;
+  ok(["review", "resolve", ...K, "--escalation", esc, "--decision", "reject", "--reason", "keep two reviewers", "--actor", "human:steve"]);
+  const rejected = ok(["findings", "report", ...K]).json;
+  assert.equal(rejected.verdict, "needs-changes");
+  assert.deepEqual(rejected.rejected.map((x) => [x.escalation, x.reason, x.by]), [[esc, "keep two reviewers", "human:steve"]]);
+});
+
+test("a review from before the harness: its open findings and last head carry over, and the summary counts it once", () => {
+  const { dir, change } = repo();
+  const state = mkdtempSync(join(tmpdir(), "skills-state-"));
+  const run = cli(dir, state);
+  const ok = (args, opts) => {
+    const r = run(args, opts);
+    assert.equal(r.status, 0, `${args.join(" ")}\n${r.stderr}`);
+    return r;
+  };
+  const v1 = join(state, "reviews", "acme", "widgets");
+  mkdirSync(v1, { recursive: true });
+  const verified = { label: "confirmed", probability: 0.9, model: SOL };
+  writeFileSync(join(v1, "7.json"), JSON.stringify({
+    schema: "scalvert.review/v1", repo: "acme/widgets", key: "7",
+    rounds: [{ round: 1, base: "b".repeat(40), head: "a".repeat(40), lenses: ["correctness"], depth: "quick", runs: [{ lens: "correctness", model: OPUS, findings: 1 }] }],
+    findings: [{ id: "F1", round: 1, lens: "correctness", model: OPUS, file: "z.js", line: 9, title: "old bug", reported: true, decisions: { "finding-verification": verified, "finding-severity": { label: "blocker", probability: 0.9, model: SOL }, "finding-origin": { label: "introduced", probability: 0.9, model: SOL } }, disposition: null }],
+  }));
+  assert.equal(ok(["findings", "last-head", ...K]).stdout.trim(), "a".repeat(40));
+  assert.deepEqual(ok(["findings", "open", ...K]).json.map((f) => [f.id, f.source, f.round]), [["v1:F1", "v1", 1]]);
+
+  ok(["review", "start", ...K, "--head", "fix", "--target", "main", "--lenses", "correctness,security", "--depth", "standard"]);
+  ok(["review", "run", ...K, "--slot", "correctness", "--status", "ok", "--model", OPUS, "--findings", "-", "--head", "fix"], { input: finding({ file: "q.js", class: "other" }) });
+  ok(["review", "run", ...K, "--slot", "security", "--status", "ok", "--model", SOL, "--head", "fix"]);
+  ok(["review", "advance", ...K]);
+  ok(["review", "decide", ...K, "--finding", "F1", "--kind", "finding-verification", "--label", "refuted", "--probability", "0.1", "--rationale", "r", "--verifier-model", SOL, "--head", "fix"]);
+  ok(["review", "report", ...K]);
+  const report = ok(["findings", "report", ...K]).json;
+  assert.equal(report.round, 2, "harness rounds come after the v1 rounds");
+  assert.equal(report.earlierOpen.blockers, 1, "the open v1 blocker still holds the change");
+  assert.equal(report.verdict, "needs-changes");
+  ok(["ledger", "dispose", ...K, "--id", "F1", "--as", "fixed"]);
+  assert.equal(ok(["findings", "report", ...K]).json.verdict, "ready");
+
+  const summary = ok(["ledger", "summary", "--repo", "acme/widgets", "--key", "7"]).json;
+  assert.deepEqual([summary.ledgers, summary.rounds], [1, 2], "one change, two rounds");
+  // The v1 round's finding keeps its depth: harness round 1 is round 2 here,
+  // so its standard depth does not overwrite the v1 round's quick one.
+  assert.deepEqual(Object.keys(summary.byDepth), ["quick"]);
+});
+
+test("duplicates merged in a chain all count toward their top finding", () => {
+  const { dir } = repo();
+  const run = cli(dir, mkdtempSync(join(tmpdir(), "skills-state-")));
+  const ok = (args, opts) => {
+    const r = run(args, opts);
+    assert.equal(r.status, 0, `${args.join(" ")}\n${r.stderr}`);
+    return r;
+  };
+  const at = (file, line) => ({ title: `bug at ${file}`, file, line, precondition: "p", scenario: "s", evidence: "e" });
+  ok(["review", "start", ...K, "--head", "fix", "--target", "main", "--lenses", "correctness,security"]);
+  ok(["review", "run", ...K, "--slot", "correctness", "--status", "ok", "--model", OPUS, "--findings", "-", "--head", "fix"], { input: JSON.stringify([at("a.js", 10), at("b.js", 20)]) });
+  ok(["review", "run", ...K, "--slot", "security", "--status", "ok", "--model", SOL, "--findings", "-", "--head", "fix"], { input: JSON.stringify([at("c.js", 30)]) });
+  ok(["review", "merge", ...K, "--into", "F2", "--ids", "F3"]);
+  ok(["review", "merge", ...K, "--into", "F1", "--ids", "F2"]);
+  ok(["review", "advance", ...K]);
+  for (const [kind, label] of [["finding-verification", "confirmed"], ["finding-severity", "should-fix"], ["finding-origin", "introduced"]]) {
+    ok(["review", "decide", ...K, "--finding", "F1", "--kind", kind, "--label", label, "--probability", "0.9", "--rationale", "r", "--verifier-model", SOL, "--head", "fix"]);
+  }
+  ok(["review", "report", ...K]);
+  const [f] = ok(["findings", "report", ...K]).json.findings;
+  assert.deepEqual(f.instances, [{ file: "b.js", line: 20 }, { file: "c.js", line: 30 }]);
+  assert.deepEqual(f.foundBy, { reviewers: 3, lenses: ["correctness", "security"], families: ["anthropic", "openai"] });
 });
 
 test("past the round cap, an agent is refused and a person can go on", () => {
@@ -206,4 +315,28 @@ test("families are filled in for gateway models, and a family the caller gives w
   assert.deepEqual(withFamilies(["review", "decide", `--verifier-model=${SOL}`]), ["review", "decide", `--verifier-model=${SOL}`, "--verifier-family", "openai"]);
   assert.deepEqual(withFamilies(["review", "run", "--model", OPUS, "--family", "x"]), ["review", "run", "--model", OPUS, "--family", "x"]);
   assert.deepEqual(withFamilies(["review", "next"]), ["review", "next"]);
+  // The last --model wins, as in the harness's parser.
+  assert.deepEqual(withFamilies(["review", "run", "--model", OPUS, `--model=${SOL}`]), ["review", "run", "--model", OPUS, `--model=${SOL}`, "--family", "openai"]);
+  // An unknown gateway model gets no family here; the harness counts it as the gateway's.
+  assert.deepEqual(withFamilies(["review", "run", "--model", "glean/ALIAS_A"]), ["review", "run", "--model", "glean/ALIAS_A"]);
+  assert.deepEqual(withFamilies(["review", "run", "--model", "anthropic/opus"]), ["review", "run", "--model", "anthropic/opus"]);
+});
+
+test("two unknown gateway models do not pass as two families", () => {
+  const { dir } = repo();
+  const run = cli(dir, mkdtempSync(join(tmpdir(), "skills-state-")));
+  run(["review", "start", ...K, "--head", "fix", "--target", "main", "--lenses", "correctness,security"]);
+  run(["review", "run", ...K, "--slot", "correctness", "--status", "ok", "--model", "glean/ALIAS_A", "--head", "fix"]);
+  run(["review", "run", ...K, "--slot", "security", "--status", "ok", "--model", "glean/ALIAS_B", "--head", "fix"]);
+  const r = run(["review", "advance", ...K]);
+  assert.equal(r.status, 1);
+  assert.deepEqual(r.err.reasons.map((x) => x.code), ["too-few-families"]);
+});
+
+test("review --help lists the harness's commands under the names they have here, and exits 0", () => {
+  const r = spawnSync("node", [CLI, "review", "--help"], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /review start/);
+  assert.match(r.stdout, /^\s+review policy/m);
+  assert.doesNotMatch(r.stdout, /^\s+policy check/m);
 });

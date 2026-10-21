@@ -123,7 +123,9 @@ test("model families: gateway IDs such as glean/... count by provider", () => {
   assert.equal(ledger.family("glean/GPT6_1_SOL"), "openai");
   assert.equal(ledger.family("glean/GROK_4_7"), "xai");
   assert.equal(ledger.family("glean/GEMINI_3_PRO"), "google");
-  assert.equal(ledger.family("glean/SOMETHING_NEW"), "glean:something_new", "an unknown gateway model is its own family, never merged with another");
+  assert.equal(ledger.family("glean/SOMETHING_NEW"), "glean", "an unknown gateway model counts as the gateway's family");
+  assert.equal(ledger.family("glean/ALIAS_A"), ledger.family("glean/ALIAS_B"), "two unknown models never pass as two families");
+  assert.equal(ledger.family("bedrock/us.anthropic.claude-opus-4-1-v1:0"), "anthropic");
   assert.equal(ledger.family("anthropic/claude-x"), "anthropic");
   assert.equal(ledger.family("openai/gpt-x"), "openai");
 

@@ -57,7 +57,7 @@ The [review harness](https://github.com/scalvert/agent-review), bundled into eac
 
 1. **Pin.** `agent-review pin` writes the diff, changed files, commits, spec, `AGENTS.md`, `REVIEW.md` and optional axioms to one directory. It picks 3 to 6 lenses from what the diff touches.
 2. **Panel.** One reviewer per lens, each with a fresh context, spread across model families. Each finding names its bug class and lists every place the same mistake occurs. `agent-review lens run` runs a lens on Codex or Claude from any host.
-3. **Merge duplicates.** Findings with the same root cause collapse into one. The report shows how many reviewers and model families found it. In a follow-up round, the report leaves out a finding that repeats an earlier one that is still open or that a person called wrong, intended or not worth fixing.
+3. **Merge duplicates.** Findings with the same root cause collapse into one. The report shows how many reviewers and model families found it. In a follow-up round, the report marks a finding that may repeat an earlier one, by location and bug class, and never leaves it out: a person decides whether it is the same problem.
 4. **Verify.** A fresh verifier on another model checks each finding against the code and records a calibrated probability. It also records where the problem came from: introduced by the change, missed in an earlier round, or older than the change. When two verifiers disagree, a person decides.
 5. **Report.** Only confirmed findings above the threshold are reported, in sections: blockers, should fix, pre-existing and smaller items. Only a problem the change introduced can be a blocker. The harness refuses to report while a finding is unverified, or a reported finding has no severity or origin.
 

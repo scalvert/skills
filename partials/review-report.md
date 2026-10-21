@@ -33,7 +33,8 @@ Rules for the prose:
   - `ready` with no findings: `**Verdict:** Ready to merge. Nothing to fix.` Leave out the finding sections.
   - `needs-a-person`: `**Verdict:** Needs a decision from a person.`, then one line for each item in `waiting`: what is disputed or changed, and what the person must decide. Then the findings as usual.
 - Put each finding in the section the report output gives it. Leave out a section that has no findings. A finding in `unrated` has no severity: record one and run the report again.
-- When `repeats` is not empty, add one line after the findings: `Left out <n> findings that repeat earlier ones.`
+- For each item in `rejected`, add one line after the verdict: what was rejected, by whom, and their reason.
+- A finding with a `repeatOf` may not be new. End its entry with one line: `This may repeat <the earlier finding's title>, which was <closed as intended | still open>.` A person decides whether it is the same problem. A finding with `recurs` ends with: `This came back after an earlier fix.`
 - Number the findings 1, 2, 3 in report order, across sections, using `n` from the report output. Leave a blank line between each section heading and its list: without it, a list that starts above 1 renders as plain text. Never show finding IDs (F1, F2): they mean nothing to anyone else. Keep the map from number to finding ID for later commands in this conversation, so the user can say "fix 2".
 - One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item. Leave out praise and summaries of the diff.
 - Mark a finding whose origin is `missed` with "missed in an earlier round". Mark a finding with a non-empty `recurs` with "came back after an earlier fix".

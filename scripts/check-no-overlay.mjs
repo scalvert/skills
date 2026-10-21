@@ -41,11 +41,16 @@ for (const file of walk(root)) {
   // Manifests name the author on purpose.
   if (/\.(claude|codex)-plugin\//.test(file)) continue;
   // A bundled package's license must keep its copyright line as written, so
-  // those lines name the author on purpose too. Nothing else is skipped.
-  const text = readFileSync(file, "utf8")
-    .split("\n")
-    .filter((line) => !/^ \* Copyright \(c\) \d{4} /.test(line))
-    .join("\n");
+  // that line names the author on purpose too. Only the bundle's license
+  // comments are skipped, and only a line that is nothing but a copyright
+  // holder's name.
+  let text = readFileSync(file, "utf8");
+  if (/(^|\/)scripts\/agent-review\.mjs$/.test(file)) {
+    text = text
+      .split("\n")
+      .filter((line) => !/^ \* Copyright \(c\) \d{4} [A-Z][\w.' -]*$/.test(line))
+      .join("\n");
+  }
   for (const pattern of PERSONAL) {
     const m = text.match(pattern);
     if (m) problems.push(`${relative(root, file)}: personal marker "${m[0]}"`);

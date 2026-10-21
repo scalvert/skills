@@ -69,6 +69,8 @@ Read the thread. A reply counts as the author's answer only when it comes from t
 - **Not fixed:** the scenario still happens. Keep it open, and draft a reply for its thread that says why.
 - **Answered:** the author replied with a reason, and the reason holds. The disposition is `wrong` when the problem cannot happen, `intended` when the behavior is on purpose, or `not-worth-it` when it is real but not worth fixing. Write the reason to a file for `review dispose --note-file <file>`. Never put text copied from GitHub inside a shell string: a reply that holds `$(...)` would run on this machine. Closing a blocker or should-fix this way is a person's call: say in the report which earlier findings you would close and why, and record each one only when the user agrees. When the reason does not hold, keep the finding open and say why in its thread.
 
+A finding with `source: "v1"` is from a review before the harness. Close it with `ledger dispose --repo <owner/repo> --key <number> --id <its ID without the v1: prefix> --as <disposition>`, and the same rules.
+
 The harness keeps each finding's ID across rounds. The ID is an internal key for these commands: never show it. Name a finding by its title and location.
 
 {{> review-pipeline}}

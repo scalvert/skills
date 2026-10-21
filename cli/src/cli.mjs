@@ -10,7 +10,7 @@ import { Command, CommanderError, Option } from "commander";
 import { check as checkProse, checkGithub } from "./check-prose.mjs";
 import { KINDS, check as checkDecision, rubricText } from "./classify.mjs";
 import { PRESETS, SHIMMED, checkCommand, checkTool, load as loadPermissions, writeCodexRules, writeShims } from "./permissions.mjs";
-import { HARNESS_COMMANDS, allHarnessLedgers, loadHarness, presentOpen, presentReport, runHarness } from "./harness.mjs";
+import { HARNESS_COMMANDS, allReviewViews, loadHarness, presentOpen, presentReport, runHarness } from "./harness.mjs";
 import { pin } from "./review-context.mjs";
 import { DEPTHS, HOSTS, loadUserConfig, pickTiebreak, pickVerifier } from "./review-plan.mjs";
 import * as ledger from "./review-ledger.mjs";
@@ -201,9 +201,9 @@ export function buildProgram(state = { exitCode: 0 }) {
     .action((o) => {
       if (o.key && !o.repo) throw new ledger.LedgerError("--key needs --repo");
       // v1 ledgers and harness reviews both count. A change reviewed under
-      // both counts once in each.
-      const harness = allHarnessLedgers();
-      const ledgers = [...ledger.allLedgers(), ...harness.ledgers].filter(
+      // both is one review: its v1 rounds, then its harness rounds.
+      const harness = allReviewViews(ledger.allLedgers());
+      const ledgers = harness.ledgers.filter(
         (l) => l.rounds.length && (!o.repo || l.repo === o.repo) && (!o.key || l.key === String(o.key)),
       );
       const unreadable = harness.unreadable.filter((u) => (!o.repo || u.repo === o.repo) && (!o.key || u.key === String(o.key)));

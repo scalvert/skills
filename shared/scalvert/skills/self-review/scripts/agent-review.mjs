@@ -4960,6 +4960,15 @@ function checkModel(model, what) {
   if (typeof model !== "string" || !MODEL.test(model)) invalid(`${what} must be provider/model, such as anthropic/opus, got ${JSON.stringify(model)}`);
 }
 var activeRound = (state) => state.round ? state.rounds[state.round] : null;
+function isHttpsUrl(url) {
+  if (typeof url !== "string" || /\s/.test(url)) return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && u.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
 function liveRound(state, { statuses }) {
   const r = activeRound(state);
   if (!r) refuse("no review has started", [reason("not-started", "start a review first")]);
@@ -5019,7 +5028,8 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
       const round = state.round + 1;
       const prior = state.round + state.legacy.reduce((n2, l) => n2 + (l.rounds ?? 0), 0);
       const cap = policy.review.maxRounds;
-      if (prior >= cap) {
+      const newCode = !r || r.binding.head !== binding.head;
+      if (newCode && prior >= cap) {
         if (!pastCap) {
           refuse(`this change has had ${prior} review rounds; the policy allows ${cap}`, [
             reason("round-cap", `later rounds mostly find older problems, not new ones; consider stepping back from the approach. A person can start another round with --past-cap`, { rounds: prior, cap })
@@ -5035,7 +5045,7 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
           binding,
           policy: { source: tp.trusted.source, effectiveDigest: resolved.effectiveDigest, overrides: resolved.overrides, warnings: tp.trusted.warnings, resolved: policy },
           depth,
-          pastCap: prior >= cap,
+          pastCap: newCode && prior >= cap,
           plan: {
             slots,
             requirements: { minReviewers: policy.review.minReviewers, minFamilies: policy.independence.minFamilies, requiredLenses: policy.review.requiredLenses }
@@ -5061,6 +5071,7 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
     else if (typeof why !== "string" || !why.trim()) invalid(`a ${status} run needs a reason`);
     if (status !== "ok" && findings.length) invalid(`a ${status} run cannot have findings`);
     if (!Array.isArray(findings)) invalid("findings must be a list");
+    if (Object.keys(findings).length !== findings.length) invalid("findings must not have empty slots");
     return mutate((state) => {
       const r = liveRound(state, { statuses: ["reviewing"] });
       checkHead(r, head);
@@ -5087,7 +5098,8 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
         const bad = (field, why2) => problems.push(reason("finding-field", `finding ${i + 1}: ${field} ${why2}`, { index: i, field }));
         if (f.class != null && !(typeof f.class === "string" && /^[a-z][a-z0-9-]*$/.test(f.class))) bad("class", "must be a kebab-case name, such as missing-await");
         if (f.axiom != null && !(typeof f.axiom === "string" && f.axiom.trim())) bad("axiom", "must be a nonempty string");
-        if (f.instances != null && !(Array.isArray(f.instances) && f.instances.every((x) => x && typeof x.file === "string" && x.file && (x.line == null || Number.isInteger(x.line) && x.line > 0)))) {
+        const place = (x) => x && typeof x === "object" && typeof x.file === "string" && x.file.trim().length > 0 && (x.line == null || Number.isInteger(x.line) && x.line > 0);
+        if (f.instances != null && !(Array.isArray(f.instances) && Array.from(f.instances).every(place))) {
           bad("instances", "must be a list of { file, line }");
         }
       });
@@ -5280,17 +5292,21 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
     checkActor(actor);
     if (!DISPOSITIONS.includes(as)) invalid(`disposition must be one of ${DISPOSITIONS.join(", ")}, got ${JSON.stringify(as)}`);
     return mutate((state) => {
-      const r = liveRound(state, { statuses: ["reported"] });
-      const f = state.findings.find((x) => x.id === finding && x.round === r.round);
-      const approved = state.escalations.some((x) => x.round === r.round && x.finding === finding && x.status === "approved");
-      const open = r.report.reported.includes(finding) || r.report.escalated.includes(finding) && approved;
-      if (!f || !open) refuse(`${finding} is not a reported finding in round ${r.round}`, [reason("not-reported", `reported findings: ${r.report.reported.join(", ") || "none"}`)]);
+      if (!activeRound(state)) refuse("no review has started", [reason("not-started", "start a review first")]);
+      const f = state.findings.find((x) => x.id === finding);
+      const r = f ? state.rounds[f.round] : null;
+      const approved = state.escalations.some((x) => x.round === f?.round && x.finding === finding && x.status === "approved");
+      const open = Boolean(r?.report) && (r.report.reported.includes(finding) || r.report.escalated.includes(finding) && approved);
+      if (!open) {
+        const all = Object.values(state.rounds).flatMap((x) => x.report?.reported ?? []);
+        refuse(`${finding} is not a reported finding`, [reason("not-reported", `reported findings: ${all.join(", ") || "none"}`)]);
+      }
       if (f.decisions["finding-triage"]?.at(-1)?.label === "needs-judgment") checkActor(actor, { human: true });
       const disqualifying = r.policy.resolved.actions?.merge?.disqualifying ?? ["blocker", "should-fix"];
       const sev = f.decisions["finding-severity"]?.at(-1)?.label ?? null;
       if (CLEARING.includes(as) && (sev === null || disqualifying.includes(sev))) checkActor(actor, { human: true });
       if (f.disposition?.as === as && f.disposition?.note === note) return [];
-      return [{ type: "finding.disposed", actor, data: { round: r.round, finding, as, note } }];
+      return [{ type: "finding.disposed", actor, data: { round: f.round, finding, as, note } }];
     }, { opId });
   }
   function classify({ category, probability, rationale = null, classifier, head, actor, opId }) {
@@ -5314,7 +5330,7 @@ function openReview(root, ref, { familyOf = defaultFamily } = {}) {
   function link2({ finding, thread, url = null, actor, opId }) {
     checkActor(actor);
     if (typeof thread !== "string" || !thread.trim()) invalid("link needs a thread ID");
-    if (url != null && !/^https:\/\//.test(url)) invalid(`url must be an https URL, got ${JSON.stringify(url)}`);
+    if (url != null && !isHttpsUrl(url)) invalid(`url must be an https URL, got ${JSON.stringify(url)}`);
     return mutate((state) => {
       const f = state.findings.find((x) => x.id === finding);
       if (!f) refuse(`no finding ${JSON.stringify(finding)}`, [reason("unknown-finding", `finding ${finding} is not in this review`)]);
@@ -5332,17 +5348,19 @@ function next(state) {
   const r = activeRound(state);
   const open = state.escalations.filter((x) => x.status === "open" && x.round === state.round);
   const human = open.map((x) => ({ escalation: x.id, code: x.code, ask: x.message }));
+  const roundsSoFar = state.round + state.legacy.reduce((n, l) => n + (l.rounds ?? 0), 0);
   if (!r) {
     return {
       status: "not-started",
       waitingOn: "agent",
       action: { do: "start" },
+      roundsSoFar,
       human,
       note: state.legacy.length ? "this review has v1 history only; it has not been reviewed under a version 1 policy" : null
     };
   }
   if (r.status === "invalidated") {
-    return { status: "invalidated", round: r.round, waitingOn: "agent", action: { do: "start", why: r.invalidated.reason }, human: [] };
+    return { status: "invalidated", round: r.round, roundsSoFar, waitingOn: "agent", action: { do: "start", why: r.invalidated.reason }, human: [] };
   }
   const base = { round: r.round, head: r.binding.head, depth: r.depth.depth };
   if (r.status === "reviewing") {
@@ -6109,7 +6127,11 @@ function need(o, name) {
   return o[name];
 }
 function readText(path2) {
-  return path2 === "-" ? readFileSync5(0, "utf8") : readFileSync5(path2, "utf8");
+  try {
+    return path2 === "-" ? readFileSync5(0, "utf8") : readFileSync5(path2, "utf8");
+  } catch (e) {
+    throw new UsageError(`${path2}: cannot read (${e.code ?? e.message})`);
+  }
 }
 function readJson2(path2) {
   try {
@@ -6463,7 +6485,9 @@ function foundBy(ledger, primary) {
   return {
     reviewers: group.length,
     lenses: [...new Set(group.map((f) => f.lens))].sort(),
-    families: [...new Set(group.map((f) => family(f.model)).filter(Boolean))].sort()
+    // The family recorded with the finding when there is one: the harness
+    // stores the family the panel was checked against.
+    families: [...new Set(group.map((f) => f.family ?? family(f.model)).filter(Boolean))].sort()
   };
 }
 function link(ledger, id, { thread, url }) {
@@ -6523,17 +6547,18 @@ function family(model) {
   const [provider, ...rest] = String(model).split("/");
   const p = provider.toLowerCase();
   if (!GATEWAYS.has(p)) return p;
-  const name = rest.join("/");
+  const name = rest.join("/").replace(/^(us|eu|apac|ap|global)\./i, "");
   const hit = NAMED_FAMILIES.find(([re]) => re.test(name));
-  return hit ? hit[1] : `${p}:${name.toLowerCase()}`;
+  return hit ? hit[1] : p;
 }
 function roundFamilies(ledger, round) {
   const r = ledger.rounds.find((x) => x.round === round);
-  const models = [
-    ...(r?.runs ?? []).map((run4) => run4.model),
-    ...ledger.findings.filter((f) => f.round === round).flatMap((f) => [f.model, ...Object.values(f.decisions).map((d) => d.model)])
+  const fam = (x) => x.family ?? family(x.model);
+  const families = [
+    ...(r?.runs ?? []).map(fam),
+    ...ledger.findings.filter((f) => f.round === round).flatMap((f) => [fam(f), ...Object.values(f.decisions).map(fam)])
   ];
-  return [...new Set(models.map(family).filter(Boolean))].sort();
+  return [...new Set(families.filter(Boolean))].sort();
 }
 function placement(f) {
   const severity = f.decisions["finding-severity"]?.label ?? null;
@@ -6764,11 +6789,12 @@ var HARNESS_COMMANDS = {
 };
 var FAMILY_FLAGS = { "--model": "--family", "--verifier-model": "--verifier-family", "--classifier-model": "--classifier-family" };
 function value(args, flag) {
+  let found;
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === flag) return args[i + 1];
-    if (args[i].startsWith(`${flag}=`)) return args[i].slice(flag.length + 1);
+    if (args[i] === flag) found = args[i + 1];
+    else if (args[i].startsWith(`${flag}=`)) found = args[i].slice(flag.length + 1);
   }
-  return void 0;
+  return found;
 }
 function withFamilies(args) {
   const out = [...args];
@@ -6776,7 +6802,7 @@ function withFamilies(args) {
     const model = value(args, modelFlag);
     if (model && value(args, familyFlag) === void 0) {
       const fam = family(model);
-      if (fam) out.push(familyFlag, fam);
+      if (fam && fam !== String(model).split("/")[0].toLowerCase()) out.push(familyFlag, fam);
     }
   }
   return out;
@@ -6785,7 +6811,14 @@ function translate(args) {
   if (args[0] === "review" && args[1] === "policy") return ["policy", "check", ...args.slice(2)];
   return args;
 }
+function help(io = {}) {
+  let text = "";
+  main(["--help"], { ...io, stdout: { write: (s) => text += s } });
+  (io.stdout ?? process.stdout).write(text.replace(/^(\s+)policy check(\s*)/m, (_, a, b) => `${a}review policy${b.slice(1)}`));
+  return 0;
+}
 function runHarness(args, io) {
+  if (args[0] === "review" && (args.length === 1 || ["-h", "--help", "help"].includes(args[1]))) return help(io);
   return main(withFamilies(translate(args)), io);
 }
 var stateRoot = () => cliStateRoot();
@@ -6800,7 +6833,7 @@ function decisionsOf(f) {
   for (const [kind, list3] of Object.entries(f.decisions)) {
     if (!list3.length) continue;
     const d = kind === "finding-verification" ? list3.reduce((a, b) => b.probability < a.probability ? b : a) : list3.at(-1);
-    out[kind] = { label: d.label, probability: d.probability, model: d.verifier.model, rationale: d.rationale, verifiers: list3.length };
+    out[kind] = { label: d.label, probability: d.probability, model: d.verifier.model, family: d.verifier.family ?? null, rationale: d.rationale, verifiers: list3.length };
   }
   return out;
 }
@@ -6819,6 +6852,15 @@ function harnessLedger(state, ref) {
       runs: Object.entries(r.runs).filter(([, run4]) => run4.status === "ok").map(([slot, run4]) => ({ slot, lens: lensOf[slot], model: run4.model, family: run4.family }))
     };
   });
+  const byId = new Map(state.findings.map((f) => [f.id, f]));
+  const top = (id) => {
+    const seen = /* @__PURE__ */ new Set();
+    while (byId.get(id)?.duplicateOf && !seen.has(id)) {
+      seen.add(id);
+      id = byId.get(id).duplicateOf;
+    }
+    return id;
+  };
   const findings = state.findings.map((f) => ({
     id: f.id,
     round: f.round,
@@ -6834,7 +6876,7 @@ function harnessLedger(state, ref) {
     class: f.class ?? null,
     instances: f.instances ?? [],
     axiom: f.axiom ?? null,
-    duplicateOf: f.duplicateOf,
+    duplicateOf: f.duplicateOf ? top(f.duplicateOf) : null,
     decisions: decisionsOf(f),
     reported: reportedIn(state, f),
     disposition: f.disposition ? { as: f.disposition.as, note: f.disposition.note, at: f.disposition.at, by: f.disposition.actor } : null,
@@ -6842,38 +6884,57 @@ function harnessLedger(state, ref) {
   }));
   return { schema: "agent-review.view/v1", repo: ref.repo, key: String(ref.key), rounds, findings, escalations: state.escalations };
 }
+function combineViews(legacy, view, ref) {
+  const v1Rounds = legacy?.rounds ?? [];
+  const offset = Math.max(0, ...v1Rounds.map((r) => r.round ?? 0));
+  const v1 = (id) => id ? `v1:${id}` : null;
+  return {
+    schema: "agent-review.view/v1",
+    repo: ref.repo,
+    key: String(ref.key),
+    rounds: [
+      ...v1Rounds.map((r) => ({ ...r, source: "v1" })),
+      ...(view?.rounds ?? []).map((r) => ({ ...r, round: r.round + offset, source: "harness" }))
+    ],
+    findings: [
+      ...(legacy?.findings ?? []).map((f) => ({ ...f, id: v1(f.id), duplicateOf: v1(f.duplicateOf), source: "v1" })),
+      ...(view?.findings ?? []).map((f) => ({ ...f, round: f.round + offset, source: "harness" }))
+    ],
+    escalations: (view?.escalations ?? []).map((x) => ({ ...x, round: x.round + offset }))
+  };
+}
 function loadHarness(repo, key, root = stateRoot()) {
   const ref = { repo, key: String(key) };
   const state = openReview(root, ref).read();
-  return { state, ledger: harnessLedger(state, ref) };
+  return { state, ledger: combineViews(load2(repo, key), harnessLedger(state, ref), ref) };
 }
-function allHarnessLedgers(root = stateRoot()) {
-  const ledgers = [];
+function allReviewViews(legacyLedgers, root = stateRoot()) {
+  const byKey = /* @__PURE__ */ new Map();
+  const at = (ref) => {
+    const k = `${ref.repo}#${ref.key}`;
+    if (!byKey.has(k)) byKey.set(k, { ref: { repo: ref.repo, key: String(ref.key) }, legacy: null, view: null });
+    return byKey.get(k);
+  };
+  for (const l of legacyLedgers) at(l).legacy = l;
   const unreadable = [];
   for (const ref of listReviews(root)) {
     try {
-      ledgers.push(harnessLedger(openReview(root, ref).read(), ref));
+      at(ref).view = harnessLedger(openReview(root, ref).read(), ref);
     } catch (e) {
       unreadable.push({ repo: ref.repo, key: ref.key, error: e.code ?? e.message });
     }
   }
-  return { ledgers, unreadable };
+  return { ledgers: [...byKey.values()].map((x) => combineViews(x.legacy, x.view, x.ref)), unreadable };
 }
 function presentReport(state, view) {
   const current2 = view.rounds.at(-1);
-  if (!current2) throw new LedgerError("this review has no rounds; start one with review start");
+  if (!current2 || current2.source !== "harness") throw new LedgerError("this review has no harness rounds; start one with review start");
   if (current2.status !== "reported") {
     throw new LedgerError(`round ${current2.round} is ${current2.status}, not reported; run review next to see what it needs`);
   }
   const round = current2.round;
-  const reported = view.findings.filter((f) => f.round === round && f.reported && !f.duplicateOf);
-  const repeats = [];
-  const shown = [];
-  for (const f of reported) {
-    const earlier = possibleRepeats(view, f);
-    if (earlier.length) repeats.push({ id: f.id, file: f.file, line: f.line, title: f.title, earlier: earlier.map((e) => ({ id: e.id, round: e.round, disposition: e.disposition?.as ?? "open" })) });
-    else shown.push(f);
-  }
+  const shown = view.findings.filter((f) => f.round === round && f.reported && !f.duplicateOf);
+  const earlierOf = (f) => possibleRepeats(view, f).map((e) => ({ id: e.id, round: e.round, disposition: e.disposition?.as ?? "open" }));
   const placed = new Map(shown.map((f) => [f, placement(f)]));
   shown.sort(
     (a, b) => SECTION_ORDER[placed.get(a).section] - SECTION_ORDER[placed.get(b).section] || String(a.file).localeCompare(String(b.file)) || (a.line ?? 0) - (b.line ?? 0)
@@ -6885,6 +6946,7 @@ function presentReport(state, view) {
     n: i + 1,
     ...placed.get(f),
     instances: allInstances(view, f),
+    repeatOf: earlierOf(f),
     recurs: recurrences(view, f).map((e) => ({ id: e.id, round: e.round, file: e.file, line: e.line ?? null })),
     foundBy: foundBy(view, f)
   }));
@@ -6896,20 +6958,27 @@ function presentReport(state, view) {
   const counts = tally(findings);
   const earlierOpen = tally(openFindings(view).filter((f) => f.round < round).map(placement));
   const holding = (c) => c.blockers + c["should-fix"] + c.unrated;
-  const waiting = view.escalations.filter((x) => x.round === round && x.status === "open").map((x) => ({ escalation: x.id, code: x.code, finding: x.finding, path: x.path, message: x.message }));
-  const dropped = view.findings.filter((f) => f.round === round && !f.duplicateOf && !f.reported && !waiting.some((w) => w.finding === f.id)).map((f) => f.id);
+  const waiting = [
+    ...view.escalations.filter((x) => x.round === round && x.status === "open").map((x) => ({ escalation: x.id, code: x.code, finding: x.finding, path: x.path, message: x.message })),
+    ...openFindings(view).filter((f) => f.source === "harness" && !f.disposition && f.decisions["finding-triage"]?.label === "needs-judgment").map((f) => ({ escalation: null, code: "needs-judgment", finding: f.id, path: null, message: `${f.title}: a person decides what to do about it` }))
+  ];
+  const rejected = view.escalations.filter((x) => x.round === round && x.status === "rejected" && !x.finding).map((x) => ({ escalation: x.id, code: x.code, path: x.path, message: x.message, reason: x.resolution?.reason ?? null, by: x.resolution?.actor ?? null }));
+  const escalated = new Set(view.escalations.filter((x) => x.round === round && x.finding).map((x) => x.finding));
+  const dropped = view.findings.filter((f) => f.round === round && !f.duplicateOf && !f.reported && !escalated.has(f.id)).map((f) => f.id);
   return {
     round,
     head: current2.head,
     depth: current2.depth,
-    // needs-a-person: an escalation is open. needs-changes: a blocker,
-    // should-fix or unrated finding, new or still open from earlier.
-    verdict: waiting.length ? "needs-a-person" : holding(counts) + holding(earlierOpen) === 0 ? "ready" : "needs-changes",
+    // needs-a-person: something waits on a person. needs-changes: a
+    // rejected escalation, or a blocker, should-fix or unrated finding, new
+    // or still open from earlier.
+    verdict: waiting.length ? "needs-a-person" : rejected.length || holding(counts) + holding(earlierOpen) > 0 ? "needs-changes" : "ready",
     counts,
     earlierOpen,
     findings,
     waiting,
-    repeats,
+    rejected,
+    repeats: findings.filter((f) => f.repeatOf.length).map((f) => ({ id: f.id, n: f.n, earlier: f.repeatOf })),
     dropped,
     merged: view.findings.filter((f) => f.round === round && f.duplicateOf).map((f) => f.id),
     lenses: current2.lenses,
@@ -6917,7 +6986,7 @@ function presentReport(state, view) {
   };
 }
 function presentOpen(view) {
-  return openFindings(view).map((f) => ({ id: f.id, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario, thread: f.thread?.id ?? null }));
+  return openFindings(view).map((f) => ({ id: f.id, source: f.source, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario, thread: f.thread?.id ?? null }));
 }
 
 // cli/src/review-context.mjs
@@ -7560,8 +7629,8 @@ function buildProgram(state = { exitCode: 0 }) {
   keyed("last-head", "Print the head reviewed in the last round.").action((o) => print(load2(o.repo, o.key).rounds.at(-1)?.head ?? ""));
   led.command("summary").description("Summarize dispositions, noise, rounds and repeated bug classes for one ledger, one repo, or every ledger.").option("--repo <owner/repo>", "repository").option("--key <pr|branch>", "PR number or branch name (needs --repo)").action((o) => {
     if (o.key && !o.repo) throw new LedgerError("--key needs --repo");
-    const harness = allHarnessLedgers();
-    const ledgers = [...allLedgers(), ...harness.ledgers].filter(
+    const harness = allReviewViews(allLedgers());
+    const ledgers = harness.ledgers.filter(
       (l) => l.rounds.length && (!o.repo || l.repo === o.repo) && (!o.key || l.key === String(o.key))
     );
     const unreadable = harness.unreadable.filter((u) => (!o.repo || u.repo === o.repo) && (!o.key || u.key === String(o.key)));

@@ -12,7 +12,7 @@
 
 import { listReviews, openReview } from "agent-review";
 import { cliStateRoot, main as harnessMain } from "agent-review/cli";
-import { LedgerError, SECTION_ORDER, allInstances, family, foundBy, openFindings, placement, possibleRepeats, recurrences, roundFamilies } from "./review-ledger.mjs";
+import { LedgerError, SECTION_ORDER, allInstances, family, foundBy, load as loadLegacy, openFindings, placement, possibleRepeats, recurrences, roundFamilies } from "./review-ledger.mjs";
 
 // Top-level commands that belong to the harness.
 export const HARNESS_COMMANDS = {
@@ -26,21 +26,26 @@ export const HARNESS_COMMANDS = {
 // names. A family the caller gives wins.
 const FAMILY_FLAGS = { "--model": "--family", "--verifier-model": "--verifier-family", "--classifier-model": "--classifier-family" };
 
+// The last occurrence wins, as it does in the harness's argument parser, so
+// the family always belongs to the model the harness records.
 function value(args, flag) {
+  let found;
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === flag) return args[i + 1];
-    if (args[i].startsWith(`${flag}=`)) return args[i].slice(flag.length + 1);
+    if (args[i] === flag) found = args[i + 1];
+    else if (args[i].startsWith(`${flag}=`)) found = args[i].slice(flag.length + 1);
   }
-  return undefined;
+  return found;
 }
 
+// Only a family the skills know better than the harness is passed: a known
+// model behind a gateway. Anything else, the harness infers the same way.
 export function withFamilies(args) {
   const out = [...args];
   for (const [modelFlag, familyFlag] of Object.entries(FAMILY_FLAGS)) {
     const model = value(args, modelFlag);
     if (model && value(args, familyFlag) === undefined) {
       const fam = family(model);
-      if (fam) out.push(familyFlag, fam);
+      if (fam && fam !== String(model).split("/")[0].toLowerCase()) out.push(familyFlag, fam);
     }
   }
   return out;
@@ -53,7 +58,17 @@ function translate(args) {
   return args;
 }
 
+// review, review --help and review help print the harness's commands, with
+// its "policy check" shown under the name it has here, and exit 0.
+function help(io = {}) {
+  let text = "";
+  harnessMain(["--help"], { ...io, stdout: { write: (s) => (text += s) } });
+  (io.stdout ?? process.stdout).write(text.replace(/^(\s+)policy check(\s*)/m, (_, a, b) => `${a}review policy${b.slice(1)}`));
+  return 0;
+}
+
 export function runHarness(args, io) {
+  if (args[0] === "review" && (args.length === 1 || ["-h", "--help", "help"].includes(args[1]))) return help(io);
   return harnessMain(withFamilies(translate(args)), io);
 }
 
@@ -76,7 +91,7 @@ function decisionsOf(f) {
   for (const [kind, list] of Object.entries(f.decisions)) {
     if (!list.length) continue;
     const d = kind === "finding-verification" ? list.reduce((a, b) => (b.probability < a.probability ? b : a)) : list.at(-1);
-    out[kind] = { label: d.label, probability: d.probability, model: d.verifier.model, rationale: d.rationale, verifiers: list.length };
+    out[kind] = { label: d.label, probability: d.probability, model: d.verifier.model, family: d.verifier.family ?? null, rationale: d.rationale, verifiers: list.length };
   }
   return out;
 }
@@ -100,6 +115,17 @@ export function harnessLedger(state, ref) {
           .map(([slot, run]) => ({ slot, lens: lensOf[slot], model: run.model, family: run.family })),
       };
     });
+  // A primary merged into another primary leaves a chain (F3 -> F2 -> F1).
+  // Every duplicate points at the top of its chain, so its places count.
+  const byId = new Map(state.findings.map((f) => [f.id, f]));
+  const top = (id) => {
+    const seen = new Set();
+    while (byId.get(id)?.duplicateOf && !seen.has(id)) {
+      seen.add(id);
+      id = byId.get(id).duplicateOf;
+    }
+    return id;
+  };
   const findings = state.findings.map((f) => ({
     id: f.id,
     round: f.round,
@@ -115,7 +141,7 @@ export function harnessLedger(state, ref) {
     class: f.class ?? null,
     instances: f.instances ?? [],
     axiom: f.axiom ?? null,
-    duplicateOf: f.duplicateOf,
+    duplicateOf: f.duplicateOf ? top(f.duplicateOf) : null,
     decisions: decisionsOf(f),
     reported: reportedIn(state, f),
     disposition: f.disposition ? { as: f.disposition.as, note: f.disposition.note, at: f.disposition.at, by: f.disposition.actor } : null,
@@ -124,50 +150,78 @@ export function harnessLedger(state, ref) {
   return { schema: "agent-review.view/v1", repo: ref.repo, key: String(ref.key), rounds, findings, escalations: state.escalations };
 }
 
+// One view of a change's whole review: its v1 ledger, from before the
+// harness, then the harness's rounds, numbered after the v1 rounds. v1
+// finding IDs get a v1: prefix, because both start at F1. A v1 finding is
+// closed with ledger dispose; a harness finding with review dispose.
+export function combineViews(legacy, view, ref) {
+  const v1Rounds = legacy?.rounds ?? [];
+  const offset = Math.max(0, ...v1Rounds.map((r) => r.round ?? 0));
+  const v1 = (id) => (id ? `v1:${id}` : null);
+  return {
+    schema: "agent-review.view/v1",
+    repo: ref.repo,
+    key: String(ref.key),
+    rounds: [
+      ...v1Rounds.map((r) => ({ ...r, source: "v1" })),
+      ...(view?.rounds ?? []).map((r) => ({ ...r, round: r.round + offset, source: "harness" })),
+    ],
+    findings: [
+      ...(legacy?.findings ?? []).map((f) => ({ ...f, id: v1(f.id), duplicateOf: v1(f.duplicateOf), source: "v1" })),
+      ...(view?.findings ?? []).map((f) => ({ ...f, round: f.round + offset, source: "harness" })),
+    ],
+    escalations: (view?.escalations ?? []).map((x) => ({ ...x, round: x.round + offset })),
+  };
+}
+
 export function loadHarness(repo, key, root = stateRoot()) {
   const ref = { repo, key: String(key) };
   const state = openReview(root, ref).read();
-  return { state, ledger: harnessLedger(state, ref) };
+  return { state, ledger: combineViews(loadLegacy(repo, key), harnessLedger(state, ref), ref) };
 }
 
-// Every harness review, as views, for the summary. A review this build cannot
-// read is counted in `unreadable`, not allowed to hide the rest.
-export function allHarnessLedgers(root = stateRoot()) {
-  const ledgers = [];
+// Every change's review, as one combined view each, for the summary. A
+// change reviewed before and after the harness counts once. A review this
+// build cannot read is counted in `unreadable`, not allowed to hide the rest.
+export function allReviewViews(legacyLedgers, root = stateRoot()) {
+  const byKey = new Map();
+  const at = (ref) => {
+    const k = `${ref.repo}#${ref.key}`;
+    if (!byKey.has(k)) byKey.set(k, { ref: { repo: ref.repo, key: String(ref.key) }, legacy: null, view: null });
+    return byKey.get(k);
+  };
+  for (const l of legacyLedgers) at(l).legacy = l;
   const unreadable = [];
   for (const ref of listReviews(root)) {
     try {
-      ledgers.push(harnessLedger(openReview(root, ref).read(), ref));
+      at(ref).view = harnessLedger(openReview(root, ref).read(), ref);
     } catch (e) {
       unreadable.push({ repo: ref.repo, key: ref.key, error: e.code ?? e.message });
     }
   }
-  return { ledgers, unreadable };
+  return { ledgers: [...byKey.values()].map((x) => combineViews(x.legacy, x.view, x.ref)), unreadable };
 }
 
 // The report a person reads, for the harness's latest round: findings in
 // sections and in order, numbered, with every place each one covers. The
-// harness decided which findings are reported; this only arranges them.
+// harness decided which findings are reported; this only arranges them, and
+// never leaves one out.
 //
-// A reported finding that repeats an earlier one that is still open, or that
-// a person called wrong, intended or not worth fixing, is left out and
-// listed in `repeats`: it is not new. One that matches an earlier finding
-// marked fixed stays in, with `recurs`, because the fix did not hold.
+// A reported finding near an earlier one, or with the same bug class, is
+// marked: `repeatOf` when the earlier one is still open or a person called it
+// wrong, intended or not worth fixing, so the person can see it may not be
+// new; `recurs` when the earlier one was marked fixed, because the fix may
+// not have held. Both are hints from location and class, not proof, so the
+// finding stays in its section and counts toward the verdict.
 export function presentReport(state, view) {
   const current = view.rounds.at(-1);
-  if (!current) throw new LedgerError("this review has no rounds; start one with review start");
+  if (!current || current.source !== "harness") throw new LedgerError("this review has no harness rounds; start one with review start");
   if (current.status !== "reported") {
     throw new LedgerError(`round ${current.round} is ${current.status}, not reported; run review next to see what it needs`);
   }
   const round = current.round;
-  const reported = view.findings.filter((f) => f.round === round && f.reported && !f.duplicateOf);
-  const repeats = [];
-  const shown = [];
-  for (const f of reported) {
-    const earlier = possibleRepeats(view, f);
-    if (earlier.length) repeats.push({ id: f.id, file: f.file, line: f.line, title: f.title, earlier: earlier.map((e) => ({ id: e.id, round: e.round, disposition: e.disposition?.as ?? "open" })) });
-    else shown.push(f);
-  }
+  const shown = view.findings.filter((f) => f.round === round && f.reported && !f.duplicateOf);
+  const earlierOf = (f) => possibleRepeats(view, f).map((e) => ({ id: e.id, round: e.round, disposition: e.disposition?.as ?? "open" }));
   const placed = new Map(shown.map((f) => [f, placement(f)]));
   shown.sort(
     (a, b) =>
@@ -182,6 +236,7 @@ export function presentReport(state, view) {
     n: i + 1,
     ...placed.get(f),
     instances: allInstances(view, f),
+    repeatOf: earlierOf(f),
     recurs: recurrences(view, f).map((e) => ({ id: e.id, round: e.round, file: e.file, line: e.line ?? null })),
     foundBy: foundBy(view, f),
   }));
@@ -193,24 +248,39 @@ export function presentReport(state, view) {
   const counts = tally(findings);
   const earlierOpen = tally(openFindings(view).filter((f) => f.round < round).map(placement));
   const holding = (c) => c.blockers + c["should-fix"] + c.unrated;
-  // Open escalations: disputed findings, policy changes and escalation
-  // paths. A person settles each one before the change is ready.
-  const waiting = view.escalations
-    .filter((x) => x.round === round && x.status === "open")
-    .map((x) => ({ escalation: x.id, code: x.code, finding: x.finding, path: x.path, message: x.message }));
-  const dropped = view.findings.filter((f) => f.round === round && !f.duplicateOf && !f.reported && !waiting.some((w) => w.finding === f.id)).map((f) => f.id);
+  // What waits on a person, as the harness's next step sees it: open
+  // escalations (disputed findings, policy changes, escalation paths), and
+  // reported findings triaged needs-judgment that nobody has closed.
+  const waiting = [
+    ...view.escalations
+      .filter((x) => x.round === round && x.status === "open")
+      .map((x) => ({ escalation: x.id, code: x.code, finding: x.finding, path: x.path, message: x.message })),
+    ...openFindings(view)
+      .filter((f) => f.source === "harness" && !f.disposition && f.decisions["finding-triage"]?.label === "needs-judgment")
+      .map((f) => ({ escalation: null, code: "needs-judgment", finding: f.id, path: null, message: `${f.title}: a person decides what to do about it` })),
+  ];
+  // A person rejected a policy change or a change to an escalation path. It
+  // blocks, as it does in the harness's eligibility. A rejected dispute about
+  // a finding only means the finding is not a problem.
+  const rejected = view.escalations
+    .filter((x) => x.round === round && x.status === "rejected" && !x.finding)
+    .map((x) => ({ escalation: x.id, code: x.code, path: x.path, message: x.message, reason: x.resolution?.reason ?? null, by: x.resolution?.actor ?? null }));
+  const escalated = new Set(view.escalations.filter((x) => x.round === round && x.finding).map((x) => x.finding));
+  const dropped = view.findings.filter((f) => f.round === round && !f.duplicateOf && !f.reported && !escalated.has(f.id)).map((f) => f.id);
   return {
     round,
     head: current.head,
     depth: current.depth,
-    // needs-a-person: an escalation is open. needs-changes: a blocker,
-    // should-fix or unrated finding, new or still open from earlier.
-    verdict: waiting.length ? "needs-a-person" : holding(counts) + holding(earlierOpen) === 0 ? "ready" : "needs-changes",
+    // needs-a-person: something waits on a person. needs-changes: a
+    // rejected escalation, or a blocker, should-fix or unrated finding, new
+    // or still open from earlier.
+    verdict: waiting.length ? "needs-a-person" : rejected.length || holding(counts) + holding(earlierOpen) > 0 ? "needs-changes" : "ready",
     counts,
     earlierOpen,
     findings,
     waiting,
-    repeats,
+    rejected,
+    repeats: findings.filter((f) => f.repeatOf.length).map((f) => ({ id: f.id, n: f.n, earlier: f.repeatOf })),
     dropped,
     merged: view.findings.filter((f) => f.round === round && f.duplicateOf).map((f) => f.id),
     lenses: current.lenses,
@@ -219,6 +289,8 @@ export function presentReport(state, view) {
 }
 
 // Reported findings from any round that nobody has closed yet.
+// source is v1 for a finding from before the harness: close it with ledger
+// dispose and its ID without the v1: prefix.
 export function presentOpen(view) {
-  return openFindings(view).map((f) => ({ id: f.id, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario, thread: f.thread?.id ?? null }));
+  return openFindings(view).map((f) => ({ id: f.id, source: f.source, round: f.round, file: f.file, line: f.line, title: f.title, scenario: f.scenario, thread: f.thread?.id ?? null }));
 }

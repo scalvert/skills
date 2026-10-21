@@ -331,7 +331,9 @@ export function foundBy(ledger, primary) {
   return {
     reviewers: group.length,
     lenses: [...new Set(group.map((f) => f.lens))].sort(),
-    families: [...new Set(group.map((f) => family(f.model)).filter(Boolean))].sort(),
+    // The family recorded with the finding when there is one: the harness
+    // stores the family the panel was checked against.
+    families: [...new Set(group.map((f) => f.family ?? family(f.model)).filter(Boolean))].sort(),
   };
 }
 
@@ -402,26 +404,29 @@ const NAMED_FAMILIES = [
   [/^nemotron/i, "nvidia"],
 ];
 
+// A model behind a gateway that matches no known family counts as the
+// gateway's own family, so two unknown models never pass as two families.
+// Bedrock's region prefix (us., eu., apac., global.) is not part of the name.
 export function family(model) {
   if (!model) return null;
   const [provider, ...rest] = String(model).split("/");
   const p = provider.toLowerCase();
   if (!GATEWAYS.has(p)) return p;
-  const name = rest.join("/");
+  const name = rest.join("/").replace(/^(us|eu|apac|ap|global)\./i, "");
   const hit = NAMED_FAMILIES.find(([re]) => re.test(name));
-  return hit ? hit[1] : `${p}:${name.toLowerCase()}`;
+  return hit ? hit[1] : p;
 }
 
 // Model families that reviewed or verified in a round.
 export function roundFamilies(ledger, round) {
   const r = ledger.rounds.find((x) => x.round === round);
-  const models = [
-    ...(r?.runs ?? []).map((run) => run.model),
-    ...ledger.findings
-      .filter((f) => f.round === round)
-      .flatMap((f) => [f.model, ...Object.values(f.decisions).map((d) => d.model)]),
+  // A recorded family wins over one inferred from the model name.
+  const fam = (x) => x.family ?? family(x.model);
+  const families = [
+    ...(r?.runs ?? []).map(fam),
+    ...ledger.findings.filter((f) => f.round === round).flatMap((f) => [fam(f), ...Object.values(f.decisions).map(fam)]),
   ];
-  return [...new Set(models.map(family).filter(Boolean))].sort();
+  return [...new Set(families.filter(Boolean))].sort();
 }
 
 // Where a confirmed finding goes in the report. Only an introduced finding

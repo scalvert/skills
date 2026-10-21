@@ -79,7 +79,7 @@ node <skill>/scripts/agent-review.mjs review merge --repo <repo> --key <key> --i
 
 `review status` lists the findings and their IDs. The duplicates stay in the history, and the report shows how many reviewers and model families found the problem. Merge only true duplicates. Two different bugs on the same line stay separate.
 
-Do not merge a new finding into one from an earlier round. The report handles that. It leaves out a new finding that repeats an earlier one that is still open, or one a person called wrong, intended or not worth fixing. It keeps a finding that comes back after an earlier fix, and marks it.
+Do not merge a new finding into one from an earlier round, and do not drop it. The report marks a new finding that may repeat an earlier one, by location and bug class, and leaves the call to a person.
 
 ### Verify every finding
 
@@ -111,12 +111,13 @@ The harness refuses while a finding has no verification, or a reported or disput
 node <skill>/scripts/agent-review.mjs findings report --repo <repo> --key <key>
 ```
 
-It gives each reported finding a `section` (blockers, should-fix, pre-existing, smaller) and a number `n` in report order. Each finding's `instances` include the places its duplicates found. The output also gives:
+It gives each reported finding a `section` (blockers, should-fix, pre-existing, smaller) and a number `n` in report order. Each finding's `instances` include the places its duplicates found. `repeatOf` lists earlier findings it may repeat that are still open or that a person waved off, and `recurs` lists earlier findings marked fixed that it matches. The output also gives:
 
 - `counts` per section, and `earlierOpen`: findings from earlier rounds that are still open, per section.
-- A `verdict`: `ready`, `needs-changes`, or `needs-a-person` when an escalation is open.
-- `waiting`: what a person must settle, such as a disputed finding or a change to the review policy.
-- `repeats`: new findings left out because they repeat an earlier one.
+- A `verdict`: `ready`, `needs-changes`, or `needs-a-person` when something waits on a person.
+- `waiting`: what a person must settle, such as a disputed finding, a change to the review policy, or a finding triaged `needs-judgment`.
+- `rejected`: changes a person rejected, such as an edit to the review policy. Each one holds the change.
+- `repeats`: the numbers of the findings that have a `repeatOf`.
 - `dropped`, `merged`, and the model `families` that took part.
 
 Report only what it returns.

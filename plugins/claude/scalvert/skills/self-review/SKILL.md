@@ -103,7 +103,7 @@ node <skill>/scripts/agent-review.mjs review merge --repo <repo> --key <key> --i
 
 `review status` lists the findings and their IDs. The duplicates stay in the history, and the report shows how many reviewers and model families found the problem. Merge only true duplicates. Two different bugs on the same line stay separate.
 
-Do not merge a new finding into one from an earlier round. The report handles that. It leaves out a new finding that repeats an earlier one that is still open, or one a person called wrong, intended or not worth fixing. It keeps a finding that comes back after an earlier fix, and marks it.
+Do not merge a new finding into one from an earlier round, and do not drop it. The report marks a new finding that may repeat an earlier one, by location and bug class, and leaves the call to a person.
 
 ### Verify every finding
 
@@ -135,12 +135,13 @@ The harness refuses while a finding has no verification, or a reported or disput
 node <skill>/scripts/agent-review.mjs findings report --repo <repo> --key <key>
 ```
 
-It gives each reported finding a `section` (blockers, should-fix, pre-existing, smaller) and a number `n` in report order. Each finding's `instances` include the places its duplicates found. The output also gives:
+It gives each reported finding a `section` (blockers, should-fix, pre-existing, smaller) and a number `n` in report order. Each finding's `instances` include the places its duplicates found. `repeatOf` lists earlier findings it may repeat that are still open or that a person waved off, and `recurs` lists earlier findings marked fixed that it matches. The output also gives:
 
 - `counts` per section, and `earlierOpen`: findings from earlier rounds that are still open, per section.
-- A `verdict`: `ready`, `needs-changes`, or `needs-a-person` when an escalation is open.
-- `waiting`: what a person must settle, such as a disputed finding or a change to the review policy.
-- `repeats`: new findings left out because they repeat an earlier one.
+- A `verdict`: `ready`, `needs-changes`, or `needs-a-person` when something waits on a person.
+- `waiting`: what a person must settle, such as a disputed finding, a change to the review policy, or a finding triaged `needs-judgment`.
+- `rejected`: changes a person rejected, such as an edit to the review policy. Each one holds the change.
+- `repeats`: the numbers of the findings that have a `repeatOf`.
 - `dropped`, `merged`, and the model `families` that took part.
 
 Report only what it returns.
@@ -196,7 +197,8 @@ Rules for the prose:
   - `ready` with no findings: `**Verdict:** Ready to merge. Nothing to fix.` Leave out the finding sections.
   - `needs-a-person`: `**Verdict:** Needs a decision from a person.`, then one line for each item in `waiting`: what is disputed or changed, and what the person must decide. Then the findings as usual.
 - Put each finding in the section the report output gives it. Leave out a section that has no findings. A finding in `unrated` has no severity: record one and run the report again.
-- When `repeats` is not empty, add one line after the findings: `Left out <n> findings that repeat earlier ones.`
+- For each item in `rejected`, add one line after the verdict: what was rejected, by whom, and their reason.
+- A finding with a `repeatOf` may not be new. End its entry with one line: `This may repeat <the earlier finding's title>, which was <closed as intended | still open>.` A person decides whether it is the same problem. A finding with `recurs` ends with: `This came back after an earlier fix.`
 - Number the findings 1, 2, 3 in report order, across sections, using `n` from the report output. Leave a blank line between each section heading and its list: without it, a list that starts above 1 renders as plain text. Never show finding IDs (F1, F2): they mean nothing to anyone else. Keep the map from number to finding ID for later commands in this conversation, so the user can say "fix 2".
 - One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item. Leave out praise and summaries of the diff.
 - Mark a finding whose origin is `missed` with "missed in an earlier round". Mark a finding with a non-empty `recurs` with "came back after an earlier fix".
