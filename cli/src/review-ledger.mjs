@@ -349,12 +349,31 @@ export function link(ledger, id, { thread, url }) {
   return finding.thread;
 }
 
-export function dispose(ledger, id, as, note) {
+// Dispositions that close a finding without fixing it. Clearing one that
+// would block a merge (a blocker, a should-fix, or one never rated) or one
+// triaged needs-judgment overrides an independent verification, so only a
+// person can do it. The harness applies the same rule to its findings.
+const CLEARING = new Set(["wrong", "intended", "not-worth-it"]);
+const DISQUALIFYING = new Set(["blocker", "should-fix"]);
+const ACTOR = /^(human|agent):[^\s]/;
+
+export function checkDisposeActor(finding, as, actor) {
+  if (actor != null && !ACTOR.test(actor)) throw new LedgerError(`--actor must be human:<name> or agent:<runtime>, got "${actor}"`);
+  const sev = finding.decisions?.["finding-severity"]?.label ?? null;
+  const judgment = finding.decisions?.["finding-triage"]?.label === "needs-judgment";
+  const person = judgment || (CLEARING.has(as) && (sev === null || DISQUALIFYING.has(sev)));
+  if (person && !actor?.startsWith("human:")) {
+    const what = judgment ? "it needs judgment" : `it is ${sev ?? "unrated"}`;
+    throw new LedgerError(`only a person can mark ${finding.id} ${as}: ${what}. Ask them, then pass --actor human:<name>`);
+  }
+}
+
+export function dispose(ledger, id, as, note, { actor = null } = {}) {
   if (RETIRED[as]) throw new LedgerError(`--as ${as} was split; use ${RETIRED[as]}`);
   if (!DISPOSITIONS.includes(as)) throw new LedgerError(`--as must be one of ${DISPOSITIONS.join(", ")}`);
   const finding = ledger.findings.find((f) => f.id === id);
   if (!finding) throw new LedgerError(`no finding ${id}`);
-  finding.disposition = { as, note: note ?? null, at: new Date().toISOString() };
+  finding.disposition = { as, note: note ?? null, at: new Date().toISOString(), ...(actor ? { actor } : {}) };
   return finding;
 }
 

@@ -6611,12 +6611,25 @@ function link(ledger, id, { thread, url }) {
   finding.thread = { id: thread, url: url ?? null, at: (/* @__PURE__ */ new Date()).toISOString() };
   return finding.thread;
 }
-function dispose(ledger, id, as, note) {
+var CLEARING2 = /* @__PURE__ */ new Set(["wrong", "intended", "not-worth-it"]);
+var DISQUALIFYING = /* @__PURE__ */ new Set(["blocker", "should-fix"]);
+var ACTOR3 = /^(human|agent):[^\s]/;
+function checkDisposeActor(finding, as, actor) {
+  if (actor != null && !ACTOR3.test(actor)) throw new LedgerError(`--actor must be human:<name> or agent:<runtime>, got "${actor}"`);
+  const sev = finding.decisions?.["finding-severity"]?.label ?? null;
+  const judgment = finding.decisions?.["finding-triage"]?.label === "needs-judgment";
+  const person = judgment || CLEARING2.has(as) && (sev === null || DISQUALIFYING.has(sev));
+  if (person && !actor?.startsWith("human:")) {
+    const what = judgment ? "it needs judgment" : `it is ${sev ?? "unrated"}`;
+    throw new LedgerError(`only a person can mark ${finding.id} ${as}: ${what}. Ask them, then pass --actor human:<name>`);
+  }
+}
+function dispose(ledger, id, as, note, { actor = null } = {}) {
   if (RETIRED[as]) throw new LedgerError(`--as ${as} was split; use ${RETIRED[as]}`);
   if (!DISPOSITIONS2.includes(as)) throw new LedgerError(`--as must be one of ${DISPOSITIONS2.join(", ")}`);
   const finding = ledger.findings.find((f) => f.id === id);
   if (!finding) throw new LedgerError(`no finding ${id}`);
-  finding.disposition = { as, note: note ?? null, at: (/* @__PURE__ */ new Date()).toISOString() };
+  finding.disposition = { as, note: note ?? null, at: (/* @__PURE__ */ new Date()).toISOString(), ...actor ? { actor } : {} };
   return finding;
 }
 var LENS_NAME = /^[a-z][a-z-]*$/;
@@ -7731,11 +7744,14 @@ function buildProgram(state = { exitCode: 0 }) {
       (l, o) => report(l, Number(o.threshold), { allowMissing: o.allowMissing === true, keep: list2(o.keep) })
     )
   );
-  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").action(async (o) => {
+  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").option("--actor <actor>", "who decided: human:<name>, or agent:<runtime> (default AGENT_REVIEW_ACTOR); clearing a blocker, a should-fix, an unrated or a needs-judgment finding needs human:").action(async (o) => {
     if (o.note != null && o.noteFile != null) throw new LedgerError("use --note or --note-file, not both");
     const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync9(o.noteFile, "utf8")).trim() : o.note;
+    const actor = o.actor ?? process.env.AGENT_REVIEW_ACTOR ?? null;
     withLedger((l) => {
-      dispose(l, o.id, o.as, note);
+      const finding = l.findings.find((f) => f.id === o.id);
+      if (finding) checkDisposeActor(finding, o.as, actor);
+      dispose(l, o.id, o.as, note, { actor });
       return { id: o.id, disposition: o.as };
     })(o);
   });

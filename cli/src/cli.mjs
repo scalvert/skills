@@ -167,11 +167,15 @@ export function buildProgram(state = { exitCode: 0 }) {
     .requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it")
     .option("--note <text>", "why")
     .option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub")
+    .option("--actor <actor>", "who decided: human:<name>, or agent:<runtime> (default AGENT_REVIEW_ACTOR); clearing a blocker, a should-fix, an unrated or a needs-judgment finding needs human:")
     .action(async (o) => {
       if (o.note != null && o.noteFile != null) throw new ledger.LedgerError("use --note or --note-file, not both");
       const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync(o.noteFile, "utf8")).trim() : o.note;
+      const actor = o.actor ?? process.env.AGENT_REVIEW_ACTOR ?? null;
       withLedger((l) => {
-        ledger.dispose(l, o.id, o.as, note);
+        const finding = l.findings.find((f) => f.id === o.id);
+        if (finding) ledger.checkDisposeActor(finding, o.as, actor);
+        ledger.dispose(l, o.id, o.as, note, { actor });
         return { id: o.id, disposition: o.as };
       })(o);
     });
