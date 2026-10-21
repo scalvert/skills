@@ -101,12 +101,9 @@ export function buildProgram(state = { exitCode: 0 }) {
       .description(description)
       .requiredOption("--repo <owner/repo>", "repository")
       .requiredOption("--key <pr|branch>", "PR number or branch name");
-  const withLedger = (fn) => (o) => {
-    const l = ledger.load(o.repo, o.key);
-    const result = fn(l, o);
-    ledger.save(l);
-    print(result);
-  };
+  // Every change runs under the ledger's lock, so parallel agents cannot
+  // overwrite each other's writes.
+  const withLedger = (fn) => (o) => print(ledger.update(o.repo, o.key, (l) => fn(l, o)));
 
   keyed("path", "Print the ledger file path.").action((o) => print(ledger.ledgerPath(o.repo, o.key)));
   keyed("start", "Start a review round.")

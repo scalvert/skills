@@ -3999,7 +3999,20 @@ import { homedir as homedir2 } from "node:os";
 import { join as join3 } from "node:path";
 
 // cli/src/review-ledger.mjs
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, readdirSync, renameSync, statSync, writeFileSync as writeFileSync2 } from "node:fs";
+import {
+  closeSync,
+  existsSync as existsSync2,
+  mkdirSync as mkdirSync2,
+  openSync,
+  readFileSync as readFileSync2,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync as writeFileSync2,
+  writeSync
+} from "node:fs";
+import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import { dirname as dirname2, join as join2 } from "node:path";
 var SCHEMA = "scalvert.review/v1";
@@ -4044,11 +4057,116 @@ function load2(repo, key) {
 function save(ledger) {
   const path2 = ledgerPath(ledger.repo, ledger.key);
   mkdirSync2(dirname2(path2), { recursive: true });
-  const tmp = `${path2}.tmp`;
+  const tmp = `${path2}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   writeFileSync2(tmp, `${JSON.stringify(ledger, null, 2)}
 `);
   renameSync(tmp, path2);
   return path2;
+}
+function update(repo, key, fn) {
+  const path2 = ledgerPath(repo, key);
+  mkdirSync2(dirname2(path2), { recursive: true });
+  const lock = `${path2}.lock`;
+  const token = acquire(lock);
+  try {
+    const l = load2(repo, key);
+    const result = fn(l);
+    save(l);
+    return result;
+  } finally {
+    release(lock, token);
+  }
+}
+var STALE_LOCK_MS = 3e4;
+var lockTimeoutMs = () => Number(process.env.AGENT_REVIEWS_LOCK_TIMEOUT_MS) || 1e4;
+var sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+function alive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
+}
+function readLock(lock) {
+  try {
+    return { text: readFileSync2(lock, "utf8"), mtimeMs: statSync(lock).mtimeMs };
+  } catch {
+    return null;
+  }
+}
+function isStale({ text, mtimeMs }) {
+  let pid;
+  try {
+    pid = JSON.parse(text).pid;
+  } catch {
+    return Date.now() - mtimeMs > STALE_LOCK_MS;
+  }
+  return !alive(pid);
+}
+var newToken = () => JSON.stringify({ pid: process.pid, id: randomBytes(6).toString("hex"), at: (/* @__PURE__ */ new Date()).toISOString() });
+function create(path2, token) {
+  try {
+    const fd = openSync(path2, "wx");
+    try {
+      writeSync(fd, token);
+    } finally {
+      closeSync(fd);
+    }
+    return true;
+  } catch (e) {
+    if (e.code !== "EEXIST") throw e;
+    return false;
+  }
+}
+function reclaim(lock) {
+  const breaker = `${lock}.break`;
+  const token = newToken();
+  if (!create(breaker, token)) {
+    const b = readLock(breaker);
+    if (b && isStale(b)) {
+      try {
+        unlinkSync(breaker);
+      } catch {
+      }
+    }
+    return;
+  }
+  try {
+    const held = readLock(lock);
+    if (held && isStale(held)) {
+      try {
+        unlinkSync(lock);
+      } catch {
+      }
+    }
+  } finally {
+    release(breaker, token);
+  }
+}
+function acquire(lock) {
+  const token = newToken();
+  const deadline = Date.now() + lockTimeoutMs();
+  for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
+    if (create(lock, token)) return token;
+    const held = readLock(lock);
+    if (held && isStale(held)) {
+      reclaim(lock);
+      if (!readLock(lock)) continue;
+    }
+    if (Date.now() > deadline) {
+      throw new LedgerError(`ledger busy: another writer holds ${lock}, so nothing was written. Retry; if no review is running, remove the lock file.`);
+    }
+    sleep(wait + Math.floor(Math.random() * wait));
+  }
+}
+function release(lock, token) {
+  if (readLock(lock)?.text !== token) return;
+  try {
+    unlinkSync(lock);
+  } catch {
+  }
 }
 function startRound(ledger, { base, head, lenses = [], models = [], pastCap = false, depth = null }) {
   if (!base || !head) throw new LedgerError("start needs --base and --head");
@@ -5001,12 +5119,7 @@ function buildProgram(state = { exitCode: 0 }) {
   lens.command("run <lens>").description("Run one lens through another model's CLI and print its findings as JSON.").addOption(new Option("--via <cli>", "model CLI to run").choices(VIAS).makeOptionMandatory()).requiredOption("--context <dir>", "directory written by pin").option("--model <id>", "model to ask for").option("--repo-dir <path>", "repository the model may read (default: cwd)").action((name, o) => print(runLens(name, { via: o.via, context: o.context, model: o.model, repoDir: o.repoDir })));
   const led = program2.command("ledger").description("The review ledger: rounds, findings, decisions and dispositions for one PR or branch.");
   const keyed = (name, description) => led.command(name).description(description).requiredOption("--repo <owner/repo>", "repository").requiredOption("--key <pr|branch>", "PR number or branch name");
-  const withLedger = (fn) => (o) => {
-    const l = load2(o.repo, o.key);
-    const result = fn(l, o);
-    save(l);
-    print(result);
-  };
+  const withLedger = (fn) => (o) => print(update(o.repo, o.key, (l) => fn(l, o)));
   keyed("path", "Print the ledger file path.").action((o) => print(ledgerPath(o.repo, o.key)));
   keyed("start", "Start a review round.").requiredOption("--base <sha>", "merge base").requiredOption("--head <sha>", "reviewed head").option("--lenses <a,b>", "lenses chosen for this round").option("--models <m1,m2>", "models planned for this round").option("--past-cap", `start a round past ${MAX_ROUNDS}, only when a person asks for it`).addOption(new Option("--depth <depth>", "review depth, from context.json").choices(DEPTHS)).action(
     withLedger((l, o) => ({
