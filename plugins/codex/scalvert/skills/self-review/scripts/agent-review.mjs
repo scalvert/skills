@@ -6611,12 +6611,25 @@ function link(ledger, id, { thread, url }) {
   finding.thread = { id: thread, url: url ?? null, at: (/* @__PURE__ */ new Date()).toISOString() };
   return finding.thread;
 }
-function dispose(ledger, id, as, note) {
+var CLEARING2 = /* @__PURE__ */ new Set(["wrong", "intended", "not-worth-it"]);
+var DISQUALIFYING = /* @__PURE__ */ new Set(["blocker", "should-fix"]);
+var ACTOR3 = /^(human|agent):[^\s]/;
+function checkDisposeActor(finding, as, actor) {
+  if (actor != null && !ACTOR3.test(actor)) throw new LedgerError(`--actor must be human:<name> or agent:<runtime>, got "${actor}"`);
+  const sev = finding.decisions?.["finding-severity"]?.label ?? null;
+  const judgment = finding.decisions?.["finding-triage"]?.label === "needs-judgment";
+  const person = judgment || CLEARING2.has(as) && (sev === null || DISQUALIFYING.has(sev));
+  if (person && !actor?.startsWith("human:")) {
+    const what = judgment ? "it needs judgment" : `it is ${sev ?? "unrated"}`;
+    throw new LedgerError(`only a person can mark ${finding.id} ${as}: ${what}. Ask them, then pass --actor human:<name>`);
+  }
+}
+function dispose(ledger, id, as, note, { actor = null } = {}) {
   if (RETIRED[as]) throw new LedgerError(`--as ${as} was split; use ${RETIRED[as]}`);
   if (!DISPOSITIONS2.includes(as)) throw new LedgerError(`--as must be one of ${DISPOSITIONS2.join(", ")}`);
   const finding = ledger.findings.find((f) => f.id === id);
   if (!finding) throw new LedgerError(`no finding ${id}`);
-  finding.disposition = { as, note: note ?? null, at: (/* @__PURE__ */ new Date()).toISOString() };
+  finding.disposition = { as, note: note ?? null, at: (/* @__PURE__ */ new Date()).toISOString(), ...actor ? { actor } : {} };
   return finding;
 }
 var LENS_NAME = /^[a-z][a-z-]*$/;
@@ -7281,11 +7294,13 @@ function resolvePlan({ depth, lenses, host: host2, config = {} }) {
     warnings
   };
 }
-function pickVerifier(plan, author, config = {}) {
+function pickVerifier(plan, author, config = {}, exclude = []) {
   const authorFamily = family(author);
+  const used = new Set(exclude);
   const all = Object.values(plan.host && config.hosts?.[plan.host] || {}).flat();
-  const model = [...plan.verifier.models, ...all].find((m) => family(m) !== authorFamily) ?? null;
-  return { model, family: model ? family(model) : null, thinking: plan.verifier.thinking, ...model ? {} : { note: "no model from another family is configured; pick one yourself" } };
+  const model = [...plan.verifier.models, ...all].find((m) => family(m) !== authorFamily && !used.has(m)) ?? null;
+  const note = used.size ? "no other model from another family is configured; pick one yourself" : "no model from another family is configured; pick one yourself";
+  return { model, family: model ? family(model) : null, thinking: plan.verifier.thinking, ...model ? {} : { note } };
 }
 function pickTiebreak(plan, exclude = [], config = {}) {
   const seen = new Set(exclude.map(family));
@@ -7689,7 +7704,7 @@ function buildProgram(state = { exitCode: 0 }) {
     return context.plan;
   };
   plan.command("show").description("Print the plan for a pinned change.").requiredOption("--context <dir>", "directory written by pin").action((o) => print(planOf(o.context)));
-  plan.command("verifier").description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--author <provider/model>", "model that wrote the finding").action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config)));
+  plan.command("verifier").description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--author <provider/model>", "model that wrote the finding").option("--exclude <m1,m2>", "models that already verified the finding; pass the first verifier when picking a second").action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config, list2(o.exclude))));
   plan.command("tiebreak").description("Pick a tie-break model from a family no earlier model on the finding used.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--exclude <m1,m2>", "models that already judged the finding").action((o) => print(pickTiebreak(planOf(o.context), list2(o.exclude), loadUserConfig().config)));
   plan.command("config").description("Print the user config path and its checked contents.").action(() => print(loadUserConfig()));
   const lens = program2.command("lens").description("Review lens prompts, and running a lens on another model family.");
@@ -7729,11 +7744,14 @@ function buildProgram(state = { exitCode: 0 }) {
       (l, o) => report(l, Number(o.threshold), { allowMissing: o.allowMissing === true, keep: list2(o.keep) })
     )
   );
-  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").action(async (o) => {
+  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").option("--actor <actor>", "who decided: human:<name>, or agent:<runtime> (default AGENT_REVIEW_ACTOR); clearing a blocker, a should-fix, an unrated or a needs-judgment finding needs human:").action(async (o) => {
     if (o.note != null && o.noteFile != null) throw new LedgerError("use --note or --note-file, not both");
     const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync9(o.noteFile, "utf8")).trim() : o.note;
+    const actor = o.actor ?? process.env.AGENT_REVIEW_ACTOR ?? null;
     withLedger((l) => {
-      dispose(l, o.id, o.as, note);
+      const finding = l.findings.find((f) => f.id === o.id);
+      if (finding) checkDisposeActor(finding, o.as, actor);
+      dispose(l, o.id, o.as, note, { actor });
       return { id: o.id, disposition: o.as };
     })(o);
   });

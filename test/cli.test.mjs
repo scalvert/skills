@@ -171,12 +171,56 @@ test("ledger link saves a thread that ledger open returns, and dispose reads not
   const reply = "Intended: the cursor counts as an item. $(touch /tmp/should-not-run)";
   const file = join(mkdtempSync(join(tmpdir(), "note-")), "reason.txt");
   writeFileSync(file, `${reply}\n`);
-  run(["dispose", "--id", "F1", "--as", "intended", "--note-file", file]);
-  run(["dispose", "--id", "F2", "--as", "wrong", "--note-file", "-"], reply);
+  run(["dispose", "--id", "F1", "--as", "intended", "--note-file", file, "--actor", "human:steve"]);
+  run(["dispose", "--id", "F2", "--as", "wrong", "--note-file", "-", "--actor", "human:steve"], reply);
   const both = cli(["ledger", "dispose", ...key, "--id", "F3", "--as", "wrong", "--note", "x", "--note-file", file], { env });
   assert.notEqual(both.status, 0);
   assert.match(both.stderr, /--note or --note-file, not both/);
   const path = cli(["ledger", "path", ...key], { env }).stdout.trim();
   const saved = JSON.parse(readFileSync(path, "utf8"));
   assert.deepEqual(saved.findings.slice(0, 2).map((f) => f.disposition.note), [reply, reply]);
+  assert.equal(saved.findings[0].disposition.actor, "human:steve");
+});
+
+test("ledger dispose: only a person clears a v1 blocker, should-fix, unrated or needs-judgment finding", () => {
+  const env = { ...process.env, AGENT_REVIEWS_STATE_DIR: mkdtempSync(join(tmpdir(), "cli-dispose-")) };
+  delete env.AGENT_REVIEW_ACTOR;
+  const key = ["--repo", "o/r", "--key", "6"];
+  const raw = (args, input) => cli(["ledger", ...args, ...key], { env, input });
+  const run = (args, input) => {
+    const r = raw(args, input);
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(r.stdout);
+  };
+  run(["start", "--base", "b", "--head", "h", "--lenses", "correctness"]);
+  run(["ran", "--lens", "correctness", "--model", "glean/GPT6_1_SOL"]);
+  const finding = (line) => ({ lens: "correctness", file: "src/a.js", line, title: "t", precondition: "p", scenario: "s" });
+  run(["add"], JSON.stringify([1, 50, 90, 130, 170].map(finding)));
+  const decide = (id, kind, label) => run(["decide", "--id", id, "--kind", kind, "--json", JSON.stringify({ label, probability: 0.9 })]);
+  for (const id of ["F1", "F2", "F3", "F4", "F5"]) decide(id, "finding-verification", "confirmed");
+  decide("F1", "finding-severity", "blocker");
+  decide("F1", "finding-origin", "introduced");
+  decide("F2", "finding-severity", "should-fix");
+  decide("F4", "finding-severity", "nit");
+  decide("F5", "finding-severity", "nit");
+  decide("F5", "finding-triage", "needs-judgment");
+  run(["report"]);
+
+  for (const [id, why] of [["F1", /it is blocker/], ["F2", /it is should-fix/], ["F3", /it is unrated/], ["F5", /it needs judgment/]]) {
+    for (const actor of [[], ["--actor", "agent:test"]]) {
+      const r = raw(["dispose", "--id", id, "--as", "wrong", ...actor]);
+      assert.notEqual(r.status, 0, `${id} ${actor.join(" ")}`);
+      assert.match(r.stderr, /only a person can mark/);
+      assert.match(r.stderr, why);
+    }
+  }
+  assert.match(raw(["dispose", "--id", "F1", "--as", "wrong", "--actor", "steve"]).stderr, /--actor must be human:<name> or agent:<runtime>/);
+  // An agent may record a fix, or clear a nit.
+  run(["dispose", "--id", "F1", "--as", "fixed", "--actor", "agent:test"]);
+  run(["dispose", "--id", "F4", "--as", "not-worth-it", "--actor", "agent:test"]);
+  run(["dispose", "--id", "F2", "--as", "intended", "--actor", "human:steve"]);
+  const r = cli(["ledger", "dispose", ...key, "--id", "F3", "--as", "wrong"], { env: { ...env, AGENT_REVIEW_ACTOR: "human:steve" } });
+  assert.equal(r.status, 0, "the actor can come from AGENT_REVIEW_ACTOR");
+  const saved = JSON.parse(readFileSync(cli(["ledger", "path", ...key], { env }).stdout.trim(), "utf8"));
+  assert.deepEqual(saved.findings.map((f) => f.disposition?.actor ?? null), ["agent:test", "human:steve", "human:steve", "agent:test", null]);
 });
