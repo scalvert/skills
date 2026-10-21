@@ -114,7 +114,7 @@ For text that will be posted to GitHub, such as a PR description, a review comme
 node <skill>/scripts/agent-review.mjs prose --github draft.md
 ```
 
-It also flags code outside backticks, escaped backticks, ledger IDs such as F1, unclosed backticks, and code blocks with no language.
+It also flags code outside backticks, escaped backticks, a review's finding numbers and internal keys ("finding 2", F1), unclosed backticks, and code blocks with no language.
 
 ## Final check
 

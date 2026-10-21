@@ -314,7 +314,7 @@ export function buildProgram(state = { exitCode: 0 }) {
     .command("prose [files...]")
     .description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.")
     .option("--json", "print findings as JSON")
-    .option("--github", "also check text bound for GitHub: finding IDs, code outside backticks, broken Markdown")
+    .option("--github", "also check text bound for GitHub: finding numbers and IDs, code outside backticks, broken Markdown")
     .action(async (files, o) => {
       const inputs = files.length ? files.map((f) => [f, readFileSync(f, "utf8")]) : [["<stdin>", await readStdin()]];
       const run = o.github ? checkGithub : checkProse;

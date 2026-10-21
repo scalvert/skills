@@ -11,6 +11,11 @@ test("flags ledger IDs in text bound for GitHub", () => {
   assert.deepEqual(rules("Fixed in `F1` on purpose."), []);
 });
 
+test("flags the review's finding numbers in text bound for GitHub", () => {
+  assert.deepEqual(rules("Finding 2: the loop never ends. Same as finding #3 and candidate 1."), ["finding number: Finding 2", "finding number: finding #3", "finding number: candidate 1"]);
+  assert.deepEqual(rules("Two findings in this file, and 3 candidates."), []);
+});
+
 test("flags code outside backticks, once per piece of code", () => {
   assert.deepEqual(codeFlags("listThreads() in src/page.js:12 returns one extra item."), ["listThreads()", "src/page.js:12"]);
   assert.deepEqual(codeFlags("Read opts.repoDir and ledger.rounds."), ["opts.repoDir", "ledger.rounds"]);

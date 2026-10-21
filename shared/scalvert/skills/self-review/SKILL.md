@@ -32,12 +32,12 @@ For each reported finding that triage marked `agent-fixable`:
 2. Add or update a test when the finding is about behavior.
 3. Run the repo's checks from `AGENTS.md` (build, tests, lint).
 
-Put all of these fixes in one commit, separate from the work it reviews, titled `fix: address self-review findings`. List the findings by title in the body, not by finding ID. If the checks fail and the fix is not clear, revert that fix and move the finding to the needs-judgment list.
+Put all of these fixes in one commit, separate from the work it reviews, titled `fix: address self-review findings`. List the findings by title in the body, not by number. If the checks fail and the fix is not clear, revert that fix and move the finding to the needs-judgment list.
 
 Then record each fixed finding:
 
 ```sh
-node <skill>/scripts/agent-review.mjs review dispose --repo <repo> --key <key> --finding F3 --as fixed --actor <actor>
+node <skill>/scripts/agent-review.mjs review dispose --repo <repo> --key <key> --finding <n> --as fixed --actor <actor>
 ```
 
 {{> review-report}}

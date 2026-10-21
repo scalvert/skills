@@ -219,6 +219,9 @@ function notCode(token, kind) {
 // replies, PR descriptions. On top of the prose rules it flags:
 //
 //   finding ID             F1, F2: ledger keys that mean nothing on GitHub
+//   finding number         finding 2, candidate 3: numbers from the review
+//                          in this conversation, which a reader on GitHub
+//                          never saw
 //   escaped backtick       \` renders as a literal backtick, not code; this is
 //                          what a body inlined in a shell string turns into
 //   unformatted code       code outside backticks (calls, paths, flags, identifiers)
@@ -252,6 +255,7 @@ export function checkGithub(text) {
   maskExempt(text, { links: true }).map(html).forEach((line, i) => {
     const n = i + 1;
     for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
+    for (const m of line.matchAll(/\b(?:finding|candidate)s?\s+#?\d+\b/gi)) add(n, "finding number", m[0]);
     // Patterns run from widest to narrowest. A match inside one already
     // reported (repoDir inside opts.repoDir) is the same code, reported once.
     const covered = [];

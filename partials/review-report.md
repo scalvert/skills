@@ -7,19 +7,19 @@ Use this shape, and nothing longer than the content needs:
 
 **Blockers**
 
-1. `path/file.ts:42` <title>. <scenario in one or two sentences>. <evidence: the call path or repro>. Also at `path/other.ts:7`. (Found by 3 reviewers on 2 model families.)
+**1.** `path/file.ts:42` <title>. <scenario in one or two sentences>. <evidence: the call path or repro>. Also at `path/other.ts:7`. (Found by 3 reviewers on 2 model families.)
 
 **Should fix**
 
-2. ...
+**2.** ...
 
 **Pre-existing** (not from this change)
 
-3. ...
+**3.** ...
 
 **Smaller items** (at most 5; drop the rest)
 
-4. ...
+**4.** ...
 
 **Checked:** <depth> review: <lenses run>, on <model families>, at <short head SHA>. <What you ran, such as tests or a repro, or "Read only.">
 **Not checked:** <anything a reader might assume you covered but you did not>.
@@ -34,8 +34,9 @@ Rules for the prose:
   - `needs-a-person`: `**Verdict:** Needs a decision from a person.`, then one line for each item in `waiting`: what is disputed or changed, and what the person must decide. Then the findings as usual.
 - Put each finding in the section the report output gives it. Leave out a section that has no findings. A finding in `unrated` has no severity: record one and run the report again.
 - For each item in `rejected`, add one line after the verdict: what was rejected, by whom, and their reason.
-- A finding with a `repeatOf` may not be new. End its entry with one line: `This may repeat <the earlier finding's title>, which was <closed as intended | still open>.` A person decides whether it is the same problem. A finding with `recurs` ends with: `This came back after an earlier fix.`
-- Number the findings 1, 2, 3 in report order, across sections, using `n` from the report output. Leave a blank line between each section heading and its list: without it, a list that starts above 1 renders as plain text. Never show finding IDs (F1, F2): they mean nothing to anyone else. Keep the map from number to finding ID for later commands in this conversation, so the user can say "fix 2".
+- A finding with a `repeatOf` may not be new. End its entry with one line: `This may repeat finding <n>, <its title>, which was <closed as intended | still open>.` An earlier finding from before the harness has no number: give its title only. A person decides whether it is the same problem. A finding with `recurs` ends with: `This came back after an earlier fix.`
+- Start each finding with its number `n` from the report output, in bold, as its own paragraph: `**2.**`. Do not use a Markdown numbered list. It renumbers from its first item, and the numbers shown must be the review's. The harness gives the numbers in report order, and they continue across rounds, so a follow-up's first new finding may be 4. Leave any gap as it is.
+- The user names a finding by its number ("fix 2"), and commands take the same number (`--finding 2`). No other ID exists for you to show.
 - One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item. Leave out praise and summaries of the diff.
 - Mark a finding whose origin is `missed` with "missed in an earlier round". Mark a finding with a non-empty `recurs` with "came back after an earlier fix".
 - Put code in backticks: identifiers, calls, paths, `file:line`, commands, flags and values.
@@ -43,5 +44,5 @@ Rules for the prose:
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.
 - Leave out the dropped findings. They stay in the review's history.
 
-Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report.
+Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report. A finding number is a flag to fix only in the draft comments. The report is for this conversation, and keeps its numbers.
 
