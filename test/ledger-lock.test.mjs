@@ -59,13 +59,34 @@ test("a lock left by a crashed writer is recovered", () => {
   assert.ok(!existsSync(lock));
 });
 
-test("a lock older than 30 seconds is recovered, even if its PID is in use", () => {
+test("a lock held by a live process is never removed, however old: the writer reports busy", () => {
   const { env, path, lock, file } = setup();
   writeFileSync(lock, JSON.stringify({ pid: process.pid, id: "old" }));
   const old = new Date(Date.now() - 60_000);
   utimesSync(lock, old, old);
+  const r = spawnSync("node", [CLI, "ledger", "add", ...K, "--file", file], { env: { ...env, AGENT_REVIEWS_LOCK_TIMEOUT_MS: "200" }, encoding: "utf8" });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /ledger busy/);
+  assert.ok(existsSync(lock));
+  assert.equal(findings(path), 0);
+});
+
+test("an old lock with no readable PID is recovered, and only the breaker's holder reclaims", () => {
+  const { env, path, lock, file } = setup();
+  writeFileSync(lock, "");
+  const old = new Date(Date.now() - 60_000);
+  utimesSync(lock, old, old);
+  // A live waiter holds the breaker: this writer leaves the lock alone.
+  writeFileSync(`${lock}.break`, JSON.stringify({ pid: process.pid, id: "breaker" }));
+  const r = spawnSync("node", [CLI, "ledger", "add", ...K, "--file", file], { env: { ...env, AGENT_REVIEWS_LOCK_TIMEOUT_MS: "200" }, encoding: "utf8" });
+  assert.match(r.stderr, /ledger busy/);
+  assert.ok(existsSync(lock));
+  // That waiter crashed: its breaker is cleared, then the stale lock.
+  const gone = spawnSync("node", ["-e", "process.stdout.write(String(process.pid))"], { encoding: "utf8" }).stdout;
+  writeFileSync(`${lock}.break`, JSON.stringify({ pid: Number(gone), id: "breaker" }));
   execFileSync("node", [CLI, "ledger", "add", ...K, "--file", file], { env });
   assert.equal(findings(path), 1);
+  assert.ok(!existsSync(`${lock}.break`));
 });
 
 // Agents record runs and findings in parallel. Before the lock, 40 parallel

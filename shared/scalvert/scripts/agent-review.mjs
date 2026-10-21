@@ -4081,6 +4081,7 @@ var STALE_LOCK_MS = 3e4;
 var lockTimeoutMs = () => Number(process.env.AGENT_REVIEWS_LOCK_TIMEOUT_MS) || 1e4;
 var sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 function alive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
     return true;
@@ -4096,35 +4097,63 @@ function readLock(lock) {
   }
 }
 function isStale({ text, mtimeMs }) {
-  if (Date.now() - mtimeMs > STALE_LOCK_MS) return true;
+  let pid;
   try {
-    return !alive(JSON.parse(text).pid);
+    pid = JSON.parse(text).pid;
   } catch {
+    return Date.now() - mtimeMs > STALE_LOCK_MS;
+  }
+  return !alive(pid);
+}
+var newToken = () => JSON.stringify({ pid: process.pid, id: randomBytes(6).toString("hex"), at: (/* @__PURE__ */ new Date()).toISOString() });
+function create(path2, token) {
+  try {
+    const fd = openSync(path2, "wx");
+    try {
+      writeSync(fd, token);
+    } finally {
+      closeSync(fd);
+    }
+    return true;
+  } catch (e) {
+    if (e.code !== "EEXIST") throw e;
     return false;
   }
 }
-function acquire(lock) {
-  const token = JSON.stringify({ pid: process.pid, id: randomBytes(6).toString("hex"), at: (/* @__PURE__ */ new Date()).toISOString() });
-  const deadline = Date.now() + lockTimeoutMs();
-  for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
-    try {
-      const fd = openSync(lock, "wx");
-      writeSync(fd, token);
-      closeSync(fd);
-      return token;
-    } catch (e) {
-      if (e.code !== "EEXIST") throw e;
+function reclaim(lock) {
+  const breaker = `${lock}.break`;
+  const token = newToken();
+  if (!create(breaker, token)) {
+    const b = readLock(breaker);
+    if (b && isStale(b)) {
+      try {
+        unlinkSync(breaker);
+      } catch {
+      }
     }
+    return;
+  }
+  try {
     const held = readLock(lock);
     if (held && isStale(held)) {
-      const again = readLock(lock);
-      if (again && again.text === held.text && again.mtimeMs === held.mtimeMs) {
-        try {
-          unlinkSync(lock);
-        } catch {
-        }
+      try {
+        unlinkSync(lock);
+      } catch {
       }
-      continue;
+    }
+  } finally {
+    release(breaker, token);
+  }
+}
+function acquire(lock) {
+  const token = newToken();
+  const deadline = Date.now() + lockTimeoutMs();
+  for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
+    if (create(lock, token)) return token;
+    const held = readLock(lock);
+    if (held && isStale(held)) {
+      reclaim(lock);
+      if (!readLock(lock)) continue;
     }
     if (Date.now() > deadline) {
       throw new LedgerError(`ledger busy: another writer holds ${lock}, so nothing was written. Retry; if no review is running, remove the lock file.`);

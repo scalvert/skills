@@ -123,9 +123,13 @@ export function save(ledger) {
 // and writes nothing. If fn throws, nothing is saved.
 //
 // The lock is a file created with O_EXCL next to the ledger. A lock whose
-// process is gone, or that is older than STALE_LOCK_MS, was left by a crash
-// and is removed. This covers writers on one machine, not a shared network
-// state directory.
+// process is gone was left by a crash and is removed, but only by whoever
+// holds a short breaker lock (<lock>.break), and only after reading it again
+// under the breaker, so two waiters never reclaim at once and delete each
+// other's live lock. A lock held by a live process is never removed, however
+// old; the writer reports busy. A lock with no readable PID is stale once it
+// is older than STALE_LOCK_MS. This covers writers on one machine, not a
+// shared network state directory.
 export function update(repo, key, fn) {
   const path = ledgerPath(repo, key);
   mkdirSync(dirname(path), { recursive: true });
@@ -146,6 +150,7 @@ const lockTimeoutMs = () => Number(process.env.AGENT_REVIEWS_LOCK_TIMEOUT_MS) ||
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 function alive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
     return true;
@@ -162,40 +167,72 @@ function readLock(lock) {
   }
 }
 
-// A lock is stale when its writer is gone, or when it is too old to belong to
-// a running command (this also covers a reused PID). A lock with no content
-// yet is being created right now and is stale only by age.
+// Stale only when its writer is gone. A lock with no readable PID, left by a
+// crash while it was being created, is stale only by age.
 function isStale({ text, mtimeMs }) {
-  if (Date.now() - mtimeMs > STALE_LOCK_MS) return true;
+  let pid;
   try {
-    return !alive(JSON.parse(text).pid);
+    pid = JSON.parse(text).pid;
   } catch {
+    return Date.now() - mtimeMs > STALE_LOCK_MS;
+  }
+  return !alive(pid);
+}
+
+const newToken = () => JSON.stringify({ pid: process.pid, id: randomBytes(6).toString("hex"), at: new Date().toISOString() });
+
+function create(path, token) {
+  try {
+    const fd = openSync(path, "wx");
+    try {
+      writeSync(fd, token);
+    } finally {
+      closeSync(fd);
+    }
+    return true;
+  } catch (e) {
+    if (e.code !== "EEXIST") throw e;
     return false;
   }
 }
 
-function acquire(lock) {
-  const token = JSON.stringify({ pid: process.pid, id: randomBytes(6).toString("hex"), at: new Date().toISOString() });
-  const deadline = Date.now() + lockTimeoutMs();
-  for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
-    try {
-      const fd = openSync(lock, "wx");
-      writeSync(fd, token);
-      closeSync(fd);
-      return token;
-    } catch (e) {
-      if (e.code !== "EEXIST") throw e;
+// Remove a stale lock while holding the breaker. A breaker left by a crash is
+// cleared when its process is gone.
+function reclaim(lock) {
+  const breaker = `${lock}.break`;
+  const token = newToken();
+  if (!create(breaker, token)) {
+    const b = readLock(breaker);
+    if (b && isStale(b)) {
+      try {
+        unlinkSync(breaker);
+      } catch {}
     }
+    return;
+  }
+  try {
     const held = readLock(lock);
     if (held && isStale(held)) {
-      // Remove it only if it is still the same stale lock.
-      const again = readLock(lock);
-      if (again && again.text === held.text && again.mtimeMs === held.mtimeMs) {
-        try {
-          unlinkSync(lock);
-        } catch {}
-      }
-      continue;
+      try {
+        unlinkSync(lock);
+      } catch {}
+    }
+  } finally {
+    release(breaker, token);
+  }
+}
+
+function acquire(lock) {
+  const token = newToken();
+  const deadline = Date.now() + lockTimeoutMs();
+  for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
+    if (create(lock, token)) return token;
+    const held = readLock(lock);
+    if (held && isStale(held)) {
+      reclaim(lock);
+      // Retry at once only if the lock is gone; otherwise wait, so the
+      // deadline still applies.
+      if (!readLock(lock)) continue;
     }
     if (Date.now() > deadline) {
       throw new LedgerError(`ledger busy: another writer holds ${lock}, so nothing was written. Retry; if no review is running, remove the lock file.`);
