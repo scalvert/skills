@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@gleanwork/pluginpack": "^0.11.1",
-    "agent-review": "github:scalvert/agent-review#77d25c4c9730f7eb787774be8ea6c6c15c5d826b",
+    "agent-review": "github:scalvert/agent-review#v0.2.0",
     "commander": "15.0.0",
     "esbuild": "0.28.2"
   },
