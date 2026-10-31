@@ -77,4 +77,8 @@ In a Markdown file, each fenced block tagged `text` is one post. Any other file 
 
 Errors exit 1. Fix each flag, or keep it for a reason you tell the user. Then run write-clearly's script check, if it's installed. Open every URL in the posts and confirm it resolves. The script can't judge voice: reread each post next to the author's own posts.
 
-Deliver the drafts in a Markdown file with one fenced `text` block per post. Above the blocks, add short notes: the media for each post, the posting order and spacing, and anything the user must do in LinkedIn's editor, such as tags. In chat, give the file path and a one-line summary of each post. Don't paste the full posts unless asked.
+Deliver the drafts in a Markdown file with one fenced `text` block per post. Above the blocks, add short notes: the media for each post, the posting order and spacing, and anything the user must do in LinkedIn's editor, such as tags.
+
+Also write each post to its own plain-text file (`post-1.txt`, `post-2.txt`, ...), byte for byte the same as its block. Copying from a Markdown preview or a rendered file view collapses the line breaks, so the user would have to reformat the post. On macOS, put the first post on the clipboard with `pbcopy < post-1.txt`, and check with `pbpaste` that the line count matches.
+
+In chat, give the file paths and a one-line summary of each post. Don't paste the full posts in chat unless asked, because the chat view also collapses line breaks.
