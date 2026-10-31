@@ -20,6 +20,10 @@ Work through a PR's unresolved review threads. Each claim is verified against th
 
 Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, a review's finding numbers and internal keys ("finding 2", F2), unbalanced backticks and code blocks with no language.
 
+### `write-linkedin-post`
+
+Draft LinkedIn posts, or a series of them, to share a project, release, video or article. The hook comes before the "see more" fold, the text is plain because LinkedIn renders no Markdown, every claim has a source, and media is uploaded natively. Includes `check-post.mjs`, which flags posts over 3,000 characters, hooks that run past the fold, Markdown and Unicode bold that LinkedIn shows as typed, emoji, dashes, hashtag piles, stock openers and engagement bait. Never posts anything.
+
 ### `assess-release-readiness`
 
 Assess whether a release, milestone, merge or package is ready. A panel of specialist agents reviews the same subject independently, then the agents cross-check each other's findings and agree on one prioritized report. Formerly `agent-council`.
