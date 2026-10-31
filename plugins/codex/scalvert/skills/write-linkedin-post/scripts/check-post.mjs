@@ -52,7 +52,7 @@ export function checkPost(post) {
   ];
   for (const [re, what] of markdown) if (re.test(post)) errors.push(`${what}: LinkedIn shows it as typed`);
   if (/[\u{1D400}-\u{1D7FF}]/u.test(post)) errors.push("Unicode bold or italic letters: screen readers spell them out");
-  if (/\p{Extended_Pictographic}/u.test(post)) errors.push("emoji");
+  if (/\p{Extended_Pictographic}/u.test(post)) warnings.push("emoji: keep only if the author uses them in their own posts");
   if (/[\u2014\u2013]|\s--\s/.test(post)) errors.push("an em dash, en dash, or double hyphen used as a dash");
 
   const tags = post.match(/(^|\s)#[\p{L}\p{N}_]+/gu) ?? [];

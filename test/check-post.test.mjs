@@ -19,9 +19,10 @@ test("a clean post has no errors or warnings, and lists its links", () => {
   assert.equal(r.fold, clean.slice(0, FOLD));
 });
 
-test("Markdown, Unicode bold, emoji, and dashes are errors", () => {
+test("Markdown, Unicode bold, and dashes are errors; emoji is a warning", () => {
   const r = checkPost("**Big** idea with `code`, a [link](https://x.y) \u{1D5D5}old, and \u{1F680} \u2014 here.");
-  assert.equal(r.errors.length, 6, r.errors.join("\n"));
+  assert.equal(r.errors.length, 5, r.errors.join("\n"));
+  assert.match(r.warnings.join("\n"), /emoji/);
 });
 
 test("a post over the limit is an error", () => {

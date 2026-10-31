@@ -9,6 +9,7 @@ Draft posts the user publishes themselves. Never post, schedule, or message anyo
 
 ## 1. Gather before writing
 
+- **The author's past posts, first.** Read three or more of the author's own LinkedIn posts, not reposts, before drafting. Use their activity page (`linkedin.com/in/<handle>/recent-activity/all/`) in a browser where they're signed in, or ask them to paste some. Note how they open, how long their paragraphs are, how they format lists, their asides, how they close, and whether they use emoji, hashtags, or the Oxford comma. Match those habits. They override the defaults in this skill. If the author already posted about the subject, build on that post ("Quick recap if you missed the 2.0 post") rather than introducing it again, and check what has changed since.
 - **The subject.** Read what the post is about: the README, docs page, changelog, release notes, script, or transcript. Don't write from memory.
 - **One source per claim.** Every factual claim (what it does, how, numbers, names) needs a source you read. Drop a claim you can't source, or ask.
 - **What's actually new.** Check release dates or the changelog before calling anything "new", "just shipped", or "launched". A feature from an older release is "how X works", not news.
@@ -17,7 +18,7 @@ Draft posts the user publishes themselves. Never post, schedule, or message anyo
 
 ## 2. Find the voice
 
-A personal post shows something the author made or found and thinks is worth seeing. It isn't a product launch, unless the user asks for one. Launch copy is the usual failure, and readers spot it at once.
+A personal post shows something the author made or found and thinks is worth seeing. It isn't a product launch, unless the user asks for one. Launch copy is the usual failure, and readers spot it at once. The author's own posts are the real target: use this table only where they don't settle a question.
 
 | Personal | Launch copy (avoid) |
 | --- | --- |
@@ -46,7 +47,7 @@ LinkedIn shows the text as typed and renders no Markdown.
 - No `**bold**`, `_italics_`, headings, backticks, or `[text](url)` links. They appear as literal characters. Write code names and file names as plain words: docs_fetch, SKILL.md.
 - No "bold" or "italic" Unicode letters. Screen readers spell them out, and search doesn't find them.
 - Use a blank line between paragraphs. Use `1.` lists for steps, and plain sentences for everything else.
-- No emoji or hashtags unless the user asks for them. If they do, put at most three hashtags at the end.
+- Use emoji and hashtags only as the author does in their own posts. Put at most three hashtags at the end.
 - Typing a name doesn't tag the person or company. Write the name, and tell the user to tag it in LinkedIn's editor.
 - Follow the write-clearly skill (no em dashes, no AI phrasing, plain words) if it's installed.
 
@@ -69,10 +70,11 @@ In a Markdown file, each fenced block tagged `text` is one post. Any other file 
 - over 3,000 characters;
 - a hook that runs past the fold;
 - Markdown that LinkedIn won't render;
-- Unicode bold letters, emoji, and dashes;
+- Unicode bold letters and dashes;
+- emoji, which are fine only if the author uses them;
 - more than three hashtags;
 - stock openers and engagement bait.
 
-Errors exit 1. Fix each flag, or keep it for a reason you tell the user. Then run write-clearly's script check, if it's installed. Open every URL in the posts and confirm it resolves. The script can't judge voice: reread each post against the table in step 2.
+Errors exit 1. Fix each flag, or keep it for a reason you tell the user. Then run write-clearly's script check, if it's installed. Open every URL in the posts and confirm it resolves. The script can't judge voice: reread each post next to the author's own posts.
 
 Deliver the drafts in a Markdown file with one fenced `text` block per post. Above the blocks, add short notes: the media for each post, the posting order and spacing, and anything the user must do in LinkedIn's editor, such as tags. In chat, give the file path and a one-line summary of each post. Don't paste the full posts unless asked.
