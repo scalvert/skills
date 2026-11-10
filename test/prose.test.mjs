@@ -90,6 +90,8 @@ test("flags patterns that a fixed phrase cannot catch", () => {
     ["The parser plays a crucial role in the pipeline.", "plays a key role"],
     ["It's not a cache, it's a ledger.", "it's not X, it's Y"],
     ["No guessing, no wasted motion.", "no X, no Y"],
+    ["It ships today. No meetings, no Slack, just code.", "no X, no Y"],
+    ["- No setup, no config", "no X, no Y"],
     ["Like most cities, it faces several challenges.", "faces challenges"],
     ["The details aren\u2019t widely documented.", "not widely documented"],
     ["The claim should be treated as tradition rather than history.", "should be treated as X rather than Y"],
@@ -112,6 +114,16 @@ test("flags watch words only when different ones share a paragraph", () => {
   // A blank line or a heading ends the paragraph.
   assert.deepEqual(check("The parser is robust.\n\nThe test is crucial."), []);
   assert.deepEqual(check("The parser is robust.\n## Tests\nThe test is crucial."), []);
+  // Each list item and table row is its own block.
+  assert.deepEqual(check("- Add a robust retry.\n- Fix the cache key.\n- Enhance the log format."), []);
+  assert.deepEqual(check("| a | robust |\n| b | enhanced |"), []);
+  // A list item that wraps onto a second line is still one block.
+  assert.equal(rules("- Add a robust retry\n  that will enhance uploads.").length, 2);
+  // Two different words are enough.
+  assert.deepEqual(rules("The robust parser will enhance throughput."), [
+    'AI vocabulary "robust" (2 in one paragraph)',
+    'AI vocabulary "enhance" (2 in one paragraph)',
+  ]);
   assert.deepEqual(
     rules("Additionally, the robust parser\nwill enhance throughput."),
     [
@@ -129,6 +141,9 @@ test("leaves ordinary technical prose alone", () => {
     "Removes the host from the URL while preserving everything else.",
     "The lock ensures one writer at a time. Use the [API key](https://example.com/key) to sign in.",
     "It's not supported on Windows. No changes are needed.",
+    "If there is no token, no request is sent. No token, no request is sent.",
+    "With no config file, no output is written.",
+    "Call insert_row to add data, or use paste_buffer.",
   ].join("\n");
   assert.deepEqual(check(clean), []);
 });

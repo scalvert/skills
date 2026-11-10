@@ -86,12 +86,20 @@ export const PATTERNS = [
   { rule: "should be treated as X rather than Y", re: /\bshould be (?:treated|understood|read|seen|presented) as [^.;]{1,80}\brather than\b/ },
   { rule: "in this section, we will", re: /\bin this (?:section|article|document|guide|post),? (?:we|i) will\b/ },
   { rule: "it's not X, it's Y", re: /\b(?:it|this|that)(?:'s| is) not [^.;:!?]{1,60}[,;] (?:it|this|that)(?:'s| is)\b/ },
-  { rule: "no X, no Y", re: /\bno [a-z]+(?: [a-z]+)?, no [a-z]+/ },
-  // [Your Name], 2026-XX-XX, INSERT_SOURCE_URL_HERE.
+  // A verbless fragment that opens a sentence: "No guessing, no wasted motion."
+  // A conditional such as "If there is no token, no request is sent." is fine.
+  {
+    rule: "no X, no Y",
+    re: /(?:^[\s>*+\-\d.)]*|[.!?:]\s+)no [a-z]+(?: [a-z]+)?, no [a-z]+(?: [a-z]+)?(?:[,.;!]|$| just\b)/,
+  },
+  // [Your Name], 2026-XX-XX, (Add your URL here).
   {
     rule: "placeholder",
-    re: /\[(?:your|insert|add|describe|link to|name of|year|date)\b[^\]]*\]|\b\d{4}-xx(?:-xx)?\b|\b(?:insert|paste)_[a-z0-9_]+|\b(?:add|insert|paste) your [^.]{1,40} here\b/,
+    re: /\[(?:your|insert|add|describe|link to|name of|year|date)\b[^\]]*\]|\b\d{4}-xx(?:-xx)?\b|\b(?:add|insert|paste) your [^.]{1,40} here\b/,
   },
+  // INSERT_SOURCE_URL_HERE. Matched on the original case, so that an
+  // identifier such as insert_row is not a placeholder.
+  { rule: "placeholder", cased: true, re: /\b(?:INSERT|PASTE)_[A-Z0-9_]+\b/ },
 ];
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -239,6 +247,7 @@ export function check(text) {
   const endParagraph = () => {
     const distinct = new Set(watched.map((w) => w.family));
     if (distinct.size >= WATCH_LIMIT) {
+      watched.sort((a, b) => a.line - b.line || a.at - b.at);
       for (const w of watched) add(w.line, `AI vocabulary "${w.word}" (${distinct.size} in one paragraph)`, w.text);
     }
     watched = [];
@@ -249,6 +258,8 @@ export function check(text) {
       endParagraph();
       return;
     }
+    // Each list item and table row is its own block.
+    if (BLOCK_START.test(line)) endParagraph();
     if (line.includes("\u2014")) add(n, "em dash", line);
     if (line.includes("\u2013")) add(n, "en dash", line);
     // A double hyphen between words is a typed dash. Table rules and CLI
@@ -263,11 +274,12 @@ export function check(text) {
     for (const [phrase, re] of PHRASE_RES) {
       if (re.test(lower)) add(n, `phrase "${phrase}"`, line);
     }
-    for (const { rule, re } of PATTERNS) {
-      if (re.test(lower)) add(n, rule, line);
+    for (const { rule, re, cased } of PATTERNS) {
+      if (re.test(cased ? line : lower)) add(n, rule, line);
     }
     for (const [word, re, family] of WATCH_RES) {
-      if (re.test(lower)) watched.push({ word, family, line: n, text: line });
+      const at = lower.search(re);
+      if (at >= 0) watched.push({ word, family, line: n, at, text: line });
     }
     if (heading) endParagraph();
   });
