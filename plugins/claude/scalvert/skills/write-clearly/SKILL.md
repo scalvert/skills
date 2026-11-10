@@ -58,27 +58,61 @@ For general, persuasive, creative, or personal writing, keep the same preference
 
 ## Humanizer pass
 
-Remove patterns that make prose sound generated, inflated, or overly polished:
+Generated text drifts toward the most likely sentence. It replaces a specific, unusual fact with a generic, positive one, so the subject becomes vaguer and more inflated at the same time. Readers who notice the patterns below stop trusting the rest of the text. Most of them come from Wikipedia's field guide, [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing).
 
-- Inflated claims about importance, impact, legacy, or broader trends.
+Fix the sentence, not the word. Each pattern usually marks an empty claim. Swapping "delve into" for "dig into" keeps the empty sentence and only hides the sign. Replace the claim with the specific fact it stands in for, or cut it.
+
+### Content
+
+- Claims about significance and legacy: "plays a pivotal role," "marks a shift," "reflects broader trends," "sets the stage for," "a testament to," "an indelible mark," "the evolving landscape." State what happened. Say what it means only when a source says so.
+- Analysis attached to a fact with an "-ing" clause: "..., highlighting its importance," "ensuring," "reflecting," "showcasing," "contributing to," "fostering." Cut it, or make it a separate sentence with evidence.
+- Vague association: "associated with," "in connection with," or "connected to" when you know the actual relation. Write "Doe ran ExampleCorp," not "Doe was associated with ExampleCorp's leadership."
+- Vague attribution and inflated consensus: "experts argue," "industry reports," "observers have cited," "several sources" for one source, or "such as" before a list that is complete. Name the source or drop the claim.
+- Coverage instead of content: saying that a source covers, features or identifies something instead of saying what it says.
 - Promotional language and unsupported praise such as "groundbreaking," "vibrant," "seamless," or "world-class."
-- Vague attributions such as "experts say" or "industry reports show" without a named source.
-- Trailing participle phrases such as "highlighting," "underscoring," "ensuring," "showcasing," or "reflecting" that add no concrete information.
-- AI-heavy vocabulary such as "delve," "foster," "garner," "interplay," "intricate," "landscape," "pivotal," "showcase," "testament," and "underscore" when a plainer word works.
-- "Serves as," "stands as," "boasts," or "features" where "is" or "has" would do.
-- Repeated "not only ... but also" and "not just ... it's" constructions.
+- Formula endings: "Despite these challenges," "faces several challenges," "continues to evolve," a "Future outlook" section, or a generic positive conclusion that adds no fact or decision.
+- Disclaimers about sources: "based on available information," "not widely documented," "while specific details are limited." If you did not find something, say once what you checked and what was missing.
+- Corrective framings nobody asked for: "X should be treated as A rather than B," "this does not by itself establish," "Y rather than X." State what is true. Use a contrast only when the reader likely holds the wrong view.
+
+### Language
+
+- AI vocabulary. These are strong signs on their own: "delve," "tapestry," "testament," "underscore," "showcase," "pivotal," "intricate," "interplay," "meticulous," "garner," "foster," "multifaceted," "deep dive," and "landscape" as an abstract noun. These are fine alone but a sign in a cluster: "additionally" at the start of a sentence, "align with," "bolster," "crucial," "emphasize," "enduring," "enhance," "highlight," "robust," "valuable," "leverage," "prioritize," "quietly," "steady," and "resonate." The favored words change with each model generation. The script holds the full list.
+- "Serves as," "stands as," "functions as," "represents," "marks," "boasts," "features," "offers," or "holds the distinction of" where "is" or "has" would do.
+- Negative parallelisms: "not only ... but also," "it's not just X, it's Y," "it's not X, it's Y," and "no X, no Y, just Z."
+- "Why this matters," "this matters because," and "the distinction matters." Say the consequence instead.
 - Forced groups of three when two items or a normal sentence would be more natural.
 - False ranges such as "from X to Y" when the endpoints are not on a meaningful scale.
-- Excessive synonym cycling, hedging, signposting, and meta-commentary.
-- Generic positive conclusions that add no fact or decision.
+- Excessive synonym cycling, hedging, signposting such as "In this section, we will discuss," and meta-commentary.
 - Trailing negations such as "no guessing" or "no wasted motion" instead of a complete clause.
 - Staccato fragments and manufactured punchlines. Use a short sentence for emphasis only when it sounds natural.
+- A run of short sentences that are all about the same length. Current models write this way, so a sentence-length target is a ceiling, not a mold. Vary the length, and join two short sentences when they carry one idea.
 - Aphorisms and abstract formulas that make an ordinary point sound profound.
-- Headings in title case when sentence case is enough.
+
+### Formatting
+
+- Headings in title case when sentence case is enough, or more than one top-level heading.
 - Emoji, decorative bolding, and lists of bold labels followed by colons, unless the requested format requires them.
 - Em dashes, en dashes, and double hyphens used as punctuation. Use a period, comma, colon, parentheses, or a clearer sentence.
+- Curly quotes and apostrophes in Markdown, code comments, commit messages, or terminal output. Leave them in text whose editor inserts them.
 
-Do not overcorrect. Perfect grammar, technical vocabulary, a formal tone, a single transition word, or a single complex sentence is not evidence of AI writing. Preserve specific details, genuine uncertainty, mixed feelings, useful asides, and natural variation in sentence length.
+### Chat left in the text
+
+- Replies to the person who asked for the text: "Certainly!", "Great question," "You're absolutely right," "I hope this helps," "Would you like me to," "Here is a detailed breakdown."
+- Instructions to that person left in the deliverable, such as "Delete this section before submitting" or "Customize this further."
+- Unfilled placeholders such as "[Your Name]," "[Year]," "2026-XX-XX," or "INSERT_URL_HERE."
+- Customer-service tone: "I have carefully reviewed," "apologize for any inconvenience," "if there are specific issues, please point them out."
+
+### Change summaries
+
+Commit messages, PR descriptions, review replies, and reports of finished work have their own signs.
+
+- Say what changed, in specifics. "Moved the retry loop into `fetchPage`" tells the reader more than "improved the structure."
+- Do not grade your own work with "improved clarity and flow," "ensured consistency," "streamlined," "enhanced readability," or "refined."
+- Do not list what you preserved, retained, avoided, or left alone, unless the reader would otherwise assume it changed.
+- Do not say that you addressed the feedback. Say what changed because of it.
+- Do not assure the reader that the work follows the rules. Name a rule only when it explains a specific change.
+
+Do not overcorrect. Perfect grammar, technical vocabulary, a formal tone, a single transition word, a single word from the cluster list, or a single complex sentence is not evidence of AI writing. Preserve specific details, genuine uncertainty, mixed feelings, useful asides, and natural variation in sentence length.
 
 ## Structure
 
@@ -106,7 +140,7 @@ Run the mechanical rules on the draft. `<skill>` is the folder that holds this S
 node <skill>/scripts/agent-review.mjs prose draft.md      # or pipe text on stdin
 ```
 
-It flags em dashes, en dashes, double hyphens used as dashes, emoji, title-case headings, and the listed AI phrases. Code blocks, inline code, URLs and block quotes are exempt. A flag is a prompt to rewrite the sentence, not to delete the word. Fix each flag or leave it on purpose for a stated reason, such as a quoted title.
+It flags em dashes, en dashes, double hyphens used as dashes, emoji, title-case headings, unfilled placeholders, and the AI phrases and sentence shapes above. It flags a cluster word only when two different ones share a paragraph. It cannot judge vague association, coverage instead of content, or a corrective framing without a fixed phrase, so check those yourself. Code blocks, inline code, URLs and block quotes are exempt. A flag is a prompt to rewrite the sentence, not to delete the word. Fix each flag or leave it on purpose for a stated reason, such as a quoted title.
 
 For text that will be posted to GitHub, such as a PR description, a review comment or a reply, add `--github`:
 
