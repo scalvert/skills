@@ -52,6 +52,8 @@
     "plugins/codex/scalvert/skills/self-review/scripts/lenses/taste.md",
     "plugins/codex/scalvert/skills/self-review/scripts/lenses/tests.md",
     "plugins/codex/scalvert/skills/write-clearly/SKILL.md",
-    "plugins/codex/scalvert/skills/write-clearly/scripts/agent-review.mjs"
+    "plugins/codex/scalvert/skills/write-clearly/scripts/agent-review.mjs",
+    "plugins/codex/scalvert/skills/write-linkedin-post/SKILL.md",
+    "plugins/codex/scalvert/skills/write-linkedin-post/scripts/check-post.mjs"
   ]
 }
