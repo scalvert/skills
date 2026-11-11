@@ -3746,13 +3746,18 @@ function check(text) {
     }
     watched = [];
   };
+  let sentenceStart = true;
   maskExempt(text).forEach((line, i) => {
     const n = i + 1;
     if (!line.trim()) {
       endParagraph();
+      sentenceStart = true;
       return;
     }
-    if (BLOCK_START.test(line)) endParagraph();
+    const block2 = BLOCK_START.test(line);
+    if (block2) endParagraph();
+    const startsSentence = sentenceStart || block2;
+    sentenceStart = /[.!?:]["')\]*_]*\s*$/.test(line);
     if (line.includes("\u2014")) add(n, "em dash", line);
     if (line.includes("\u2013")) add(n, "en dash", line);
     if (/\w\s--\s\w|\w--\w/.test(line) && !/^\s*\|/.test(line)) add(n, "double hyphen", line);
@@ -3764,8 +3769,13 @@ function check(text) {
     for (const [phrase, re] of PHRASE_RES) {
       if (re.test(lower)) add(n, `phrase "${phrase}"`, line);
     }
+    const lowerInSentence = startsSentence ? lower : `~ ${lower}`;
+    const matched = /* @__PURE__ */ new Set();
     for (const { rule, re, cased } of PATTERNS) {
-      if (re.test(cased ? line : lower)) add(n, rule, line);
+      if (!matched.has(rule) && re.test(cased ? line : lowerInSentence)) {
+        matched.add(rule);
+        add(n, rule, line);
+      }
     }
     for (const [word, re, family2] of WATCH_RES) {
       const at = lower.search(re);

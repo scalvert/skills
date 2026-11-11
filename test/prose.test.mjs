@@ -92,6 +92,7 @@ test("flags patterns that a fixed phrase cannot catch", () => {
     ["No guessing, no wasted motion.", "no X, no Y"],
     ["It ships today. No meetings, no Slack, just code.", "no X, no Y"],
     ["- No setup, no config", "no X, no Y"],
+    ["It ships today.\nNo meetings, no Slack.", "no X, no Y"],
     ["Like most cities, it faces several challenges.", "faces challenges"],
     ["The details aren\u2019t widely documented.", "not widely documented"],
     ["The claim should be treated as tradition rather than history.", "should be treated as X rather than Y"],
@@ -99,6 +100,7 @@ test("flags patterns that a fixed phrase cannot catch", () => {
     ["Founded in [Year] by [Your Name].", "placeholder"],
     ["Accessed 2025-XX-XX.", "placeholder"],
     ["See INSERT_SOURCE_URL_30 for details.", "placeholder"],
+    ["See PASTE_SOURCE_URL_30 for details.", "placeholder"],
     ["Official site: (Add your channel URL here)", "placeholder"],
   ];
   for (const [text, rule] of cases) {
@@ -117,6 +119,7 @@ test("flags watch words only when different ones share a paragraph", () => {
   // Each list item and table row is its own block.
   assert.deepEqual(check("- Add a robust retry.\n- Fix the cache key.\n- Enhance the log format."), []);
   assert.deepEqual(check("| a | robust |\n| b | enhanced |"), []);
+  assert.deepEqual(check("1. Add a robust retry.\n2. Fix the cache key.\n3. Enhance the log format."), []);
   // A list item that wraps onto a second line is still one block.
   assert.equal(rules("- Add a robust retry\n  that will enhance uploads.").length, 2);
   // Two different words are enough.
@@ -144,8 +147,15 @@ test("leaves ordinary technical prose alone", () => {
     "If there is no token, no request is sent. No token, no request is sent.",
     "With no config file, no output is written.",
     "Call insert_row to add data, or use paste_buffer.",
+    "",
+    "The worker keeps",
+    "no cache, no queue.",
   ].join("\n");
   assert.deepEqual(check(clean), []);
+});
+
+test("reports a rule once per line", () => {
+  assert.deepEqual(rules("Fill in [Your Name] and INSERT_URL_HERE."), ["placeholder"]);
 });
 
 test("words inside other words do not match", () => {

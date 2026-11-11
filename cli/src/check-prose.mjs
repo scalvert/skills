@@ -252,14 +252,21 @@ export function check(text) {
     }
     watched = [];
   };
+  // Whether the next line starts a sentence. A hard-wrapped line that
+  // continues a sentence does not.
+  let sentenceStart = true;
   maskExempt(text).forEach((line, i) => {
     const n = i + 1;
     if (!line.trim()) {
       endParagraph();
+      sentenceStart = true;
       return;
     }
     // Each list item and table row is its own block.
-    if (BLOCK_START.test(line)) endParagraph();
+    const block = BLOCK_START.test(line);
+    if (block) endParagraph();
+    const startsSentence = sentenceStart || block;
+    sentenceStart = /[.!?:]["')\]*_]*\s*$/.test(line);
     if (line.includes("\u2014")) add(n, "em dash", line);
     if (line.includes("\u2013")) add(n, "en dash", line);
     // A double hyphen between words is a typed dash. Table rules and CLI
@@ -274,8 +281,15 @@ export function check(text) {
     for (const [phrase, re] of PHRASE_RES) {
       if (re.test(lower)) add(n, `phrase "${phrase}"`, line);
     }
+    // A prefix stops a pattern's line-start anchor from treating the middle
+    // of a sentence as its start.
+    const lowerInSentence = startsSentence ? lower : `~ ${lower}`;
+    const matched = new Set();
     for (const { rule, re, cased } of PATTERNS) {
-      if (re.test(cased ? line : lower)) add(n, rule, line);
+      if (!matched.has(rule) && re.test(cased ? line : lowerInSentence)) {
+        matched.add(rule);
+        add(n, rule, line);
+      }
     }
     for (const [word, re, family] of WATCH_RES) {
       const at = lower.search(re);
