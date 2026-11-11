@@ -255,6 +255,9 @@ export function check(text) {
   // Whether the next line starts a sentence. A hard-wrapped line that
   // continues a sentence does not.
   let sentenceStart = true;
+  // The end-of-sentence test reads the raw line, because masking blanks a
+  // URL together with the period after it.
+  const raw = text.split(/\r?\n/);
   maskExempt(text).forEach((line, i) => {
     const n = i + 1;
     if (!line.trim()) {
@@ -266,7 +269,9 @@ export function check(text) {
     const block = BLOCK_START.test(line);
     if (block) endParagraph();
     const startsSentence = sentenceStart || block;
-    sentenceStart = /[.!?:]["')\]*_]*\s*$/.test(line);
+    // A heading ends its own sentence, with or without punctuation.
+    sentenceStart =
+      /^\s{0,3}#{1,6}\s/.test(line) || /[.!?:]["')\]*_\u201D\u2019]*\s*$/.test(raw[i]);
     if (line.includes("\u2014")) add(n, "em dash", line);
     if (line.includes("\u2013")) add(n, "en dash", line);
     // A double hyphen between words is a typed dash. Table rules and CLI

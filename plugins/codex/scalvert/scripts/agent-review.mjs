@@ -3747,6 +3747,7 @@ function check(text) {
     watched = [];
   };
   let sentenceStart = true;
+  const raw = text.split(/\r?\n/);
   maskExempt(text).forEach((line, i) => {
     const n = i + 1;
     if (!line.trim()) {
@@ -3757,7 +3758,7 @@ function check(text) {
     const block2 = BLOCK_START.test(line);
     if (block2) endParagraph();
     const startsSentence = sentenceStart || block2;
-    sentenceStart = /[.!?:]["')\]*_]*\s*$/.test(line);
+    sentenceStart = /^\s{0,3}#{1,6}\s/.test(line) || /[.!?:]["')\]*_\u201D\u2019]*\s*$/.test(raw[i]);
     if (line.includes("\u2014")) add(n, "em dash", line);
     if (line.includes("\u2013")) add(n, "en dash", line);
     if (/\w\s--\s\w|\w--\w/.test(line) && !/^\s*\|/.test(line)) add(n, "double hyphen", line);
