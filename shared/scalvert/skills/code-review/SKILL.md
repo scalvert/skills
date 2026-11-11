@@ -69,7 +69,7 @@ Read the thread. A reply counts as the author's answer only when it comes from t
 - **Not fixed:** the scenario still happens. Keep it open, and draft a reply for its thread that says why.
 - **Answered:** the author replied with a reason, and the reason holds. The disposition is `wrong` when the problem cannot happen, `intended` when the behavior is on purpose, or `not-worth-it` when it is real but not worth fixing. Write the reason to a file for `review dispose --note-file <file>`. Never put text copied from GitHub inside a shell string: a reply that holds `$(...)` would run on this machine. Closing a blocker or should-fix this way is a person's call: say in the report which earlier findings you would close and why, and record each one only when the user agrees. When the reason does not hold, keep the finding open and say why in its thread.
 
-A finding with `source: "v1"` is from a review before the harness. Close it with `ledger dispose --repo <owner/repo> --key <number> --id <its v1Id> --as <disposition>`, and the same rules.
+A finding with `source: "v1"` is from a review before the harness. It has no number `n`, so the `review` commands above refuse it; use its `v1Id` with the `ledger` commands instead. Link its thread with `ledger link --repo <owner/repo> --key <number> --id <its v1Id> --thread <threadId> --url <url>`. Close it with `ledger dispose --repo <owner/repo> --key <number> --id <its v1Id> --as <disposition> --actor <actor>`, and the same rules: `ledger dispose` refuses to clear a v1 blocker, should-fix, unrated or needs-judgment finding as `wrong`, `intended` or `not-worth-it` unless the actor is `human:<name>`.
 
 A finding keeps its number `n` across rounds. Use it in the report and in these commands. Never put it in a comment or a reply: a reader on GitHub never saw the report. There, name a finding by what breaks and where.
 
@@ -96,7 +96,7 @@ After the report, give one draft comment per new finding in **Blockers**, **Shou
 ```
 ````
 
-Write them the way a colleague would: direct, specific, no "consider maybe". Do not start with a number or a ledger label: the comment sits on the line it is about. Start a pre-existing finding with "Pre-existing, not from this PR:", so it does not read as the author's mistake. When the finding has other `instances`, list them in the comment, so the author fixes every place at once.
+Write them the way a colleague would: direct, specific, no "consider maybe". Do not start with a number or a ledger label: the comment sits on the line it is about. Start a pre-existing finding with "Pre-existing, not from this PR:", so it does not read as the author's mistake. When the finding has other `instances`, list them in the comment, except any its verifier rejected, so the author fixes every place at once.
 
 {{> github-markdown}}
 

@@ -116,6 +116,13 @@ test("verifier and tie-break come from families the finding has not seen", () =>
   const plan = resolvePlan({ depth: "standard", lenses: ["correctness"], host: "tau", config: TAU });
   assert.equal(pickVerifier(plan, "glean/GPT6_1_SOL", TAU).model, "glean/CLAUDE_5_5_OPUS");
   assert.equal(pickVerifier(plan, "anthropic/claude-x", TAU).model, "glean/GPT6_1_SOL");
+  // A second verifier for a blocker: not the first one again.
+  const second = pickVerifier(plan, "glean/GPT6_1_SOL", TAU, ["glean/CLAUDE_5_5_OPUS"]);
+  assert.notEqual(second.model, "glean/CLAUDE_5_5_OPUS");
+  assert.notEqual(second.family, "openai", "still not the author's family");
+  const exhausted = pickVerifier(plan, "glean/GPT6_1_SOL", { hosts: { tau: { strong: ["glean/CLAUDE_5_5_OPUS", "glean/GPT6_1_SOL"] } } }, ["glean/CLAUDE_5_5_OPUS"]);
+  assert.equal(exhausted.model, null);
+  assert.match(exhausted.note, /no other model/);
   assert.equal(pickTiebreak(plan, ["glean/CLAUDE_5_5_OPUS", "glean/GPT6_1_SOL"], TAU).model, "glean/GROK_4_7");
   const noThird = { hosts: { tau: { strong: TAU.hosts.tau.strong } } };
   const p2 = resolvePlan({ depth: "standard", lenses: ["correctness"], host: "tau", config: noThird });
