@@ -28,6 +28,14 @@ Assess whether a release, milestone, merge or package is ready. A panel of speci
 
 Challenge a position, decision or draft before you commit, send or ship it. Expert personas (distinguished engineer, system designer, political realist, skeptic) take turns pressure-testing the position with sourced claims, and the conversation stays steerable. Formerly `council-discussion`.
 
+### `split-plan`
+
+Decide before coding whether a plan, ticket or goal should become several pull requests. Returns a green, yellow or red verdict, the review surfaces, and an ordered stack in which each pull request stands alone. A red verdict stops the implementation until you choose.
+
+### `split-branch`
+
+The same check for a branch that already has commits. Reads the diff against the base, counts hand-written lines apart from generated ones, and names the files and hunks for each pull request. Read-only: it never moves commits or opens a pull request.
+
 ## Install
 
 Claude Code, inside a session:
