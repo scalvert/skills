@@ -68,7 +68,8 @@ export function buildProgram(state = { exitCode: 0 }) {
     .description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.")
     .requiredOption("--context <dir>", "directory written by pin")
     .requiredOption("--author <provider/model>", "model that wrote the finding")
-    .action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config)));
+    .option("--exclude <m1,m2>", "models that already verified the finding; pass the first verifier when picking a second")
+    .action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config, list(o.exclude))));
   plan
     .command("tiebreak")
     .description("Pick a tie-break model from a family no earlier model on the finding used.")
@@ -166,11 +167,23 @@ export function buildProgram(state = { exitCode: 0 }) {
     .requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it")
     .option("--note <text>", "why")
     .option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub")
+    .option("--actor <actor>", "who decided: human:<name>, or agent:<runtime> (default AGENT_REVIEW_ACTOR); clearing a blocker, a should-fix or an unrated finding needs human:, and so does any disposition of a needs-judgment finding")
     .action(async (o) => {
       if (o.note != null && o.noteFile != null) throw new ledger.LedgerError("use --note or --note-file, not both");
       const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync(o.noteFile, "utf8")).trim() : o.note;
+      // A malformed AGENT_REVIEW_ACTOR is ignored, not an error, so a stray
+      // value in the environment cannot break a call that needs no actor.
+      // An explicit --actor is still checked.
+      let actor = o.actor ?? null;
+      const envActor = process.env.AGENT_REVIEW_ACTOR;
+      if (actor == null && envActor != null) {
+        if (ledger.isActor(envActor)) actor = envActor;
+        else console.error(`agent-review ledger dispose: ignoring AGENT_REVIEW_ACTOR="${envActor}"; it must be human:<name> or agent:<runtime>`);
+      }
       withLedger((l) => {
-        ledger.dispose(l, o.id, o.as, note);
+        const finding = l.findings.find((f) => f.id === o.id);
+        if (finding) ledger.checkDisposeActor(finding, o.as, actor);
+        ledger.dispose(l, o.id, o.as, note, { actor });
         return { id: o.id, disposition: o.as };
       })(o);
     });

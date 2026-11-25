@@ -245,12 +245,15 @@ export function resolvePlan({ depth, lenses, host, config = {} }) {
 
 // The verifier for one finding: the verifier tier, from a family other than
 // the finding's author. Falls back to any configured model of another
-// family, then to null (the agent picks).
-export function pickVerifier(plan, author, config = {}) {
+// family, then to null (the agent picks). exclude lists models that already
+// verified the finding, so a second verifier is a different model.
+export function pickVerifier(plan, author, config = {}, exclude = []) {
   const authorFamily = family(author);
+  const used = new Set(exclude);
   const all = Object.values((plan.host && config.hosts?.[plan.host]) || {}).flat();
-  const model = [...plan.verifier.models, ...all].find((m) => family(m) !== authorFamily) ?? null;
-  return { model, family: model ? family(model) : null, thinking: plan.verifier.thinking, ...(model ? {} : { note: "no model from another family is configured; pick one yourself" }) };
+  const model = [...plan.verifier.models, ...all].find((m) => family(m) !== authorFamily && !used.has(m)) ?? null;
+  const note = used.size ? "no other model from another family is configured; pick one yourself" : "no model from another family is configured; pick one yourself";
+  return { model, family: model ? family(model) : null, thinking: plan.verifier.thinking, ...(model ? {} : { note }) };
 }
 
 // A tie-break opinion: a family no earlier model on the finding used.

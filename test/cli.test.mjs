@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -171,12 +171,113 @@ test("ledger link saves a thread that ledger open returns, and dispose reads not
   const reply = "Intended: the cursor counts as an item. $(touch /tmp/should-not-run)";
   const file = join(mkdtempSync(join(tmpdir(), "note-")), "reason.txt");
   writeFileSync(file, `${reply}\n`);
-  run(["dispose", "--id", "F1", "--as", "intended", "--note-file", file]);
-  run(["dispose", "--id", "F2", "--as", "wrong", "--note-file", "-"], reply);
+  run(["dispose", "--id", "F1", "--as", "intended", "--note-file", file, "--actor", "human:steve"]);
+  run(["dispose", "--id", "F2", "--as", "wrong", "--note-file", "-", "--actor", "human:steve"], reply);
   const both = cli(["ledger", "dispose", ...key, "--id", "F3", "--as", "wrong", "--note", "x", "--note-file", file], { env });
   assert.notEqual(both.status, 0);
   assert.match(both.stderr, /--note or --note-file, not both/);
   const path = cli(["ledger", "path", ...key], { env }).stdout.trim();
   const saved = JSON.parse(readFileSync(path, "utf8"));
   assert.deepEqual(saved.findings.slice(0, 2).map((f) => f.disposition.note), [reply, reply]);
+  assert.equal(saved.findings[0].disposition.actor, "human:steve");
+});
+
+test("ledger dispose: only a person clears a v1 blocker, should-fix, unrated or needs-judgment finding", () => {
+  const env = { ...process.env, AGENT_REVIEWS_STATE_DIR: mkdtempSync(join(tmpdir(), "cli-dispose-")) };
+  delete env.AGENT_REVIEW_ACTOR;
+  const key = ["--repo", "o/r", "--key", "6"];
+  const raw = (args, input) => cli(["ledger", ...args, ...key], { env, input });
+  const run = (args, input) => {
+    const r = raw(args, input);
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(r.stdout);
+  };
+  run(["start", "--base", "b", "--head", "h", "--lenses", "correctness"]);
+  run(["ran", "--lens", "correctness", "--model", "glean/GPT6_1_SOL"]);
+  const finding = (line) => ({ lens: "correctness", file: "src/a.js", line, title: "t", precondition: "p", scenario: "s" });
+  run(["add"], JSON.stringify([1, 50, 90, 130, 170, 210, 250].map(finding)));
+  const decide = (id, kind, label) => run(["decide", "--id", id, "--kind", kind, "--json", JSON.stringify({ label, probability: 0.9 })]);
+  for (const id of ["F1", "F2", "F3", "F4", "F5", "F6", "F7"]) decide(id, "finding-verification", "confirmed");
+  decide("F1", "finding-severity", "blocker");
+  decide("F1", "finding-origin", "introduced");
+  decide("F2", "finding-severity", "should-fix");
+  decide("F4", "finding-severity", "nit");
+  decide("F5", "finding-severity", "nit");
+  decide("F5", "finding-triage", "needs-judgment");
+  decide("F6", "finding-severity", "blocker");
+  decide("F6", "finding-origin", "introduced");
+  decide("F7", "finding-severity", "nit");
+  decide("F7", "finding-triage", "needs-judgment");
+  run(["report"]);
+
+  for (const [id, why] of [["F1", /it is blocker/], ["F2", /it is should-fix/], ["F3", /it is unrated/], ["F5", /it needs judgment/]]) {
+    for (const actor of [[], ["--actor", "agent:test"]]) {
+      const r = raw(["dispose", "--id", id, "--as", "wrong", ...actor]);
+      assert.notEqual(r.status, 0, `${id} ${actor.join(" ")}`);
+      assert.match(r.stderr, /only a person can mark/);
+      assert.match(r.stderr, why);
+    }
+  }
+  assert.match(raw(["dispose", "--id", "F1", "--as", "wrong", "--actor", "steve"]).stderr, /--actor must be human:<name> or agent:<runtime>/);
+  // An agent may record a fix, or clear a nit.
+  run(["dispose", "--id", "F1", "--as", "fixed", "--actor", "agent:test"]);
+  run(["dispose", "--id", "F4", "--as", "not-worth-it", "--actor", "agent:test"]);
+  run(["dispose", "--id", "F2", "--as", "intended", "--actor", "human:steve"]);
+  const r = cli(["ledger", "dispose", ...key, "--id", "F3", "--as", "wrong"], { env: { ...env, AGENT_REVIEW_ACTOR: "human:steve" } });
+  assert.equal(r.status, 0, "the actor can come from AGENT_REVIEW_ACTOR");
+  // An explicit --actor wins over AGENT_REVIEW_ACTOR, in both directions.
+  const refused = cli(["ledger", "dispose", ...key, "--id", "F5", "--as", "wrong", "--actor", "agent:test"], { env: { ...env, AGENT_REVIEW_ACTOR: "human:steve" } });
+  assert.notEqual(refused.status, 0, "--actor agent: is refused even when the env names a person");
+  assert.match(refused.stderr, /only a person can mark/);
+  const allowed = cli(["ledger", "dispose", ...key, "--id", "F5", "--as", "wrong", "--actor", "human:steve"], { env: { ...env, AGENT_REVIEW_ACTOR: "agent:wrapper" } });
+  assert.equal(allowed.status, 0, allowed.stderr);
+  // A malformed AGENT_REVIEW_ACTOR is ignored with a warning; a malformed --actor is an error.
+  const badEnv = { env: { ...env, AGENT_REVIEW_ACTOR: "claude-code" } };
+  const person = cli(["ledger", "dispose", ...key, "--id", "F6", "--as", "wrong"], badEnv);
+  assert.notEqual(person.status, 0);
+  assert.match(person.stderr, /only a person can mark F6 wrong/);
+  const fixed = cli(["ledger", "dispose", ...key, "--id", "F6", "--as", "fixed"], badEnv);
+  assert.equal(fixed.status, 0, fixed.stderr);
+  assert.match(fixed.stderr, /ignoring AGENT_REVIEW_ACTOR="claude-code"; it must be human:<name> or agent:<runtime>/);
+  const badFlag = raw(["dispose", "--id", "F6", "--as", "fixed", "--actor", "claude-code"]);
+  assert.notEqual(badFlag.status, 0);
+  assert.match(badFlag.stderr, /--actor must be human:<name> or agent:<runtime>, got "claude-code"/);
+  // Any disposition of a needs-judgment finding is a person's, fixed too.
+  const agentFixed = raw(["dispose", "--id", "F7", "--as", "fixed", "--actor", "agent:test"]);
+  assert.notEqual(agentFixed.status, 0);
+  assert.match(agentFixed.stderr, /only a person can mark F7 fixed: it needs judgment/);
+  run(["dispose", "--id", "F7", "--as", "fixed", "--actor", "human:steve"]);
+  const saved = JSON.parse(readFileSync(cli(["ledger", "path", ...key], { env }).stdout.trim(), "utf8"));
+  assert.deepEqual(saved.findings.map((f) => f.disposition?.actor ?? null), ["agent:test", "human:steve", "human:steve", "agent:test", "human:steve", null, "human:steve"]);
+  assert.equal(saved.findings[5].disposition.as, "fixed");
+});
+
+test("plan verifier --exclude picks a second verifier, not the first one again", () => {
+  const root = mkdtempSync(join(tmpdir(), "cli-verifier-"));
+  const repo = join(root, "repo");
+  const git = (...a) => execFileSync("git", a, { cwd: repo, encoding: "utf8" });
+  execFileSync("git", ["init", "-q", "-b", "main", repo]);
+  git("config", "user.email", "t@example.com");
+  git("config", "user.name", "t");
+  writeFileSync(join(repo, "a.js"), "1\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "base");
+  git("checkout", "-q", "-b", "feature");
+  writeFileSync(join(repo, "a.js"), "2\n");
+  git("commit", "-qam", "change a");
+  const config = join(root, "config.json");
+  writeFileSync(config, JSON.stringify({ hosts: { tau: { strong: ["glean/CLAUDE_5_5_OPUS", "glean/GPT6_1_SOL"], tiebreak: ["glean/GROK_4_7"] } } }));
+  const env = { ...process.env, AGENT_REVIEWS_CONFIG: config };
+  const ctx = join(root, "ctx");
+  const pinned = cli(["pin", "--base", "main", "--host", "tau", "--out", ctx], { cwd: repo, env });
+  assert.equal(pinned.status, 0, pinned.stderr);
+  const verifier = (...extra) => {
+    const r = cli(["plan", "verifier", "--context", ctx, "--author", "glean/GPT6_1_SOL", ...extra], { env });
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(r.stdout).model;
+  };
+  const first = verifier();
+  assert.equal(first, "glean/CLAUDE_5_5_OPUS");
+  const second = verifier("--exclude", first);
+  assert.equal(second, "glean/GROK_4_7", "another family than the author, and not the first verifier");
 });

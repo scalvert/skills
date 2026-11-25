@@ -34,7 +34,7 @@ test("the command surface: every command, argument and flag", () => {
   assert.deepEqual(surface(), [
     "pin --base --depth --host --out --pr --since",
     "plan show --context",
-    "plan verifier --author --context",
+    "plan verifier --author --context --exclude",
     "plan tiebreak --context --exclude",
     "plan config",
     "lens prompt <lens> --context",
@@ -46,7 +46,7 @@ test("the command surface: every command, argument and flag", () => {
     "ledger ran --findings --key --lens --model --repo",
     "ledger merge --ids --into --key --repo",
     "ledger report --allow-missing --keep --key --repo --threshold",
-    "ledger dispose --as --id --key --note --note-file --repo",
+    "ledger dispose --actor --as --id --key --note --note-file --repo",
     "ledger link --id --key --repo --thread --url",
     "ledger open --key --repo",
     "ledger last-head --key --repo",
