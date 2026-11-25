@@ -14,8 +14,11 @@ In the commands below, `<skill>` is the folder that holds this SKILL.md. Run eve
 ### 1. List the queue
 
 ```sh
-gh pr list --state open --limit 100 --json number,title,author,isDraft,labels,updatedAt,headRefName,baseRefName,reviewDecision,statusCheckRollup,mergeable
+gh pr list --state open --limit 1000 --json number,title,author,isDraft,labels,updatedAt,headRefName,baseRefName,reviewDecision,statusCheckRollup,mergeable
+gh api graphql -F owner='{owner}' -F name='{repo}' -f query='query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { pullRequests(states: OPEN) { totalCount } } }' --jq .data.repository.pullRequests.totalCount
 ```
+
+`gh pr list` fetches pages until it reaches `--limit`. The second command counts every open pull request. The list length must equal that count. When it is lower, raise `--limit` and list again. Do not sort or act on a partial list.
 
 Read the repo's rules in `AGENTS.md` first. They decide what you may merge, approve or comment on.
 

@@ -108,3 +108,81 @@ test("the command prints matches and exits 2 with no words", () => {
   assert.match(out, /1 of 1 matching sessions shown\./);
   assert.throws(() => execFileSync(process.execPath, [SCRIPT, "--home", home], { stdio: "pipe" }), /usage/);
 });
+
+/** Builds a separate home folder from a map of relative path to JSON lines. */
+function makeHome(files) {
+  const dir = mkdtempSync(join(tmpdir(), "find-session-"));
+  for (const [path, lines] of Object.entries(files)) {
+    const file = join(dir, path);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, lines.map((line) => JSON.stringify(line)).join("\n") + "\n");
+  }
+  return dir;
+}
+
+test("skips a Claude Code compact summary but still finds typed prompts", (t) => {
+  const dir = makeHome({
+    ".claude/projects/-work-app/ddd.jsonl": [
+      { type: "user", cwd: "/work/app", timestamp: "2026-06-20T10:00:00Z", message: { content: "Add a dark mode toggle" } },
+      {
+        type: "user",
+        cwd: "/work/app",
+        timestamp: "2026-06-20T11:00:00Z",
+        isCompactSummary: true,
+        message: { content: "This session is being continued from a previous conversation. Files and Code Sections: theme.css" },
+      },
+    ],
+  });
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  assert.equal(findSessions({ terms: ["Files and Code Sections"], home: dir, now: NOW }).total, 0);
+  assert.equal(findSessions({ terms: ["dark mode"], home: dir, now: NOW }).total, 1);
+});
+
+test("quotes the folder and ID in the reopen command so the shell keeps them literal", (t) => {
+  const folders = ["/Users/me/My Project", "/tmp/it's here", "/tmp/$(printf injected)", "/tmp/`printf injected`"];
+  const dir = makeHome(
+    Object.fromEntries(
+      folders.map((cwd, index) => [
+        `.claude/projects/p${index}/id-${index}.jsonl`,
+        [{ type: "user", cwd, timestamp: "2026-06-20T10:00:00Z", message: { content: `quoting check ${index}` } }],
+      ]),
+    ),
+  );
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const { matches } = findSessions({ terms: ["quoting check"], home: dir, now: NOW });
+  assert.equal(matches.length, folders.length);
+  for (const match of matches) {
+    // Swap the commands for printf, so the shell shows the arguments it parsed.
+    const script = match.reopen.replace(/^cd /, "printf '%s\\n' ").replace(" && claude --resume ", " ");
+    const args = execFileSync("/bin/sh", ["-c", script], { cwd: dir, encoding: "utf8" }).split("\n").slice(0, -1);
+    assert.deepEqual(args, [match.cwd, match.id]);
+  }
+});
+
+test("drops every history entry whose transcript exists, even an old one", (t) => {
+  const dir = makeHome({
+    ".claude/projects/-work-cli/eee.jsonl": [
+      { type: "user", cwd: "/work/cli", timestamp: "2026-06-01T10:00:00Z", message: { content: "cut a release" } },
+      { type: "user", cwd: "/work/cli", timestamp: "2026-06-29T10:00:00Z", message: { content: "redo the release notes" } },
+    ],
+    ".claude/history.jsonl": [
+      { display: "cut a release", timestamp: Date.parse("2026-06-01T10:00:00Z"), project: "/work/cli", sessionId: "eee" },
+      { display: "redo the release notes", timestamp: Date.parse("2026-06-29T10:00:00Z"), project: "/work/cli", sessionId: "eee" },
+      { display: "release from another folder", timestamp: Date.parse("2026-06-29T11:00:00Z"), project: "/work/other" },
+    ],
+  });
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const all = findSessions({ terms: ["release"], home: dir, now: NOW });
+  assert.deepEqual(
+    all.matches.map((match) => [match.tool, match.cwd]),
+    [
+      ["claude-code history", "/work/other"],
+      ["claude-code", "/work/cli"],
+    ],
+  );
+  const recent = findSessions({ terms: ["release"], days: 7, home: dir, now: NOW });
+  assert.deepEqual(
+    recent.matches.map((match) => [match.tool, match.cwd]),
+    [["claude-code history", "/work/other"]],
+  );
+});

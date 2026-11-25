@@ -21,6 +21,18 @@ import * as zlib from "node:zlib";
 const INJECTED = /^(<[a-z_-]+[ >]|Caveat: The messages below|\[Request interrupted|# AGENTS\.md)/i;
 
 /**
+ * Quotes a word for a POSIX shell, so a path with spaces or `$(...)` stays one
+ * literal argument. Plain words are left as they are, to keep the command easy
+ * to read.
+ *
+ * @param {string} word
+ * @returns {string}
+ */
+function shellQuote(word) {
+  return /^[\w./:@%+=,-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`;
+}
+
+/**
  * Lists the files under a folder whose name passes a test.
  *
  * @param {string} dir Folder to walk.
@@ -107,10 +119,12 @@ function claudeSessions(home) {
       if (line.cwd && !session.cwd) session.cwd = line.cwd;
       if (line.timestamp && !session.time) session.time = Date.parse(line.timestamp);
       // A user line with toolUseResult carries a tool's output, not a prompt.
-      if (line.type !== "user" || line.isSidechain || line.isMeta || line.toolUseResult) continue;
+      // A compact summary is Claude Code's recap of the whole session.
+      if (line.type !== "user" || line.isSidechain || line.isMeta || line.toolUseResult || line.isCompactSummary) continue;
       session.prompts.push(...textsOf(line.message?.content));
     }
-    session.reopen = session.cwd ? `cd ${session.cwd} && claude --resume ${session.id}` : `claude --resume ${session.id}`;
+    const resume = `claude --resume ${shellQuote(session.id)}`;
+    session.reopen = session.cwd ? `cd ${shellQuote(session.cwd)} && ${resume}` : resume;
     sessions.push(session);
   }
   return sessions;
@@ -217,7 +231,16 @@ export function findSessions({ terms, home = homedir(), any = false, days, repo,
   const wanted = terms.map((term) => term.toLowerCase());
   const since = days ? now - days * 86_400_000 : 0;
   const matches = [];
+  // The history repeats prompts whose transcript still exists. Index every
+  // transcript before any filter, so a history entry is dropped even when its
+  // transcript is too old to list or matched on an earlier prompt.
+  const transcriptIds = new Set();
   const transcriptPrompts = new Set();
+  const promptKey = (cwd, text) => `${cwd}\n${text.slice(0, 200)}`;
+  for (const session of groups["claude-code"]) {
+    transcriptIds.add(session.id);
+    for (const prompt of session.prompts) transcriptPrompts.add(promptKey(session.cwd, prompt.trim()));
+  }
 
   for (const session of Object.values(groups).flat()) {
     if (session.time < since) continue;
@@ -228,12 +251,8 @@ export function findSessions({ terms, home = homedir(), any = false, days, repo,
       const lower = text.toLowerCase();
       const hit = any ? wanted.some((term) => lower.includes(term)) : wanted.every((term) => lower.includes(term));
       if (!hit) continue;
-      // The history repeats prompts whose transcript still exists.
-      const key = `${session.cwd}\n${text.slice(0, 200)}`;
       if (session.tool === "claude-code history") {
-        if (transcriptPrompts.has(key)) continue;
-      } else {
-        transcriptPrompts.add(key);
+        if (transcriptIds.has(session.id) || transcriptPrompts.has(promptKey(session.cwd, text))) continue;
       }
       const at = Math.max(0, lower.indexOf(wanted.find((term) => lower.includes(term))) - 80);
       matches.push({
