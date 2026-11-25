@@ -195,15 +195,19 @@ test("ledger dispose: only a person clears a v1 blocker, should-fix, unrated or 
   run(["start", "--base", "b", "--head", "h", "--lenses", "correctness"]);
   run(["ran", "--lens", "correctness", "--model", "glean/GPT6_1_SOL"]);
   const finding = (line) => ({ lens: "correctness", file: "src/a.js", line, title: "t", precondition: "p", scenario: "s" });
-  run(["add"], JSON.stringify([1, 50, 90, 130, 170].map(finding)));
+  run(["add"], JSON.stringify([1, 50, 90, 130, 170, 210, 250].map(finding)));
   const decide = (id, kind, label) => run(["decide", "--id", id, "--kind", kind, "--json", JSON.stringify({ label, probability: 0.9 })]);
-  for (const id of ["F1", "F2", "F3", "F4", "F5"]) decide(id, "finding-verification", "confirmed");
+  for (const id of ["F1", "F2", "F3", "F4", "F5", "F6", "F7"]) decide(id, "finding-verification", "confirmed");
   decide("F1", "finding-severity", "blocker");
   decide("F1", "finding-origin", "introduced");
   decide("F2", "finding-severity", "should-fix");
   decide("F4", "finding-severity", "nit");
   decide("F5", "finding-severity", "nit");
   decide("F5", "finding-triage", "needs-judgment");
+  decide("F6", "finding-severity", "blocker");
+  decide("F6", "finding-origin", "introduced");
+  decide("F7", "finding-severity", "nit");
+  decide("F7", "finding-triage", "needs-judgment");
   run(["report"]);
 
   for (const [id, why] of [["F1", /it is blocker/], ["F2", /it is should-fix/], ["F3", /it is unrated/], ["F5", /it needs judgment/]]) {
@@ -227,8 +231,25 @@ test("ledger dispose: only a person clears a v1 blocker, should-fix, unrated or 
   assert.match(refused.stderr, /only a person can mark/);
   const allowed = cli(["ledger", "dispose", ...key, "--id", "F5", "--as", "wrong", "--actor", "human:steve"], { env: { ...env, AGENT_REVIEW_ACTOR: "agent:wrapper" } });
   assert.equal(allowed.status, 0, allowed.stderr);
+  // A malformed AGENT_REVIEW_ACTOR is ignored with a warning; a malformed --actor is an error.
+  const badEnv = { env: { ...env, AGENT_REVIEW_ACTOR: "claude-code" } };
+  const person = cli(["ledger", "dispose", ...key, "--id", "F6", "--as", "wrong"], badEnv);
+  assert.notEqual(person.status, 0);
+  assert.match(person.stderr, /only a person can mark F6 wrong/);
+  const fixed = cli(["ledger", "dispose", ...key, "--id", "F6", "--as", "fixed"], badEnv);
+  assert.equal(fixed.status, 0, fixed.stderr);
+  assert.match(fixed.stderr, /ignoring AGENT_REVIEW_ACTOR="claude-code"; it must be human:<name> or agent:<runtime>/);
+  const badFlag = raw(["dispose", "--id", "F6", "--as", "fixed", "--actor", "claude-code"]);
+  assert.notEqual(badFlag.status, 0);
+  assert.match(badFlag.stderr, /--actor must be human:<name> or agent:<runtime>, got "claude-code"/);
+  // Any disposition of a needs-judgment finding is a person's, fixed too.
+  const agentFixed = raw(["dispose", "--id", "F7", "--as", "fixed", "--actor", "agent:test"]);
+  assert.notEqual(agentFixed.status, 0);
+  assert.match(agentFixed.stderr, /only a person can mark F7 fixed: it needs judgment/);
+  run(["dispose", "--id", "F7", "--as", "fixed", "--actor", "human:steve"]);
   const saved = JSON.parse(readFileSync(cli(["ledger", "path", ...key], { env }).stdout.trim(), "utf8"));
-  assert.deepEqual(saved.findings.map((f) => f.disposition?.actor ?? null), ["agent:test", "human:steve", "human:steve", "agent:test", "human:steve"]);
+  assert.deepEqual(saved.findings.map((f) => f.disposition?.actor ?? null), ["agent:test", "human:steve", "human:steve", "agent:test", "human:steve", null, "human:steve"]);
+  assert.equal(saved.findings[5].disposition.as, "fixed");
 });
 
 test("plan verifier --exclude picks a second verifier, not the first one again", () => {

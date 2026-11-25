@@ -167,11 +167,19 @@ export function buildProgram(state = { exitCode: 0 }) {
     .requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it")
     .option("--note <text>", "why")
     .option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub")
-    .option("--actor <actor>", "who decided: human:<name>, or agent:<runtime> (default AGENT_REVIEW_ACTOR); clearing a blocker, a should-fix, an unrated or a needs-judgment finding needs human:")
+    .option("--actor <actor>", "who decided: human:<name>, or agent:<runtime> (default AGENT_REVIEW_ACTOR); clearing a blocker, a should-fix or an unrated finding needs human:, and so does any disposition of a needs-judgment finding")
     .action(async (o) => {
       if (o.note != null && o.noteFile != null) throw new ledger.LedgerError("use --note or --note-file, not both");
       const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync(o.noteFile, "utf8")).trim() : o.note;
-      const actor = o.actor ?? process.env.AGENT_REVIEW_ACTOR ?? null;
+      // A malformed AGENT_REVIEW_ACTOR is ignored, not an error, so a stray
+      // value in the environment cannot break a call that needs no actor.
+      // An explicit --actor is still checked.
+      let actor = o.actor ?? null;
+      const envActor = process.env.AGENT_REVIEW_ACTOR;
+      if (actor == null && envActor != null) {
+        if (ledger.isActor(envActor)) actor = envActor;
+        else console.error(`agent-review ledger dispose: ignoring AGENT_REVIEW_ACTOR="${envActor}"; it must be human:<name> or agent:<runtime>`);
+      }
       withLedger((l) => {
         const finding = l.findings.find((f) => f.id === o.id);
         if (finding) ledger.checkDisposeActor(finding, o.as, actor);

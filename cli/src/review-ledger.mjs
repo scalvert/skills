@@ -356,6 +356,7 @@ export function link(ledger, id, { thread, url }) {
 const CLEARING = new Set(["wrong", "intended", "not-worth-it"]);
 const DISQUALIFYING = new Set(["blocker", "should-fix"]);
 const ACTOR = /^(human|agent):[^\s]/;
+export const isActor = (actor) => typeof actor === "string" && ACTOR.test(actor);
 
 export function checkDisposeActor(finding, as, actor) {
   if (actor != null && !ACTOR.test(actor)) throw new LedgerError(`--actor must be human:<name> or agent:<runtime>, got "${actor}"`);

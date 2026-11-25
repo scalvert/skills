@@ -6797,6 +6797,7 @@ function link(ledger, id, { thread, url }) {
 var CLEARING2 = /* @__PURE__ */ new Set(["wrong", "intended", "not-worth-it"]);
 var DISQUALIFYING = /* @__PURE__ */ new Set(["blocker", "should-fix"]);
 var ACTOR3 = /^(human|agent):[^\s]/;
+var isActor = (actor) => typeof actor === "string" && ACTOR3.test(actor);
 function checkDisposeActor(finding, as, actor) {
   if (actor != null && !ACTOR3.test(actor)) throw new LedgerError(`--actor must be human:<name> or agent:<runtime>, got "${actor}"`);
   const sev = finding.decisions?.["finding-severity"]?.label ?? null;
@@ -7927,10 +7928,15 @@ function buildProgram(state = { exitCode: 0 }) {
       (l, o) => report(l, Number(o.threshold), { allowMissing: o.allowMissing === true, keep: list2(o.keep) })
     )
   );
-  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").option("--actor <actor>", "who decided: human:<name>, or agent:<runtime> (default AGENT_REVIEW_ACTOR); clearing a blocker, a should-fix, an unrated or a needs-judgment finding needs human:").action(async (o) => {
+  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").option("--actor <actor>", "who decided: human:<name>, or agent:<runtime> (default AGENT_REVIEW_ACTOR); clearing a blocker, a should-fix or an unrated finding needs human:, and so does any disposition of a needs-judgment finding").action(async (o) => {
     if (o.note != null && o.noteFile != null) throw new LedgerError("use --note or --note-file, not both");
     const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync9(o.noteFile, "utf8")).trim() : o.note;
-    const actor = o.actor ?? process.env.AGENT_REVIEW_ACTOR ?? null;
+    let actor = o.actor ?? null;
+    const envActor = process.env.AGENT_REVIEW_ACTOR;
+    if (actor == null && envActor != null) {
+      if (isActor(envActor)) actor = envActor;
+      else console.error(`agent-review ledger dispose: ignoring AGENT_REVIEW_ACTOR="${envActor}"; it must be human:<name> or agent:<runtime>`);
+    }
     withLedger((l) => {
       const finding = l.findings.find((f) => f.id === o.id);
       if (finding) checkDisposeActor(finding, o.as, actor);
