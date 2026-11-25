@@ -18,7 +18,7 @@ Work through a PR's unresolved review threads. Each claim is verified against th
 
 ### `write-clearly`
 
-Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, a review's finding numbers and internal keys ("finding 2", F2), unbalanced backticks and code blocks with no language.
+Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, a review's finding numbers and internal keys ("finding 2", F2), details of how a review ran ("two review rounds", "found by 3 reviewers", "reviewed with <model>", model families, "self-review findings"), unbalanced backticks and code blocks with no language. Text in backticks is exempt, so a PR can still name the `self-review` skill.
 
 ### `assess-release-readiness`
 

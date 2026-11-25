@@ -16,6 +16,70 @@ test("flags the review's finding numbers in text bound for GitHub", () => {
   assert.deepEqual(rules("Two findings in this file, and 3 candidates."), []);
 });
 
+const review = (text) => checkGithub(text).filter((f) => f.rule.startsWith("review detail")).map((f) => f.excerpt);
+
+test("flags review details in text bound for GitHub", () => {
+  assert.deepEqual(review("Two rounds, with reviewers on two model families."), ["Two rounds", "model families"]);
+  assert.deepEqual(review("Found by 3 reviewers in the second review round."), ["3 reviewers", "review round"]);
+  assert.deepEqual(review("Found by one reviewer."), ["one reviewer"]);
+  assert.deepEqual(review("One verifier confirmed it, and 1 lens flagged it."), ["One verifier", "1 lens"]);
+  // Overlapping patterns describe one phrase, so it is reported once.
+  assert.deepEqual(review("Ran two review rounds."), ["two review rounds"]);
+  assert.deepEqual(review("Two self-review rounds found it."), ["Two self-review rounds"]);
+  assert.deepEqual(review("Ran three rounds of self-review."), ["three rounds of self-review"]);
+  // Separate occurrences on one line stay separate.
+  assert.deepEqual(review("Ran two review rounds. Found in self-review."), ["two review rounds", "self-review"]);
+  assert.deepEqual(review("Adds the `self-review` skill and fixes the round-trip test."), []);
+});
+
+test("flags self-review only when it says a review happened", () => {
+  assert.deepEqual(review("fix: address self-review findings"), ["self-review findings"]);
+  assert.deepEqual(review("Self-reviewed before opening."), ["Self-reviewed"]);
+  assert.deepEqual(review("Found in self-review."), ["self-review"]);
+  assert.deepEqual(review("After a self-review, the retry was removed."), ["self-review"]);
+  for (const text of [
+    "Updates the self-review skill",
+    "fix: self-review commit title",
+    "Adds a self-review skill for branches.",
+    "The self-review skill now waits for CI.",
+    "In the self-review report, list blockers first.",
+  ]) {
+    assert.deepEqual(review(text), [], text);
+  }
+});
+
+test("flags a count of rounds or reviewers only in a sentence about a review", () => {
+  for (const text of [
+    "Split into two rounds of retries.",
+    "polls up to 3 rounds",
+    "Supports three reviewers per PR via config.",
+    "Requires 2 reviewers before a merge.",
+  ]) {
+    assert.deepEqual(review(text), [], text);
+  }
+  // The context is the sentence, not the line.
+  assert.deepEqual(review("Split into two rounds. A reviewer is assigned."), []);
+});
+
+test("flags models, panels, verifier subagents and lenses named as part of a review", () => {
+  assert.deepEqual(review("Reviewed with Claude Opus and GPT."), ["Reviewed with Claude"]);
+  assert.deepEqual(review("Cross-checked using GPT-5.1 and verified on Gemini."), ["Cross-checked using GPT-5.1", "verified on Gemini"]);
+  assert.deepEqual(review("A panel of reviewers and a reviewer panel."), ["panel of reviewers", "reviewer panel"]);
+  assert.deepEqual(review("Two verifier subagents and a reviewer subagent."), ["verifier subagents", "reviewer subagent"]);
+  assert.deepEqual(review("Reviewed through the security lens."), ["through the security lens"]);
+  for (const text of ["Adds Claude Opus to the model list.", "The verifier now retries.", "Adds a security lens."]) {
+    assert.deepEqual(review(text), [], text);
+  }
+});
+
+test("checks link labels for review details, but not URLs", () => {
+  assert.deepEqual(review("See [self-reviewed](https://x.com/a)."), ["self-reviewed"]);
+  assert.deepEqual(review("It was [found by 3 reviewers][r].\n\n[r]: https://x.com/a"), ["3 reviewers"]);
+  assert.deepEqual(review("See https://x.com/self-reviewed and [the fix](https://x.com/self-reviewed)."), []);
+  // The other checks still skip link labels.
+  assert.deepEqual(rules("See [src/page.js](https://x.com/a)."), []);
+});
+
 test("flags code outside backticks, once per piece of code", () => {
   assert.deepEqual(codeFlags("listThreads() in src/page.js:12 returns one extra item."), ["listThreads()", "src/page.js:12"]);
   assert.deepEqual(codeFlags("Read opts.repoDir and ledger.rounds."), ["opts.repoDir", "ledger.rounds"]);

@@ -247,7 +247,7 @@ Rules for the prose:
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.
 - Leave out the dropped findings. They stay in the review's history.
 
-Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report. A finding number is a flag to fix only in the draft comments. The report is for this conversation, and keeps its numbers.
+Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report. A finding number or a review detail is a flag to fix only in the draft comments. The report is for this conversation, and keeps its numbers, its reviewer counts and its model families.
 
 
 Start every report with the round: `First review at <short head SHA>.` or `Follow-up review since <short last head>.` In a follow-up, add an **Earlier findings** list next, one line per finding, by number, location and title: ``- **2.** `src/page.js:12` Extra item per page: fixed in `<sha>`.``, ``...: not fixed, <why>.``, or ``...: answered, <reason accepted>.`` Then give the verdict and the new findings. Their numbers continue from the earlier ones.
@@ -316,6 +316,12 @@ node <skill>/scripts/agent-review.mjs policy check -- <the exact command>
 - `deny`: do not do it. Tell the user which rule denies it.
 
 A request earlier in the conversation to "review" something is not approval to post the review.
+
+Everything that leaves this machine (commit messages, PR titles and descriptions, comments and replies) is about the change: what it does, why, and how it was tested. Leave out how it was reviewed. No review rounds, reviewer or verifier counts, lenses, models or model families, ledger IDs, or "self-review". That stays in this conversation. The check below catches the common phrasings, not every one, so read each text yourself too. Check each of those texts before it goes out:
+
+```sh
+node <skill>/scripts/agent-review.mjs prose --github <file>
+```
 
 If the user asks you to post the comments, post them as one pending review, so they can read it before it goes out. Post replies to earlier findings in their threads, never as new comments. Check `gh api` writes with the command above first. After the review is submitted, record each new finding's thread with `review link`, as above, so the next round can answer in place.
 
