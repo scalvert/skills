@@ -54,6 +54,8 @@
     "plugins/claude/scalvert/skills/split-branch/SKILL.md",
     "plugins/claude/scalvert/skills/split-plan/SKILL.md",
     "plugins/claude/scalvert/skills/write-clearly/SKILL.md",
-    "plugins/claude/scalvert/skills/write-clearly/scripts/agent-review.mjs"
+    "plugins/claude/scalvert/skills/write-clearly/scripts/agent-review.mjs",
+    "plugins/claude/scalvert/skills/write-linkedin-post/SKILL.md",
+    "plugins/claude/scalvert/skills/write-linkedin-post/scripts/check-post.mjs"
   ]
 }
