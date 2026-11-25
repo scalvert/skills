@@ -33,6 +33,15 @@ export function splitPosts(input) {
   return blocks.length ? blocks : [input.trim()];
 }
 
+/** Drop sentence punctuation after a URL, and a ")" that closes text around it rather than part of it. */
+function trimUrl(url) {
+  for (;;) {
+    if (/[.,;:!?"'\u2018\u2019\u201C\u201D]$/.test(url)) url = url.slice(0, -1);
+    else if (url.endsWith(")") && url.split(")").length > url.split("(").length) url = url.slice(0, -1);
+    else return url;
+  }
+}
+
 /** Errors and warnings for one post, and what shows above the fold. */
 export function checkPost(post) {
   const errors = [];
@@ -44,7 +53,8 @@ export function checkPost(post) {
   if ([...hook].length > FOLD) warnings.push(`the first paragraph is ${[...hook].length} characters, so it runs past the fold (about ${FOLD})`);
 
   const markdown = [
-    [/\*\*[^*\n]+\*\*|__[^_\n]+__/, "bold Markdown (**text**)"],
+    // __init__ and __dirname are code names, so __text__ counts as bold only with a space inside.
+    [/\*\*[^*\n]+\*\*|(?<!\w)__(?=\S)[^_\n]*\s[^_\n]*(?<=\S)__(?!\w)/, "bold Markdown (**text**)"],
     [/(^|\s)_[^_\n]+_(?=\s|[.,!?]|$)/m, "italic Markdown (_text_)"],
     [/(?<![*\w])\*(?=[^\s*])[^*\n]+(?<=[^\s*])\*(?![*\w])/, "italic Markdown (*text*)"],
     [/^[ \t]*```/m, "a Markdown code fence (```)"],
@@ -63,7 +73,7 @@ export function checkPost(post) {
   for (const re of OPENERS) if (re.test(post)) warnings.push(`stock phrase: "${post.match(re)[0]}"`);
   for (const re of BAIT) if (re.test(post)) warnings.push(`engagement bait: "${post.match(re)[0].trim()}"`);
 
-  const urls = post.match(/https?:\/\/\S+/g) ?? [];
+  const urls = (post.match(/https?:\/\/\S+/g) ?? []).map(trimUrl);
   return { length, fold: [...post].slice(0, FOLD).join(""), urls, errors, warnings };
 }
 

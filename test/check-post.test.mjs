@@ -52,6 +52,34 @@ test("code names written as plain words aren't flagged as italics or headings", 
   assert.deepEqual(r.errors, []);
 });
 
+test("double-underscore code names aren't bold; __two words__ and **bold** are", () => {
+  assert.deepEqual(checkPost("It hooks into __init__ and runs __main__ first.").errors, []);
+  assert.deepEqual(checkPost("It reads __dirname.").errors, []);
+  for (const post of ["This is __two words__ here.", "This is **bold** here.", "This is **two words** here."]) {
+    assert.match(checkPost(post).errors.join("\n"), /bold Markdown/, post);
+  }
+});
+
+const linkCases = [
+  ["Guide: https://a.b/c.", "https://a.b/c"],
+  ["https://a.b/c, now", "https://a.b/c"],
+  ["(see https://a.b/c)", "https://a.b/c"],
+  ["(see https://a.b/c).", "https://a.b/c"],
+  ["Read https://en.wikipedia.org/wiki/Foo_(bar)", "https://en.wikipedia.org/wiki/Foo_(bar)"],
+  ["Read https://en.wikipedia.org/wiki/Foo_(bar).", "https://en.wikipedia.org/wiki/Foo_(bar)"],
+];
+
+test("links lose trailing sentence punctuation but keep their own parentheses", () => {
+  for (const [post, url] of linkCases) assert.deepEqual(checkPost(post).urls, [url], post);
+});
+
+test("the CLI prints links without trailing sentence punctuation", () => {
+  for (const [post, url] of linkCases) {
+    const r = run(join(scriptsDir, "check-post.mjs"), post);
+    assert.match(r.stdout, new RegExp(`^  link: ${url.replace(/[.()?]/g, "\\$&")} \\(`, "m"), r.stdout);
+  }
+});
+
 test("single-asterisk italics and code fences are errors", () => {
   assert.match(checkPost("Use *this* now").errors.join("\n"), /italic Markdown \(\*text\*\)/);
   assert.match(checkPost(fence).errors.join("\n"), /code fence/);
