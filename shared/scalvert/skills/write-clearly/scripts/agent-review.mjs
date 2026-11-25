@@ -3824,6 +3824,32 @@ function notCode(token, kind) {
   if (kind === "path" && /^[\d/]+$/.test(token)) return true;
   return false;
 }
+var COUNT = String.raw`(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)`;
+var REVIEW_WORD = /\b(?:review(?:ed|ers?)?|self-review(?:ed)?|verifiers?)\b/i;
+var PROCESS_CUE = /\b(?:found|flagged|confirmed|caught|checked|verified|reviewed|agreed|disagreed|ran|panel|independent)\b/i;
+var MODEL = String.raw`(?:Claude|Opus|Sonnet|Haiku|GPT(?:[-.\w]*\w)?|Gemini|Grok|Codex|OpenAI|Anthropic)\b`;
+var REVIEW_DETAILS = [
+  { re: /\bmodel famil(?:y|ies)\b/gi },
+  // "self-review" alone names the skill. These say that one happened.
+  { re: /\bself-reviewed\b|\bself-review (?:findings?|feedback|pass(?:es)?)\b/gi },
+  {
+    re: /(?<=\b(?:in|after|from|during|before|via|through|ran|did)\s+(?:(?:a|an|the|another|one|this|that|my|our|its|their)\s+)?)self-reviews?(?=\s*(?:[.,;:!?)]|$))/gi
+  },
+  { re: /\b(?:review|self-review) rounds?\b|\brounds? of (?:self-)?review\b/gi },
+  { re: new RegExp(String.raw`\b${COUNT} (?:self-)?review rounds\b`, "gi") },
+  { re: new RegExp(String.raw`\b${COUNT} rounds\b`, "gi"), context: REVIEW_WORD },
+  { re: new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers?|verifiers?|lens(?:es)?)\b`, "gi"), context: PROCESS_CUE },
+  { re: new RegExp(String.raw`\b(?:re-reviewed|reviewed|verified|cross-checked|checked|audited) (?:with|by|on|using) (?:the )?${MODEL}`, "gi") },
+  { re: /\bpanels? of reviewers\b|\breviewer panels?\b/gi },
+  { re: /\b(?:verifier|reviewer) subagents?\b/gi },
+  { re: /\bthrough the [\w-]+ lens\b/gi }
+];
+function sentenceAround(line, s, e) {
+  let start = 0;
+  for (const m of line.slice(0, s).matchAll(/[.!?](?=\s)/g)) start = m.index + 1;
+  const end = line.slice(e).search(/[.!?](?=\s|$)/);
+  return line.slice(start, end < 0 ? line.length : e + end);
+}
 function checkGithub(text) {
   const findings = check(text);
   const add = (line, rule, excerpt) => findings.push({ line, rule, excerpt: excerpt.trim().slice(0, 80) });
@@ -3846,10 +3872,22 @@ function checkGithub(text) {
     else if (m.unmatched) add(i + 1, "unbalanced backticks", raw[i]);
   });
   const html = (line) => /^\s{0,3}\[[^\]]+\]:\s/.test(line) ? "" : line.replace(/<!--.*?-->|<\/?[A-Za-z][^<>]*>/g, (m) => " ".repeat(m.length));
+  const labeled = maskExempt(text).map(html);
   maskExempt(text, { links: true }).map(html).forEach((line, i) => {
     const n = i + 1;
+    const prose = labeled[i];
     for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
     for (const m of line.matchAll(/\b(?:finding|candidate)s?\s+#?\d+\b/gi)) add(n, "finding number", m[0]);
+    const details = REVIEW_DETAILS.flatMap(
+      ({ re, context }) => [...prose.matchAll(re)].map((m) => [m.index, m.index + m[0].length]).filter(([s, e]) => !context || context.test(sentenceAround(prose, s, e)))
+    );
+    const phrases = [];
+    for (const [s, e] of details.sort((a, b) => a[0] - b[0])) {
+      const last = phrases.at(-1);
+      if (last && s < last[1]) last[1] = Math.max(last[1], e);
+      else phrases.push([s, e]);
+    }
+    for (const [s, e] of phrases) add(n, "review detail (describe the change, not how it was reviewed)", prose.slice(s, e));
     const covered = [];
     for (const { kind, re } of CODE_PATTERNS) {
       for (const m of line.matchAll(re)) {
@@ -5014,7 +5052,7 @@ var DECISION_KINDS = {
 var DISPOSITIONS = ["fixed", "accepted", "wrong", "intended", "not-worth-it"];
 var RUN_STATUSES = ["ok", "failed", "skipped"];
 var RUNNER_KINDS = ["executed", "attested"];
-var MODEL = /^[\w.-]+\/[\w.:@-]+$/;
+var MODEL2 = /^[\w.-]+\/[\w.:@-]+$/;
 var defaultFamily = (model) => String(model).split("/")[0].toLowerCase();
 
 // node_modules/agent-review/src/core/workflow/errors.mjs
@@ -5205,7 +5243,7 @@ function checkActor(actor, { human = false } = {}) {
   if (human && !actor.startsWith("human:")) throw new WorkflowError(FORBIDDEN, `only a person can do this; ${actor} is not human:<name>`);
 }
 function checkModel(model, what) {
-  if (typeof model !== "string" || !MODEL.test(model)) invalid(`${what} must be provider/model, such as anthropic/opus, got ${JSON.stringify(model)}`);
+  if (typeof model !== "string" || !MODEL2.test(model)) invalid(`${what} must be provider/model, such as anthropic/opus, got ${JSON.stringify(model)}`);
 }
 function checkNumber(n, what) {
   if (!Number.isInteger(n) || n < 1) invalid(`${what} must be a number from 1, as the harness shows it, got ${JSON.stringify(n)}`);
@@ -6794,12 +6832,26 @@ function link(ledger, id, { thread, url }) {
   finding.thread = { id: thread, url: url ?? null, at: (/* @__PURE__ */ new Date()).toISOString() };
   return finding.thread;
 }
-function dispose(ledger, id, as, note) {
+var CLEARING2 = /* @__PURE__ */ new Set(["wrong", "intended", "not-worth-it"]);
+var DISQUALIFYING = /* @__PURE__ */ new Set(["blocker", "should-fix"]);
+var ACTOR3 = /^(human|agent):[^\s]/;
+var isActor = (actor) => typeof actor === "string" && ACTOR3.test(actor);
+function checkDisposeActor(finding, as, actor) {
+  if (actor != null && !ACTOR3.test(actor)) throw new LedgerError(`--actor must be human:<name> or agent:<runtime>, got "${actor}"`);
+  const sev = finding.decisions?.["finding-severity"]?.label ?? null;
+  const judgment = finding.decisions?.["finding-triage"]?.label === "needs-judgment";
+  const person = judgment || CLEARING2.has(as) && (sev === null || DISQUALIFYING.has(sev));
+  if (person && !actor?.startsWith("human:")) {
+    const what = judgment ? "it needs judgment" : `it is ${sev ?? "unrated"}`;
+    throw new LedgerError(`only a person can mark ${finding.id} ${as}: ${what}. Ask them, then pass --actor human:<name>`);
+  }
+}
+function dispose(ledger, id, as, note, { actor = null } = {}) {
   if (RETIRED[as]) throw new LedgerError(`--as ${as} was split; use ${RETIRED[as]}`);
   if (!DISPOSITIONS2.includes(as)) throw new LedgerError(`--as must be one of ${DISPOSITIONS2.join(", ")}`);
   const finding = ledger.findings.find((f) => f.id === id);
   if (!finding) throw new LedgerError(`no finding ${id}`);
-  finding.disposition = { as, note: note ?? null, at: (/* @__PURE__ */ new Date()).toISOString() };
+  finding.disposition = { as, note: note ?? null, at: (/* @__PURE__ */ new Date()).toISOString(), ...actor ? { actor } : {} };
   return finding;
 }
 var LENS_NAME = /^[a-z][a-z-]*$/;
@@ -7310,7 +7362,7 @@ import { join as join5 } from "node:path";
 var DEPTHS2 = ["quick", "standard", "deep"];
 var HOSTS = ["tau", "claude-code", "codex"];
 var TIERS = ["fast", "strong", "tiebreak"];
-var MODEL2 = /^[\w.-]+\/[\w.:@-]+$/;
+var MODEL3 = /^[\w.-]+\/[\w.:@-]+$/;
 var STANDARD_MAX_LENSES = 6;
 var PlanError = class extends Error {
 };
@@ -7352,7 +7404,7 @@ function checkUserConfig(config, where2 = "user config") {
   for (const [host2, tiers] of Object.entries(config.hosts ?? {})) {
     for (const [tier, models] of Object.entries(tiers ?? {})) {
       if (!TIERS.includes(tier)) throw new PlanError(`${where2}: hosts.${host2}.${tier} is not a tier (${TIERS.join(", ")})`);
-      if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL2.test(m))) {
+      if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL3.test(m))) {
         throw new PlanError(`${where2}: hosts.${host2}.${tier} must be a list of provider/model IDs, such as anthropic/opus`);
       }
     }
@@ -7464,11 +7516,13 @@ function resolvePlan({ depth, lenses, host: host2, config = {} }) {
     warnings
   };
 }
-function pickVerifier(plan, author, config = {}) {
+function pickVerifier(plan, author, config = {}, exclude = []) {
   const authorFamily = family(author);
+  const used = new Set(exclude);
   const all = Object.values(plan.host && config.hosts?.[plan.host] || {}).flat();
-  const model = [...plan.verifier.models, ...all].find((m) => family(m) !== authorFamily) ?? null;
-  return { model, family: model ? family(model) : null, thinking: plan.verifier.thinking, ...model ? {} : { note: "no model from another family is configured; pick one yourself" } };
+  const model = [...plan.verifier.models, ...all].find((m) => family(m) !== authorFamily && !used.has(m)) ?? null;
+  const note = used.size ? "no other model from another family is configured; pick one yourself" : "no model from another family is configured; pick one yourself";
+  return { model, family: model ? family(model) : null, thinking: plan.verifier.thinking, ...model ? {} : { note } };
 }
 function pickTiebreak(plan, exclude = [], config = {}) {
   const seen = new Set(exclude.map(family));
@@ -7872,7 +7926,7 @@ function buildProgram(state = { exitCode: 0 }) {
     return context.plan;
   };
   plan.command("show").description("Print the plan for a pinned change.").requiredOption("--context <dir>", "directory written by pin").action((o) => print(planOf(o.context)));
-  plan.command("verifier").description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--author <provider/model>", "model that wrote the finding").action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config)));
+  plan.command("verifier").description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--author <provider/model>", "model that wrote the finding").option("--exclude <m1,m2>", "models that already verified the finding; pass the first verifier when picking a second").action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config, list2(o.exclude))));
   plan.command("tiebreak").description("Pick a tie-break model from a family no earlier model on the finding used.").requiredOption("--context <dir>", "directory written by pin").requiredOption("--exclude <m1,m2>", "models that already judged the finding").action((o) => print(pickTiebreak(planOf(o.context), list2(o.exclude), loadUserConfig().config)));
   plan.command("config").description("Print the user config path and its checked contents.").action(() => print(loadUserConfig()));
   const lens = program2.command("lens").description("Review lens prompts, and running a lens on another model family.");
@@ -7912,11 +7966,19 @@ function buildProgram(state = { exitCode: 0 }) {
       (l, o) => report(l, Number(o.threshold), { allowMissing: o.allowMissing === true, keep: list2(o.keep) })
     )
   );
-  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").action(async (o) => {
+  keyed("dispose", "Record what a person decided about a finding.").requiredOption("--id <F1>", "finding ID").requiredOption("--as <disposition>", "fixed, accepted (will fix), wrong, intended, or not-worth-it").option("--note <text>", "why").option("--note-file <file>", "read the note from a file, or - for stdin; use it for any text copied from GitHub").option("--actor <actor>", "who decided: human:<name>, or agent:<runtime> (default AGENT_REVIEW_ACTOR); clearing a blocker, a should-fix or an unrated finding needs human:, and so does any disposition of a needs-judgment finding").action(async (o) => {
     if (o.note != null && o.noteFile != null) throw new LedgerError("use --note or --note-file, not both");
     const note = o.noteFile != null ? (o.noteFile === "-" ? await readStdin() : readFileSync9(o.noteFile, "utf8")).trim() : o.note;
+    let actor = o.actor ?? null;
+    const envActor = process.env.AGENT_REVIEW_ACTOR;
+    if (actor == null && envActor != null) {
+      if (isActor(envActor)) actor = envActor;
+      else console.error(`agent-review ledger dispose: ignoring AGENT_REVIEW_ACTOR="${envActor}"; it must be human:<name> or agent:<runtime>`);
+    }
     withLedger((l) => {
-      dispose(l, o.id, o.as, note);
+      const finding = l.findings.find((f) => f.id === o.id);
+      if (finding) checkDisposeActor(finding, o.as, actor);
+      dispose(l, o.id, o.as, note, { actor });
       return { id: o.id, disposition: o.as };
     })(o);
   });
@@ -7984,7 +8046,7 @@ function buildProgram(state = { exitCode: 0 }) {
   const threads = program2.command("threads").description("Read-only helpers for answering PR review threads.");
   threads.command("list").description("Unresolved review threads, oldest first.").requiredOption("--pr <number>", "pull request").option("--repo <owner/repo>", "repository (default: the current one)").option("--all", "include resolved threads").action((o) => print(listThreads(o)));
   threads.command("owner").description("The commit that last changed a line, and the open PR that contains it.").requiredOption("--path <file>", "file").requiredOption("--line <n>", "line").option("--repo <owner/repo>", "repository (default: the current one)").action((o) => print(owner(o)));
-  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding numbers and IDs, code outside backticks, broken Markdown").action(async (files, o) => {
+  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding numbers and IDs, review details (review rounds, reviewer counts, models, model families, self-review findings), code outside backticks, broken Markdown").action(async (files, o) => {
     const inputs = files.length ? files.map((f) => [f, readFileSync9(f, "utf8")]) : [["<stdin>", await readStdin()]];
     const run4 = o.github ? checkGithub : check;
     const all = inputs.flatMap(([file, text]) => run4(text).map((f) => ({ file, ...f })));

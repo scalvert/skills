@@ -1,7 +1,7 @@
 {
   "name": "scalvert",
   "version": "0.6.0",
-  "description": "Workflow skills for coding agents: code review, landing pull requests, releases, verification, decisions and clear writing.",
+  "description": "Workflow skills for coding agents: code review, landing pull requests, releases, verification, decisions, clear writing and pull request sizing.",
   "author": {
     "name": "Steve Calvert",
     "url": "https://github.com/scalvert"

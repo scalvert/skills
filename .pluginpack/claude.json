@@ -66,9 +66,13 @@
     "plugins/claude/scalvert/skills/self-review/scripts/lenses/spec-fit.md",
     "plugins/claude/scalvert/skills/self-review/scripts/lenses/taste.md",
     "plugins/claude/scalvert/skills/self-review/scripts/lenses/tests.md",
+    "plugins/claude/scalvert/skills/split-branch/SKILL.md",
+    "plugins/claude/scalvert/skills/split-plan/SKILL.md",
     "plugins/claude/scalvert/skills/verify-end-to-end/SKILL.md",
     "plugins/claude/scalvert/skills/write-clearly/SKILL.md",
     "plugins/claude/scalvert/skills/write-clearly/scripts/agent-review.mjs",
+    "plugins/claude/scalvert/skills/write-linkedin-post/SKILL.md",
+    "plugins/claude/scalvert/skills/write-linkedin-post/scripts/check-post.mjs",
     "plugins/claude/scalvert/skills/write-rfc/SKILL.md"
   ]
 }

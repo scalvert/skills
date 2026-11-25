@@ -7,7 +7,7 @@
     {
       "name": "scalvert",
       "source": "./plugins/codex/scalvert",
-      "description": "Workflow skills for coding agents: code review, landing pull requests, releases, verification, decisions and clear writing.",
+      "description": "Workflow skills for coding agents: code review, landing pull requests, releases, verification, decisions, clear writing and pull request sizing.",
       "version": "0.6.0",
       "policy": {
         "installation": "AVAILABLE",

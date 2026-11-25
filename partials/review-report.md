@@ -37,12 +37,12 @@ Rules for the prose:
 - A finding with a `repeatOf` may not be new. End its entry with one line: `This may repeat finding <n>, <its title>, which was <closed as intended | still open>.` An earlier finding from before the harness has no number: give its title only. A person decides whether it is the same problem. A finding with `recurs` ends with: `This came back after an earlier fix.`
 - Start each finding with its number `n` from the report output, in bold, as its own paragraph: `**2.**`. Do not use a Markdown numbered list. It renumbers from its first item, and the numbers shown must be the review's. The harness gives the numbers in report order, and they continue across rounds, so a follow-up's first new finding may be 4. Leave any gap as it is.
 - The user names a finding by its number ("fix 2"), and commands take the same number (`--finding 2`). No other ID exists for you to show.
-- One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item. Leave out praise and summaries of the diff.
+- One finding per item. Give file and line, the scenario, and the evidence. List every other place from `instances` on the same item, except any its verifier rejected. Leave out praise and summaries of the diff.
 - Mark a finding whose origin is `missed` with "missed in an earlier round". Mark a finding with a non-empty `recurs` with "came back after an earlier fix".
 - Put code in backticks: identifiers, calls, paths, `file:line`, commands, flags and values.
 - Plain words, short sentences, active voice. No em dashes, no emoji, no "it's worth noting".
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.
 - Leave out the dropped findings. They stay in the review's history.
 
-Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report. A finding number is a flag to fix only in the draft comments. The report is for this conversation, and keeps its numbers.
+Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report. A finding number or a review detail is a flag to fix only in the draft comments. The report is for this conversation, and keeps its numbers, its reviewer counts and its model families.
 

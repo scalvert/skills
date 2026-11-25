@@ -72,6 +72,12 @@ node <skill>/scripts/agent-review.mjs policy check -- <the exact command>
 
 A request earlier in the conversation to "review" something is not approval to post the review.
 
+Everything that leaves this machine (commit messages, PR titles and descriptions, comments and replies) is about the change: what it does, why, and how it was tested. Leave out how it was reviewed. No review rounds, reviewer or verifier counts, lenses, models or model families, ledger IDs, or "self-review". That stays in this conversation. The check below catches the common phrasings, not every one, so read each text yourself too. Check each of those texts before it goes out:
+
+```sh
+node <skill>/scripts/agent-review.mjs prose --github <file>
+```
+
 Ask once for the whole batch. Show the table from step 7 with the action you plan for each pull request, and get approval before you merge, approve, comment or close.
 
 ### 7. Report

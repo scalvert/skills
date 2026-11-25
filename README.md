@@ -18,7 +18,11 @@ Work through a PR's unresolved review threads. Each claim is verified against th
 
 ### `write-clearly`
 
-Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, a review's finding numbers and internal keys ("finding 2", F2), unbalanced backticks and code blocks with no language.
+Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, a review's finding numbers and internal keys ("finding 2", F2), details of how a review ran ("two review rounds", "found by 3 reviewers", "reviewed with <model>", model families, "self-review findings"), unbalanced backticks and code blocks with no language. Text in backticks is exempt, so a PR can still name the `self-review` skill.
+
+### `write-linkedin-post`
+
+Draft LinkedIn posts, or a series of them, to share a project, release, video or article. The hook comes before the "see more" fold, the text is plain because LinkedIn renders no Markdown, every claim has a source, and media is uploaded natively. Includes `check-post.mjs`, which flags posts over 3,000 characters, hooks that run past the fold, Markdown and Unicode bold or italic letters that LinkedIn shows as typed, emoji, dashes, hashtag piles, stock openers and engagement bait. Never posts anything.
 
 ### `assess-release-readiness`
 
@@ -27,6 +31,14 @@ Assess whether a release, milestone, merge or package is ready. A panel of speci
 ### `debate-a-decision`
 
 Challenge a position, decision or draft before you commit, send or ship it. Expert personas (distinguished engineer, system designer, political realist, skeptic) take turns pressure-testing the position with sourced claims, and the conversation stays steerable. Formerly `council-discussion`.
+
+### `split-plan`
+
+Decide before coding whether a plan, ticket or goal should become several pull requests. Returns a green, yellow or red verdict, the review surfaces, and an ordered stack in which each pull request stands alone. A red verdict stops the implementation until you choose.
+
+### `split-branch`
+
+The same check for a branch that already has commits. Reads the diff against the base, counts hand-written lines apart from generated ones, and names the files and hunks for each pull request. Read-only: it never moves commits or opens a pull request.
 
 ## Workflow skills
 
@@ -126,6 +138,8 @@ Models are personal and host-specific, so they live in the user config at `~/.co
 A repo sets its review policy in `agent-review.json` at its root: the depth, paths that always get a deep review, the number of reviewers and model families, and the round cap. The harness reads it from the tip of the target branch, so a change cannot weaken its own review. See the harness's [policy reference](https://github.com/scalvert/agent-review/blob/main/docs/policy.md).
 
 Every step goes into the review's history at `~/.local/state/agent-reviews/v2/<owner>/<repo>/<pr-or-branch>/events.jsonl`. A review from before the harness, in a ledger at `~/.local/state/agent-reviews/reviews/<owner>/<repo>/<pr-or-branch>.json`, is copied into the history the first time the harness reads it, and the ledger is left as it was. `$AGENT_REVIEWS_STATE_DIR` replaces `~/.local/state/agent-reviews`, and `$XDG_STATE_HOME` moves its parent. The old `$SCALVERT_STATE_DIR` still works. Without an explicit state directory override, ledgers written before 0.1.1 stay in `~/.local/state/scalvert` and are still used until `${XDG_STATE_HOME:-$HOME/.local/state}/agent-reviews/reviews` exists. To switch, move `~/.local/state/scalvert/reviews` to `${XDG_STATE_HOME:-$HOME/.local/state}/agent-reviews/reviews`. If you set `$AGENT_REVIEWS_STATE_DIR` or `$SCALVERT_STATE_DIR`, use that directory as the destination parent instead. In a branch name, characters other than letters, digits, `.`, `_` and `-` are percent-encoded, so `feature/x` becomes `feature%2Fx.json`. Later, the same history records what a person decided about each finding. A person's decision is one of `fixed`, `accepted` (will fix), `wrong`, `intended` or `not-worth-it`. `agent-review ledger summary` reads both the histories and the older ledgers, and reports findings per review, rounds per review, the noise rate overall and per lens, model families, and how well the verification probabilities match those decisions (Brier score). It also lists bug classes that keep coming back in a repo, so the skills can suggest a rule: an `AGENTS.md` convention or lint rule when people fix them, a `REVIEW.md` line when people wave them off.
+
+`agent-review ledger dispose` records a decision about a finding in an older ledger. It needs `--actor human:<name>`, or `AGENT_REVIEW_ACTOR=human:<name>`, to clear a blocker, a should-fix or an unrated finding as `wrong`, `intended` or `not-worth-it`, and for any disposition of a needs-judgment finding. This is a breaking change: a call with no actor that used to clear such a finding now exits 1. Use `human:` only after a person made the decision.
 
 All judgments go through one interface, `classify(kind, input) -> { label, probability }` (`cli/src/classify.mjs`), so a local or self-hosted classifier can replace the agent's own judgment later.
 

@@ -2,7 +2,7 @@ import { defineConfig } from "@gleanwork/pluginpack";
 import pkg from "./package.json" with { type: "json" };
 
 const description =
-  "Workflow skills for coding agents: code review, landing pull requests, releases, verification, decisions and clear writing.";
+  "Workflow skills for coding agents: code review, landing pull requests, releases, verification, decisions, clear writing and pull request sizing.";
 
 export default defineConfig({
   name: "scalvert",
