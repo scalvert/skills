@@ -148,7 +148,7 @@ For text that will be posted to GitHub, such as a PR description, a review comme
 node <skill>/scripts/agent-review.mjs prose --github draft.md
 ```
 
-It also flags code outside backticks, escaped backticks, a review's finding numbers and internal keys ("finding 2", F1), details of how a review ran ("two review rounds", "3 reviewers", model families, "self-review"), unclosed backticks, and code blocks with no language. Text in backticks is exempt, so you can still name the `self-review` skill.
+It also flags code outside backticks, escaped backticks, a review's finding numbers and internal keys ("finding 2", F1), details of how a review ran ("two review rounds", "found by 3 reviewers", "reviewed with <model>", model families, "self-review findings"), unclosed backticks, and code blocks with no language. Text in backticks is exempt, so you can still name the `self-review` skill.
 
 ## Final check
 

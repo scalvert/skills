@@ -3825,13 +3825,31 @@ function notCode(token, kind) {
   return false;
 }
 var COUNT = String.raw`(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)`;
+var REVIEW_WORD = /\b(?:review(?:ed|ers?)?|self-review(?:ed)?|verifiers?)\b/i;
+var PROCESS_CUE = /\b(?:found|flagged|confirmed|caught|checked|verified|reviewed|agreed|disagreed|ran|panel|independent)\b/i;
+var MODEL = String.raw`(?:Claude|Opus|Sonnet|Haiku|GPT(?:[-.\w]*\w)?|Gemini|Grok|Codex|OpenAI|Anthropic)\b`;
 var REVIEW_DETAILS = [
-  /\bmodel famil(?:y|ies)\b/gi,
-  /\bself-review(?:ed|s)?\b/gi,
-  /\b(?:review|self-review) rounds?\b|\brounds? of (?:self-)?review\b/gi,
-  new RegExp(String.raw`\b${COUNT} (?:review )?rounds\b`, "gi"),
-  new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers?|verifiers?|lens(?:es)?)\b`, "gi")
+  { re: /\bmodel famil(?:y|ies)\b/gi },
+  // "self-review" alone names the skill. These say that one happened.
+  { re: /\bself-reviewed\b|\bself-review (?:findings?|feedback|pass(?:es)?)\b/gi },
+  {
+    re: /(?<=\b(?:in|after|from|during|before|via|through|ran|did)\s+(?:(?:a|an|the|another|one|this|that|my|our|its|their)\s+)?)self-reviews?(?=\s*(?:[.,;:!?)]|$))/gi
+  },
+  { re: /\b(?:review|self-review) rounds?\b|\brounds? of (?:self-)?review\b/gi },
+  { re: new RegExp(String.raw`\b${COUNT} (?:self-)?review rounds\b`, "gi") },
+  { re: new RegExp(String.raw`\b${COUNT} rounds\b`, "gi"), context: REVIEW_WORD },
+  { re: new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers?|verifiers?|lens(?:es)?)\b`, "gi"), context: PROCESS_CUE },
+  { re: new RegExp(String.raw`\b(?:re-reviewed|reviewed|verified|cross-checked|checked|audited) (?:with|by|on|using) (?:the )?${MODEL}`, "gi") },
+  { re: /\bpanels? of reviewers\b|\breviewer panels?\b/gi },
+  { re: /\b(?:verifier|reviewer) subagents?\b/gi },
+  { re: /\bthrough the [\w-]+ lens\b/gi }
 ];
+function sentenceAround(line, s, e) {
+  let start = 0;
+  for (const m of line.slice(0, s).matchAll(/[.!?](?=\s)/g)) start = m.index + 1;
+  const end = line.slice(e).search(/[.!?](?=\s|$)/);
+  return line.slice(start, end < 0 ? line.length : e + end);
+}
 function checkGithub(text) {
   const findings = check(text);
   const add = (line, rule, excerpt) => findings.push({ line, rule, excerpt: excerpt.trim().slice(0, 80) });
@@ -3854,18 +3872,22 @@ function checkGithub(text) {
     else if (m.unmatched) add(i + 1, "unbalanced backticks", raw[i]);
   });
   const html = (line) => /^\s{0,3}\[[^\]]+\]:\s/.test(line) ? "" : line.replace(/<!--.*?-->|<\/?[A-Za-z][^<>]*>/g, (m) => " ".repeat(m.length));
+  const labeled = maskExempt(text).map(html);
   maskExempt(text, { links: true }).map(html).forEach((line, i) => {
     const n = i + 1;
+    const prose = labeled[i];
     for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
     for (const m of line.matchAll(/\b(?:finding|candidate)s?\s+#?\d+\b/gi)) add(n, "finding number", m[0]);
-    const details = REVIEW_DETAILS.flatMap((re) => [...line.matchAll(re)].map((m) => [m.index, m.index + m[0].length]));
+    const details = REVIEW_DETAILS.flatMap(
+      ({ re, context }) => [...prose.matchAll(re)].map((m) => [m.index, m.index + m[0].length]).filter(([s, e]) => !context || context.test(sentenceAround(prose, s, e)))
+    );
     const phrases = [];
     for (const [s, e] of details.sort((a, b) => a[0] - b[0])) {
       const last = phrases.at(-1);
       if (last && s < last[1]) last[1] = Math.max(last[1], e);
       else phrases.push([s, e]);
     }
-    for (const [s, e] of phrases) add(n, "review detail (describe the change, not how it was reviewed)", line.slice(s, e));
+    for (const [s, e] of phrases) add(n, "review detail (describe the change, not how it was reviewed)", prose.slice(s, e));
     const covered = [];
     for (const { kind, re } of CODE_PATTERNS) {
       for (const m of line.matchAll(re)) {
@@ -5030,7 +5052,7 @@ var DECISION_KINDS = {
 var DISPOSITIONS = ["fixed", "accepted", "wrong", "intended", "not-worth-it"];
 var RUN_STATUSES = ["ok", "failed", "skipped"];
 var RUNNER_KINDS = ["executed", "attested"];
-var MODEL = /^[\w.-]+\/[\w.:@-]+$/;
+var MODEL2 = /^[\w.-]+\/[\w.:@-]+$/;
 var defaultFamily = (model) => String(model).split("/")[0].toLowerCase();
 
 // node_modules/agent-review/src/core/workflow/errors.mjs
@@ -5221,7 +5243,7 @@ function checkActor(actor, { human = false } = {}) {
   if (human && !actor.startsWith("human:")) throw new WorkflowError(FORBIDDEN, `only a person can do this; ${actor} is not human:<name>`);
 }
 function checkModel(model, what) {
-  if (typeof model !== "string" || !MODEL.test(model)) invalid(`${what} must be provider/model, such as anthropic/opus, got ${JSON.stringify(model)}`);
+  if (typeof model !== "string" || !MODEL2.test(model)) invalid(`${what} must be provider/model, such as anthropic/opus, got ${JSON.stringify(model)}`);
 }
 function checkNumber(n, what) {
   if (!Number.isInteger(n) || n < 1) invalid(`${what} must be a number from 1, as the harness shows it, got ${JSON.stringify(n)}`);
@@ -7326,7 +7348,7 @@ import { join as join5 } from "node:path";
 var DEPTHS2 = ["quick", "standard", "deep"];
 var HOSTS = ["tau", "claude-code", "codex"];
 var TIERS = ["fast", "strong", "tiebreak"];
-var MODEL2 = /^[\w.-]+\/[\w.:@-]+$/;
+var MODEL3 = /^[\w.-]+\/[\w.:@-]+$/;
 var STANDARD_MAX_LENSES = 6;
 var PlanError = class extends Error {
 };
@@ -7368,7 +7390,7 @@ function checkUserConfig(config, where2 = "user config") {
   for (const [host2, tiers] of Object.entries(config.hosts ?? {})) {
     for (const [tier, models] of Object.entries(tiers ?? {})) {
       if (!TIERS.includes(tier)) throw new PlanError(`${where2}: hosts.${host2}.${tier} is not a tier (${TIERS.join(", ")})`);
-      if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL2.test(m))) {
+      if (!Array.isArray(models) || models.some((m) => typeof m !== "string" || !MODEL3.test(m))) {
         throw new PlanError(`${where2}: hosts.${host2}.${tier} must be a list of provider/model IDs, such as anthropic/opus`);
       }
     }
@@ -8000,7 +8022,7 @@ function buildProgram(state = { exitCode: 0 }) {
   const threads = program2.command("threads").description("Read-only helpers for answering PR review threads.");
   threads.command("list").description("Unresolved review threads, oldest first.").requiredOption("--pr <number>", "pull request").option("--repo <owner/repo>", "repository (default: the current one)").option("--all", "include resolved threads").action((o) => print(listThreads(o)));
   threads.command("owner").description("The commit that last changed a line, and the open PR that contains it.").requiredOption("--path <file>", "file").requiredOption("--line <n>", "line").option("--repo <owner/repo>", "repository (default: the current one)").action((o) => print(owner(o)));
-  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding numbers and IDs, review details (rounds, reviewer counts, model families, self-review), code outside backticks, broken Markdown").action(async (files, o) => {
+  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding numbers and IDs, review details (review rounds, reviewer counts, models, model families, self-review findings), code outside backticks, broken Markdown").action(async (files, o) => {
     const inputs = files.length ? files.map((f) => [f, readFileSync9(f, "utf8")]) : [["<stdin>", await readStdin()]];
     const run4 = o.github ? checkGithub : check;
     const all = inputs.flatMap(([file, text]) => run4(text).map((f) => ({ file, ...f })));
