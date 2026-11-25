@@ -1,6 +1,13 @@
 // Checks prose for the mechanical write-clearly rules: dashes used as
-// punctuation, emoji, title-case headings, and phrasing that reads as
-// generated. Code blocks, inline code, URLs and block quotes are exempt.
+// punctuation, emoji, title-case headings, unfilled placeholders, and
+// phrasing that reads as generated. Code blocks, inline
+// code, URLs and block quotes are exempt.
+//
+// Most of the phrasing rules come from Wikipedia's field guide to AI
+// writing (https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing).
+// Each entry is there because generated text uses it far more often than
+// people do. A word that people also use often goes in WATCH_WORDS, which
+// only flags a cluster, not in PHRASES, which flags every use.
 //
 // Usage:
 //   agent-review prose <file ...>      check files
@@ -9,14 +16,98 @@
 //   agent-review prose --github ...    also check text bound for GitHub (see checkGithub)
 // Exits 1 when anything is flagged.
 
+// Flagged wherever they appear.
 export const PHRASES = [
-  "delve", "delves", "delving", "foster", "fosters", "fostering", "garner", "garners", "interplay", "intricate",
-  "landscape", "pivotal", "showcase", "showcases", "showcasing", "testament", "underscore", "underscores",
-  "underscoring", "seamless", "seamlessly", "groundbreaking", "vibrant", "world-class", "game-changer",
-  "it is important to note", "it's worth noting", "it is worth noting", "in order to", "due to the fact that",
-  "has the ability to", "serves as", "stands as", "boasts", "not only", "i hope this helps", "let's dive in",
-  "in today's fast-paced", "at the end of the day", "rest assured",
+  // AI vocabulary.
+  "delve", "delves", "delved", "delving", "foster", "fosters", "fostered", "fostering", "garner", "garners",
+  "garnered", "garnering", "interplay", "intricate", "intricacies", "landscape", "pivotal", "showcase",
+  "showcases", "showcased", "showcasing", "testament", "underscore", "underscores", "underscored", "underscoring",
+  "tapestry", "meticulous", "meticulously", "multifaceted", "deep dive", "valuable insights", "seamless",
+  "seamlessly", "groundbreaking", "vibrant", "world-class", "game-changer",
+  // Claims about significance and legacy.
+  "setting the stage for", "sets the stage for", "marks a shift", "marking a shift", "represents a shift",
+  "key turning point", "indelible mark", "deeply rooted", "focal point", "reflects broader", "reflecting broader",
+  "enduring legacy", "lasting legacy", "symbolizing", "social media presence",
+  // "Is" and "has" dressed up.
+  "serves as", "stands as", "boasts", "boasting", "holds the distinction",
+  // Negative parallelisms.
+  "not only", "isn't just", "is not just", "aren't just", "are not just", "not merely",
+  // "Why this matters" framing.
+  "why this matters", "why it matters", "this matters because", "the distinction matters",
+  // Vague attribution.
+  "industry reports", "observers have cited", "experts argue", "experts say", "some critics argue",
+  // Formula endings.
+  "despite these challenges", "continues to evolve", "continue to evolve", "future outlook", "future prospects",
+  "in conclusion",
+  // Filler and signposting.
+  "it is important to note", "it's important to note", "it's worth noting", "it is worth noting",
+  "it is important to remember", "it's important to remember", "in order to", "due to the fact that",
+  "it is crucial to", "it's crucial to", "has the ability to", "let's dive in", "in today's fast-paced",
+  "at the end of the day", "rest assured",
+  // Disclaimers about sources.
+  "based on available information", "based on the available information", "in the provided sources",
+  "in the available sources", "provided search results", "does not by itself establish", "does not establish that",
+  "doesn't establish that",
+  // Talking to the user inside the text.
+  "i hope this helps", "i hope this message finds you well", "great question", "you're absolutely right",
+  "certainly!", "of course!", "is there anything else", "would you like me to", "detailed breakdown",
+  "carefully reviewed", "any inconvenience",
+  // Change summaries that assert quality or list what did not change.
+  "streamlined", "improved clarity", "improves clarity", "improve clarity",
+  "clarity and flow", "improved readability", "enhanced readability", "addressed reviewer feedback",
+  "addressed the reviewer's feedback",
 ];
+
+// Words people use too. One is fine; generated text stacks them, so they
+// are flagged only when WATCH_LIMIT different words share a paragraph.
+// Each entry lists the forms of one word, so "highlight" and "highlighting"
+// count once.
+export const WATCH_WORDS = [
+  ["additionally"], ["align with", "aligns with", "aligned with"], ["bolster", "bolsters", "bolstered"],
+  ["crucial"], ["emphasize", "emphasizes", "emphasizing"], ["enduring"], ["enhance", "enhances", "enhanced", "enhancing"],
+  ["highlight", "highlights", "highlighted", "highlighting"], ["robust"], ["valuable"],
+  ["leverage", "leverages", "leveraging"], ["prioritize", "prioritizes", "prioritizing"], ["quietly"], ["steady"],
+  ["dependable"], ["universally"], ["echoed"], ["resonate", "resonates"], ["encompassing"], ["cultivating"],
+  ["in connection with"],
+];
+export const WATCH_LIMIT = 2;
+
+// Shapes that a fixed phrase cannot catch. Each runs on the lowercased line.
+export const PATTERNS = [
+  // "..., highlighting its importance": analysis tacked onto a fact.
+  {
+    rule: "trailing -ing clause",
+    re: /,\s+(?:highlighting|underscoring|emphasizing|showcasing|reflecting|symbolizing|ensuring|fostering|cultivating|enhancing|solidifying|demonstrating|illustrating|contributing to|marking)\b/,
+  },
+  { rule: "plays a key role", re: /\bplay(?:s|ed|ing)? an? (?:crucial|vital|key|pivotal|significant|central|critical) role\b/ },
+  { rule: "faces challenges", re: /\bfac(?:es|ed|ing) (?:several |many |numerous |significant |new )?challenges\b/ },
+  { rule: "not widely documented", re: /(?:\bnot|n't) (?:widely|extensively|well|publicly) (?:documented|available|known)\b/ },
+  // "X should be treated as A rather than B": a corrective framing nobody asked for.
+  { rule: "should be treated as X rather than Y", re: /\bshould be (?:treated|understood|read|seen|presented) as [^.;]{1,80}\brather than\b/ },
+  { rule: "in this section, we will", re: /\bin this (?:section|article|document|guide|post),? (?:we|i) will\b/ },
+  { rule: "it's not X, it's Y", re: /\b(?:it|this|that)(?:'s| is) not [^.;:!?]{1,60}[,;] (?:it|this|that)(?:'s| is)\b/ },
+  // A verbless fragment that opens a sentence: "No guessing, no wasted motion."
+  // A conditional such as "If there is no token, no request is sent." is fine.
+  {
+    rule: "no X, no Y",
+    re: /(?:^[\s>*+\-\d.)]*|[.!?:]\s+)no [a-z]+(?: [a-z]+)?, no [a-z]+(?: [a-z]+)?(?:[,.;!]|$| just\b)/,
+  },
+  // [Your Name], 2026-XX-XX, (Add your URL here).
+  {
+    rule: "placeholder",
+    re: /\[(?:your|insert|add|describe|link to|name of|year|date)\b[^\]]*\]|\b\d{4}-xx(?:-xx)?\b|\b(?:add|insert|paste) your [^.]{1,40} here\b/,
+  },
+  // INSERT_SOURCE_URL_HERE. Matched on the original case, so that an
+  // identifier such as insert_row is not a placeholder.
+  { rule: "placeholder", cased: true, re: /\b(?:INSERT|PASTE)_[A-Z0-9_]+\b/ },
+];
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// A phrase matches as whole words: "foster" does not match "fosterage",
+// and "underscored" does not match the identifier underscored_name.
+const phraseRe = (phrase) => new RegExp(`(^|[^a-z0-9_])${escapeRe(phrase)}([^a-z0-9_]|$)`);
+const PHRASE_RES = PHRASES.map((p) => [p, phraseRe(p)]);
+const WATCH_RES = WATCH_WORDS.flatMap((forms) => forms.map((p) => [p, phraseRe(p), forms[0]]));
 
 const SMALL_WORDS = new Set([
   "a", "an", "and", "as", "at", "but", "by", "for", "if", "in", "nor", "of", "on", "or", "so", "the", "to", "up", "via", "vs", "with", "yet",
@@ -151,8 +242,36 @@ function isTitleCase(heading) {
 export function check(text) {
   const findings = [];
   const add = (line, rule, excerpt) => findings.push({ line, rule, excerpt: excerpt.trim().slice(0, 80) });
+  // Watch words seen in the current paragraph, flagged when it ends.
+  let watched = [];
+  const endParagraph = () => {
+    const distinct = new Set(watched.map((w) => w.family));
+    if (distinct.size >= WATCH_LIMIT) {
+      watched.sort((a, b) => a.line - b.line || a.at - b.at);
+      for (const w of watched) add(w.line, `AI vocabulary "${w.word}" (${distinct.size} in one paragraph)`, w.text);
+    }
+    watched = [];
+  };
+  // Whether the next line starts a sentence. A hard-wrapped line that
+  // continues a sentence does not.
+  let sentenceStart = true;
+  // The end-of-sentence test reads the raw line, because masking blanks a
+  // URL together with the period after it.
+  const raw = text.split(/\r?\n/);
   maskExempt(text).forEach((line, i) => {
     const n = i + 1;
+    if (!line.trim()) {
+      endParagraph();
+      sentenceStart = true;
+      return;
+    }
+    // Each list item and table row is its own block.
+    const block = BLOCK_START.test(line);
+    if (block) endParagraph();
+    const startsSentence = sentenceStart || block;
+    // A heading ends its own sentence, with or without punctuation.
+    sentenceStart =
+      /^\s{0,3}#{1,6}\s/.test(line) || /[.!?:]["')\]*_\u201D\u2019]*\s*$/.test(raw[i]);
     if (line.includes("\u2014")) add(n, "em dash", line);
     if (line.includes("\u2013")) add(n, "en dash", line);
     // A double hyphen between words is a typed dash. Table rules and CLI
@@ -161,13 +280,30 @@ export function check(text) {
     if (EMOJI.test(line)) add(n, "emoji", line);
     const heading = line.match(/^\s{0,3}#{1,6}\s+(.*)$/);
     if (heading && isTitleCase(heading[1])) add(n, "title-case heading", heading[1]);
-    const lower = line.toLowerCase();
-    for (const phrase of PHRASES) {
-      const re = new RegExp(`(^|[^a-z])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`);
+    if (heading) endParagraph();
+    // A curly apostrophe counts as a straight one, so "it's" matches either way.
+    const lower = line.toLowerCase().replace(/[\u2018\u2019]/g, "'");
+    for (const [phrase, re] of PHRASE_RES) {
       if (re.test(lower)) add(n, `phrase "${phrase}"`, line);
     }
+    // A prefix stops a pattern's line-start anchor from treating the middle
+    // of a sentence as its start.
+    const lowerInSentence = startsSentence ? lower : `~ ${lower}`;
+    const matched = new Set();
+    for (const { rule, re, cased } of PATTERNS) {
+      if (!matched.has(rule) && re.test(cased ? line : lowerInSentence)) {
+        matched.add(rule);
+        add(n, rule, line);
+      }
+    }
+    for (const [word, re, family] of WATCH_RES) {
+      const at = lower.search(re);
+      if (at >= 0) watched.push({ word, family, line: n, at, text: line });
+    }
+    if (heading) endParagraph();
   });
-  return findings;
+  endParagraph();
+  return findings.sort((a, b) => a.line - b.line);
 }
 
 // Text that looks like code. Each pattern is narrow on purpose: a false flag
