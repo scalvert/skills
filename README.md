@@ -18,7 +18,7 @@ Work through a PR's unresolved review threads. Each claim is verified against th
 
 ### `write-clearly`
 
-Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, ledger IDs, unbalanced backticks and code blocks with no language.
+Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, a review's finding numbers and internal keys ("finding 2", F2), unbalanced backticks and code blocks with no language.
 
 ### `assess-release-readiness`
 
@@ -53,15 +53,54 @@ npx skills add scalvert/skills --skill debate-a-decision
 
 ## How a review works
 
+The [review harness](https://github.com/scalvert/agent-review), bundled into each skill, runs every review. It records each step in the review's history and refuses a step that is skipped or does not hold, with every reason: a reviewer slot that never ran, a single model family, a verifier from the author's family, a finding with no rating. `agent-review review next` says what the next step is, and whether it waits on an agent or a person, so a person and an agent can share a review, and a new session picks up where the last one stopped. Some steps are only a person's: accepting a missing reviewer, settling a dispute between verifiers, clearing a blocker or should-fix, and going past the round cap.
+
 1. **Pin.** `agent-review pin` writes the diff, changed files, commits, spec, `AGENTS.md`, `REVIEW.md` and optional axioms to one directory. It picks 3 to 6 lenses from what the diff touches.
 2. **Panel.** One reviewer per lens, each with a fresh context, spread across model families. Each finding names its bug class and lists every place the same mistake occurs. `agent-review lens run` runs a lens on Codex or Claude from any host.
-3. **Merge duplicates.** Findings with the same root cause collapse into one. The report shows how many reviewers and model families found it. In a follow-up round, a finding that repeats an earlier one, even one the author already answered, merges into it instead of coming back.
-4. **Verify.** A fresh verifier on another model checks each finding against the code and records a calibrated probability. It also records where the problem came from: introduced by the change, missed in an earlier round, or older than the change.
-5. **Report.** Only confirmed findings above the threshold are reported, in sections: blockers, should fix, pre-existing and smaller items. Only a problem the change introduced can be a blocker. The ledger refuses to report while a chosen lens never ran, a finding is unverified, a blocker has no origin, or a new finding may repeat an earlier one.
+3. **Merge duplicates.** Findings with the same root cause collapse into one. The report shows how many reviewers and model families found it. In a follow-up round, the report marks a finding that may repeat an earlier one, by location and bug class, and never leaves it out: a person decides whether it is the same problem.
+4. **Verify.** A fresh verifier on another model checks each finding against the code and records a calibrated probability. It also records where the problem came from: introduced by the change, missed in an earlier round, or older than the change. When two verifiers disagree, a person decides.
+5. **Report.** Only confirmed findings above the threshold are reported, in sections: blockers, should fix, pre-existing and smaller items. Only a problem the change introduced can be a blocker. The harness refuses to report while a finding is unverified, or a reported finding has no severity or origin.
 
-A review has to converge. The ledger allows 3 rounds per PR or branch, and then asks the author to step back and reconsider the approach. `code-review` follow-ups review only the new commits, and nits stay out of posted comments. A problem that comes back after it was marked fixed is reported again. These follow the [Claude Code team's own review changes](https://claude.dev/blog/solving-code-review-at-anthropic/), which cut their mean reviews per PR from 2.08 to 1.32.
+A review has to converge. The review policy allows 3 rounds per PR or branch, and then asks the author to step back and reconsider the approach. Only a person can start a fourth. `code-review` follow-ups review only the new commits, and nits stay out of posted comments. A problem that comes back after it was marked fixed is reported again. These follow the [Claude Code team's own review changes](https://claude.dev/blog/solving-code-review-at-anthropic/), which cut their mean reviews per PR from 2.08 to 1.32.
 
-Every decision goes into a ledger at `~/.local/state/agent-reviews/reviews/<owner>/<repo>/<pr-or-branch>.json`. `$AGENT_REVIEWS_STATE_DIR` replaces `~/.local/state/agent-reviews`, and `$XDG_STATE_HOME` moves its parent. The old `$SCALVERT_STATE_DIR` still works. Without an explicit state directory override, ledgers written before 0.1.1 stay in `~/.local/state/scalvert` and are still used until `${XDG_STATE_HOME:-$HOME/.local/state}/agent-reviews/reviews` exists. To switch, move `~/.local/state/scalvert/reviews` to `${XDG_STATE_HOME:-$HOME/.local/state}/agent-reviews/reviews`. If you set `$AGENT_REVIEWS_STATE_DIR` or `$SCALVERT_STATE_DIR`, use that directory as the destination parent instead. In a branch name, characters other than letters, digits, `.`, `_` and `-` are percent-encoded, so `feature/x` becomes `feature%2Fx.json`. Later, the same ledger records what a person decided about each finding. A person's decision is one of `fixed`, `accepted` (will fix), `wrong`, `intended` or `not-worth-it`. `agent-review ledger summary` reports findings per review, rounds per review, the noise rate overall and per lens, model families, and how well the verification probabilities match those decisions (Brier score). It also lists bug classes that keep coming back in a repo, so the skills can suggest a rule: an `AGENTS.md` convention or lint rule when people fix them, a `REVIEW.md` line when people wave them off.
+### Depth and models
+
+A review runs at one of three depths. Each depth sets which lenses run, and which model tier and thinking level each role gets. Reviewers decide what gets found, and verifiers decide what gets reported, so `standard` spends the strong tier on verification and on the correctness and security lenses.
+
+| | `quick` | `standard` (default) | `deep` |
+|---|---|---|---|
+| Lenses | 3 | 3 to 6, picked from the diff | every lens that can apply |
+| Reviewers | fast tier | fast, but strong for correctness and security | strong tier |
+| Verifiers | fast tier | strong tier | strong, and a second verifier on each blocker |
+| Thinking | low | medium, and high for verifiers | high |
+
+Every depth keeps at least two model families, and a verifier always comes from a different family than the finding's author.
+
+The depth comes from, first match wins: `--depth` or a request such as "do a quick review", the repo's `agent-review.json`, the user config, then a suggestion from the diff (`quick` for a small docs-only change). A changed path that matches the repo's `deepPaths` always makes the review deep. The repo file is read from the merge base, so a change cannot lower its own review:
+
+```json
+{ "review": { "depth": "standard", "deepPaths": ["src/auth/**", ".github/workflows/**"] } }
+```
+
+Models are personal and host-specific, so they live in the user config at `~/.config/agent-reviews/config.json` (or `$AGENT_REVIEWS_CONFIG`), never in a repo. Model IDs are `provider/model`. On Claude Code, `anthropic/` models run as subagents and `openai/` models run through Codex:
+
+```json
+{
+  "depth": "standard",
+  "hosts": {
+    "claude-code": {
+      "fast": ["anthropic/sonnet", "openai/gpt-5.4-mini"],
+      "strong": ["anthropic/opus", "openai/gpt-5.5"]
+    }
+  }
+}
+```
+
+`tiebreak` is optional: list a third family when the host can run one. `pin` writes the resolved plan into `context.json`, and `agent-review plan show`, `plan verifier` and `plan tiebreak` read it. Without a user config, the plan has no models, and the agent picks them as before. The ledger records the depth of each round and the model behind each finding, so `ledger summary` shows noise and fixes by depth and by model.
+
+A repo sets its review policy in `agent-review.json` at its root: the depth, paths that always get a deep review, the number of reviewers and model families, and the round cap. The harness reads it from the tip of the target branch, so a change cannot weaken its own review. See the harness's [policy reference](https://github.com/scalvert/agent-review/blob/main/docs/policy.md).
+
+Every step goes into the review's history at `~/.local/state/agent-reviews/v2/<owner>/<repo>/<pr-or-branch>/events.jsonl`. A review from before the harness, in a ledger at `~/.local/state/agent-reviews/reviews/<owner>/<repo>/<pr-or-branch>.json`, is copied into the history the first time the harness reads it, and the ledger is left as it was. `$AGENT_REVIEWS_STATE_DIR` replaces `~/.local/state/agent-reviews`, and `$XDG_STATE_HOME` moves its parent. The old `$SCALVERT_STATE_DIR` still works. Without an explicit state directory override, ledgers written before 0.1.1 stay in `~/.local/state/scalvert` and are still used until `${XDG_STATE_HOME:-$HOME/.local/state}/agent-reviews/reviews` exists. To switch, move `~/.local/state/scalvert/reviews` to `${XDG_STATE_HOME:-$HOME/.local/state}/agent-reviews/reviews`. If you set `$AGENT_REVIEWS_STATE_DIR` or `$SCALVERT_STATE_DIR`, use that directory as the destination parent instead. In a branch name, characters other than letters, digits, `.`, `_` and `-` are percent-encoded, so `feature/x` becomes `feature%2Fx.json`. Later, the same history records what a person decided about each finding. A person's decision is one of `fixed`, `accepted` (will fix), `wrong`, `intended` or `not-worth-it`. `agent-review ledger summary` reads both the histories and the older ledgers, and reports findings per review, rounds per review, the noise rate overall and per lens, model families, and how well the verification probabilities match those decisions (Brier score). It also lists bug classes that keep coming back in a repo, so the skills can suggest a rule: an `AGENTS.md` convention or lint rule when people fix them, a `REVIEW.md` line when people wave them off.
 
 All judgments go through one interface, `classify(kind, input) -> { label, probability }` (`cli/src/classify.mjs`), so a local or self-hosted classifier can replace the agent's own judgment later.
 

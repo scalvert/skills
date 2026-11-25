@@ -10,7 +10,9 @@ import { Command, CommanderError, Option } from "commander";
 import { check as checkProse, checkGithub } from "./check-prose.mjs";
 import { KINDS, check as checkDecision, rubricText } from "./classify.mjs";
 import { PRESETS, SHIMMED, checkCommand, checkTool, load as loadPermissions, writeCodexRules, writeShims } from "./permissions.mjs";
+import { HARNESS_COMMANDS, allReviewViews, loadHarness, presentOpen, presentReport, runHarness } from "./harness.mjs";
 import { pin } from "./review-context.mjs";
+import { DEPTHS, HOSTS, loadUserConfig, pickTiebreak, pickVerifier } from "./review-plan.mjs";
 import * as ledger from "./review-ledger.mjs";
 import { listThreads, owner } from "./review-threads.mjs";
 import { VIAS, lensPrompt, runLens } from "./run-lens.mjs";
@@ -46,7 +48,37 @@ export function buildProgram(state = { exitCode: 0 }) {
     .option("--base <ref>", "base ref for a local branch (default: origin/HEAD)")
     .option("--since <sha>", "pin only the commits after this one (a follow-up round)")
     .option("--out <dir>", "output directory (default: a new temp dir)")
+    .addOption(new Option("--depth <depth>", "review depth (default: repo, then user config, then suggested from the diff)").choices(DEPTHS))
+    .addOption(new Option("--host <host>", "host that runs the reviewers, for the model plan (default: detected)").choices(HOSTS))
     .action((o) => print(pin(o)));
+
+  const plan = program.command("plan").description("The model plan that pin writes: which model and thinking level each review role gets.");
+  const planOf = (dir) => {
+    const context = JSON.parse(readFileSync(`${dir}/context.json`, "utf8"));
+    if (!context.plan) throw new ledger.LedgerError(`${dir}/context.json has no plan; pin it again with this version`);
+    return context.plan;
+  };
+  plan
+    .command("show")
+    .description("Print the plan for a pinned change.")
+    .requiredOption("--context <dir>", "directory written by pin")
+    .action((o) => print(planOf(o.context)));
+  plan
+    .command("verifier")
+    .description("Pick the verifier for one finding: the plan's verifier tier, from another family than the finding's author.")
+    .requiredOption("--context <dir>", "directory written by pin")
+    .requiredOption("--author <provider/model>", "model that wrote the finding")
+    .action((o) => print(pickVerifier(planOf(o.context), o.author, loadUserConfig().config)));
+  plan
+    .command("tiebreak")
+    .description("Pick a tie-break model from a family no earlier model on the finding used.")
+    .requiredOption("--context <dir>", "directory written by pin")
+    .requiredOption("--exclude <m1,m2>", "models that already judged the finding")
+    .action((o) => print(pickTiebreak(planOf(o.context), list(o.exclude), loadUserConfig().config)));
+  plan
+    .command("config")
+    .description("Print the user config path and its checked contents.")
+    .action(() => print(loadUserConfig()));
 
   const lens = program.command("lens").description("Review lens prompts, and running a lens on another model family.");
   lens
@@ -70,12 +102,9 @@ export function buildProgram(state = { exitCode: 0 }) {
       .description(description)
       .requiredOption("--repo <owner/repo>", "repository")
       .requiredOption("--key <pr|branch>", "PR number or branch name");
-  const withLedger = (fn) => (o) => {
-    const l = ledger.load(o.repo, o.key);
-    const result = fn(l, o);
-    ledger.save(l);
-    print(result);
-  };
+  // Every change runs under the ledger's lock, so parallel agents cannot
+  // overwrite each other's writes.
+  const withLedger = (fn) => (o) => print(ledger.update(o.repo, o.key, (l) => fn(l, o)));
 
   keyed("path", "Print the ledger file path.").action((o) => print(ledger.ledgerPath(o.repo, o.key)));
   keyed("start", "Start a review round.")
@@ -84,6 +113,7 @@ export function buildProgram(state = { exitCode: 0 }) {
     .option("--lenses <a,b>", "lenses chosen for this round")
     .option("--models <m1,m2>", "models planned for this round")
     .option("--past-cap", `start a round past ${ledger.MAX_ROUNDS}, only when a person asks for it`)
+    .addOption(new Option("--depth <depth>", "review depth, from context.json").choices(DEPTHS))
     .action(
       withLedger((l, o) => ({
         round: ledger.startRound(l, {
@@ -92,6 +122,7 @@ export function buildProgram(state = { exitCode: 0 }) {
           lenses: list(o.lenses),
           models: list(o.models),
           pastCap: o.pastCap === true,
+          depth: o.depth ?? null,
         }),
         path: ledger.ledgerPath(o.repo, o.key),
       })),
@@ -169,11 +200,35 @@ export function buildProgram(state = { exitCode: 0 }) {
     .option("--key <pr|branch>", "PR number or branch name (needs --repo)")
     .action((o) => {
       if (o.key && !o.repo) throw new ledger.LedgerError("--key needs --repo");
-      const ledgers = o.key
-        ? [ledger.load(o.repo, o.key)]
-        : ledger.allLedgers().filter((l) => !o.repo || l.repo === o.repo);
-      print(ledger.summarize(ledgers));
+      // v1 ledgers and harness reviews both count. A change reviewed under
+      // both is one review: its v1 rounds, then its harness rounds.
+      const harness = allReviewViews(ledger.allLedgers());
+      const ledgers = harness.ledgers.filter(
+        (l) => l.rounds.length && (!o.repo || l.repo === o.repo) && (!o.key || l.key === String(o.key)),
+      );
+      const unreadable = harness.unreadable.filter((u) => (!o.repo || u.repo === o.repo) && (!o.key || u.key === String(o.key)));
+      print({ ...ledger.summarize(ledgers), ...(unreadable.length ? { unreadable } : {}) });
     });
+
+  const fnd = program
+    .command("findings")
+    .description("A harness review's findings, arranged for a person: the report, the open findings, and the last reviewed head.");
+  const keyedFindings = (name, description) =>
+    fnd
+      .command(name)
+      .description(description)
+      .requiredOption("--repo <owner/repo>", "repository")
+      .requiredOption("--key <pr|branch>", "PR number or branch name");
+  keyedFindings("report", "The latest round's report: sections, numbers, every place each finding covers, the verdict, and what waits on a person.").action((o) => {
+    const { state, ledger: view } = loadHarness(o.repo, o.key);
+    print(presentReport(state, view));
+  });
+  keyedFindings("open", "Findings reported in any round and not yet closed, with their review threads.").action((o) => print(presentOpen(loadHarness(o.repo, o.key).ledger)));
+  keyedFindings("last-head", "The head the latest round reviewed.").action((o) => print(loadHarness(o.repo, o.key).ledger.rounds.at(-1)?.head ?? ""));
+
+  // Listed for --help. run() hands these to the harness before commander
+  // parses anything, so the harness sees its arguments unchanged.
+  for (const [name, description] of Object.entries(HARNESS_COMMANDS)) program.command(name).description(description);
 
   const rubric = program.command("rubric").description("Rubrics for the judgments the review skills make, and a validator for the answers.");
   rubric
@@ -259,7 +314,7 @@ export function buildProgram(state = { exitCode: 0 }) {
     .command("prose [files...]")
     .description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.")
     .option("--json", "print findings as JSON")
-    .option("--github", "also check text bound for GitHub: finding IDs, code outside backticks, broken Markdown")
+    .option("--github", "also check text bound for GitHub: finding numbers and IDs, code outside backticks, broken Markdown")
     .action(async (files, o) => {
       const inputs = files.length ? files.map((f) => [f, readFileSync(f, "utf8")]) : [["<stdin>", await readStdin()]];
       const run = o.github ? checkGithub : checkProse;
@@ -281,6 +336,7 @@ export function buildProgram(state = { exitCode: 0 }) {
 // Runs the program and returns the exit code instead of exiting, so tests can
 // call it in-process.
 export async function run(argv) {
+  if (Object.hasOwn(HARNESS_COMMANDS, argv[2] ?? "")) return runHarness(argv.slice(2));
   const state = { exitCode: 0, label: "agent-review" };
   try {
     await buildProgram(state).parseAsync(argv);

@@ -20,9 +20,22 @@
 //   agent-review ledger last-head --repo R --key K
 //   agent-review ledger summary [--repo R [--key K]]   (no repo: every ledger)
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
+import { randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
+import { cliStateRoot } from "agent-review/cli";
 import { check as checkDecision } from "./classify.mjs";
 
 export const SCHEMA = "scalvert.review/v1";
@@ -57,14 +70,10 @@ export class LedgerError extends Error {}
 //      reviews/ rather than the directory, so an empty agent-reviews directory
 //      made by another tool does not hide the old ledgers.
 //   4. $XDG_STATE_HOME/agent-reviews, else ~/.local/state/agent-reviews
+// The review harness keeps its reviews in the same root, so the lookup is
+// the harness's own: one answer for v1 ledgers and harness reviews alike.
 export function stateDir() {
-  const explicit = process.env.AGENT_REVIEWS_STATE_DIR || process.env.SCALVERT_STATE_DIR;
-  if (explicit) return explicit;
-  const base = process.env.XDG_STATE_HOME || join(homedir(), ".local", "state");
-  const current = join(base, "agent-reviews");
-  const legacy = join(homedir(), ".local", "state", "scalvert");
-  if (!existsSync(join(current, "reviews")) && existsSync(join(legacy, "reviews"))) return legacy;
-  return current;
+  return cliStateRoot();
 }
 
 export function ledgerPath(repo, key) {
@@ -97,14 +106,147 @@ export function load(repo, key) {
 export function save(ledger) {
   const path = ledgerPath(ledger.repo, ledger.key);
   mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.tmp`;
+  // A unique name per writer, so two writers never rename each other's file.
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(ledger, null, 2)}\n`);
   renameSync(tmp, path);
   return path;
 }
 
-export function startRound(ledger, { base, head, lenses = [], models = [], pastCap = false }) {
+// Load, change and save one ledger under its lock. Agents write to the same
+// ledger in parallel; without the lock, the last writer silently drops the
+// others' changes. Each writer either commits or fails with "ledger busy"
+// and writes nothing. If fn throws, nothing is saved.
+//
+// The lock is a file created with O_EXCL next to the ledger. A lock whose
+// process is gone was left by a crash and is removed, but only by whoever
+// holds a short breaker lock (<lock>.break), and only after reading it again
+// under the breaker, so two waiters never reclaim at once and delete each
+// other's live lock. A lock held by a live process is never removed, however
+// old; the writer reports busy. A lock with no readable PID is stale once it
+// is older than STALE_LOCK_MS. This covers writers on one machine, not a
+// shared network state directory.
+export function update(repo, key, fn) {
+  const path = ledgerPath(repo, key);
+  mkdirSync(dirname(path), { recursive: true });
+  const lock = `${path}.lock`;
+  const token = acquire(lock);
+  try {
+    const l = load(repo, key);
+    const result = fn(l);
+    save(l);
+    return result;
+  } finally {
+    release(lock, token);
+  }
+}
+
+const STALE_LOCK_MS = 30_000;
+const lockTimeoutMs = () => Number(process.env.AGENT_REVIEWS_LOCK_TIMEOUT_MS) || 10_000;
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+function alive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
+}
+
+function readLock(lock) {
+  try {
+    return { text: readFileSync(lock, "utf8"), mtimeMs: statSync(lock).mtimeMs };
+  } catch {
+    return null;
+  }
+}
+
+// Stale only when its writer is gone. A lock with no readable PID, left by a
+// crash while it was being created, is stale only by age.
+function isStale({ text, mtimeMs }) {
+  let pid;
+  try {
+    pid = JSON.parse(text).pid;
+  } catch {
+    return Date.now() - mtimeMs > STALE_LOCK_MS;
+  }
+  return !alive(pid);
+}
+
+const newToken = () => JSON.stringify({ pid: process.pid, id: randomBytes(6).toString("hex"), at: new Date().toISOString() });
+
+function create(path, token) {
+  try {
+    const fd = openSync(path, "wx");
+    try {
+      writeSync(fd, token);
+    } finally {
+      closeSync(fd);
+    }
+    return true;
+  } catch (e) {
+    if (e.code !== "EEXIST") throw e;
+    return false;
+  }
+}
+
+// Remove a stale lock while holding the breaker. A breaker left by a crash is
+// cleared when its process is gone.
+function reclaim(lock) {
+  const breaker = `${lock}.break`;
+  const token = newToken();
+  if (!create(breaker, token)) {
+    const b = readLock(breaker);
+    if (b && isStale(b)) {
+      try {
+        unlinkSync(breaker);
+      } catch {}
+    }
+    return;
+  }
+  try {
+    const held = readLock(lock);
+    if (held && isStale(held)) {
+      try {
+        unlinkSync(lock);
+      } catch {}
+    }
+  } finally {
+    release(breaker, token);
+  }
+}
+
+function acquire(lock) {
+  const token = newToken();
+  const deadline = Date.now() + lockTimeoutMs();
+  for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
+    if (create(lock, token)) return token;
+    const held = readLock(lock);
+    if (held && isStale(held)) {
+      reclaim(lock);
+      // Retry at once only if the lock is gone; otherwise wait, so the
+      // deadline still applies.
+      if (!readLock(lock)) continue;
+    }
+    if (Date.now() > deadline) {
+      throw new LedgerError(`ledger busy: another writer holds ${lock}, so nothing was written. Retry; if no review is running, remove the lock file.`);
+    }
+    sleep(wait + Math.floor(Math.random() * wait));
+  }
+}
+
+function release(lock, token) {
+  if (readLock(lock)?.text !== token) return;
+  try {
+    unlinkSync(lock);
+  } catch {}
+}
+
+export function startRound(ledger, { base, head, lenses = [], models = [], pastCap = false, depth = null }) {
   if (!base || !head) throw new LedgerError("start needs --base and --head");
+  if (depth != null && !["quick", "standard", "deep"].includes(depth)) throw new LedgerError(`--depth must be quick, standard or deep, got "${depth}"`);
   if (ledger.rounds.length >= MAX_ROUNDS && !pastCap) {
     throw new LedgerError(
       `this has had ${ledger.rounds.length} review rounds. Another round mostly finds older problems. ` +
@@ -112,7 +254,7 @@ export function startRound(ledger, { base, head, lenses = [], models = [], pastC
     );
   }
   const round = ledger.rounds.length + 1;
-  ledger.rounds.push({ round, base, head, lenses, models, startedAt: new Date().toISOString() });
+  ledger.rounds.push({ round, base, head, depth, lenses, models, startedAt: new Date().toISOString() });
   return round;
 }
 
@@ -189,7 +331,9 @@ export function foundBy(ledger, primary) {
   return {
     reviewers: group.length,
     lenses: [...new Set(group.map((f) => f.lens))].sort(),
-    families: [...new Set(group.map((f) => family(f.model)).filter(Boolean))].sort(),
+    // The family recorded with the finding when there is one: the harness
+    // stores the family the panel was checked against.
+    families: [...new Set(group.map((f) => f.family ?? family(f.model)).filter(Boolean))].sort(),
   };
 }
 
@@ -260,33 +404,36 @@ const NAMED_FAMILIES = [
   [/^nemotron/i, "nvidia"],
 ];
 
+// A model behind a gateway that matches no known family counts as the
+// gateway's own family, so two unknown models never pass as two families.
+// Bedrock's region prefix (us., eu., apac., global.) is not part of the name.
 export function family(model) {
   if (!model) return null;
   const [provider, ...rest] = String(model).split("/");
   const p = provider.toLowerCase();
   if (!GATEWAYS.has(p)) return p;
-  const name = rest.join("/");
+  const name = rest.join("/").replace(/^(us|eu|apac|ap|global)\./i, "");
   const hit = NAMED_FAMILIES.find(([re]) => re.test(name));
-  return hit ? hit[1] : `${p}:${name.toLowerCase()}`;
+  return hit ? hit[1] : p;
 }
 
 // Model families that reviewed or verified in a round.
 export function roundFamilies(ledger, round) {
   const r = ledger.rounds.find((x) => x.round === round);
-  const models = [
-    ...(r?.runs ?? []).map((run) => run.model),
-    ...ledger.findings
-      .filter((f) => f.round === round)
-      .flatMap((f) => [f.model, ...Object.values(f.decisions).map((d) => d.model)]),
+  // A recorded family wins over one inferred from the model name.
+  const fam = (x) => x.family ?? family(x.model);
+  const families = [
+    ...(r?.runs ?? []).map(fam),
+    ...ledger.findings.filter((f) => f.round === round).flatMap((f) => [fam(f), ...Object.values(f.decisions).map(fam)]),
   ];
-  return [...new Set(models.map(family).filter(Boolean))].sort();
+  return [...new Set(families.filter(Boolean))].sort();
 }
 
 // Where a confirmed finding goes in the report. Only an introduced finding
 // can be a blocker: a problem that was already there (missed in an earlier
 // round, or older than the PR) is never what holds a PR back. Raising old
 // problems as blockers round after round is what keeps a PR from converging.
-function placement(f) {
+export function placement(f) {
   const severity = f.decisions["finding-severity"]?.label ?? null;
   const origin = f.decisions["finding-origin"]?.label ?? "introduced";
   const capped = severity === "blocker" && origin !== "introduced";
@@ -297,7 +444,7 @@ function placement(f) {
   else if (effective === null) section = "unrated";
   return { severity: effective, origin, cappedFrom: capped ? "blocker" : null, section };
 }
-const SECTION_ORDER = { blockers: 0, "should-fix": 1, "pre-existing": 2, smaller: 3, unrated: 4 };
+export const SECTION_ORDER = { blockers: 0, "should-fix": 1, "pre-existing": 2, smaller: 3, unrated: 4 };
 
 const locKey = (x) => `${x.file}:${x.line ?? ""}`;
 
@@ -513,6 +660,24 @@ export function summarize(ledgers) {
     if (f.disposition && NOISE.has(f.disposition.as)) s.noise += 1;
   }
   for (const s of Object.values(byLens)) s.noiseRate = rate(s.noise, s.disposed);
+  // By depth and by the model that wrote each finding, so the defaults for
+  // each depth can be tuned from what people decided.
+  const tally = (key) => {
+    const out = {};
+    for (const f of reported) {
+      const k = key(f) ?? "unknown";
+      const s = (out[k] ??= { reported: 0, disposed: 0, fixed: 0, noise: 0 });
+      s.reported += 1;
+      if (f.disposition) s.disposed += 1;
+      if (f.disposition && ["fixed", "accepted"].includes(f.disposition.as)) s.fixed += 1;
+      if (f.disposition && NOISE.has(f.disposition.as)) s.noise += 1;
+    }
+    for (const s of Object.values(out)) s.noiseRate = rate(s.noise, s.disposed);
+    return out;
+  };
+  const roundDepth = new Map(ledgers.flatMap((l) => l.rounds.map((r) => [`${l.repo}#${l.key}:${r.round}`, r.depth ?? null])));
+  const byDepth = tally((f) => roundDepth.get(`${f.ledger}:${f.round}`) ?? "unrecorded");
+  const byModel = tally((f) => f.model);
   const rounds = ledgers.map((l) => l.rounds.length).filter(Boolean);
   return {
     ledgers: ledgers.length,
@@ -527,6 +692,8 @@ export function summarize(ledgers) {
     dispositions,
     noiseRate: rate(noise.length, disposed.length),
     byLens,
+    byDepth,
+    byModel,
     verificationBrier: brier,
     modelFamilies: [...families].sort(),
     repeatedClasses: repeatedClasses(reported),

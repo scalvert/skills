@@ -112,6 +112,15 @@ test("run-lens: runs Codex and Claude, tags each finding, and fails loudly on ba
   assert.equal(viaClaude[0].model, "anthropic/claude-default");
   assert.equal(viaClaude[0].lens, "tests");
 
+  // The plan's provider/model IDs reach each CLI as its own name, and the
+  // recorded model keeps one provider prefix.
+  const seen = join(root, "seen");
+  stub(bin, "codex", `while [ "$#" -gt 0 ]; do if [ "$1" = "-o" ]; then out="$2"; fi; if [ "$1" = "-m" ]; then echo "$2" >> "${seen}"; fi; shift; done\ncat > /dev/null\necho '${JSON.stringify({ findings: [finding] })}' > "$out"`);
+  stub(bin, "claude", `while [ "$#" -gt 0 ]; do if [ "$1" = "--model" ]; then echo "$2" >> "${seen}"; fi; shift; done\necho '${JSON.stringify({ result: JSON.stringify({ findings: [finding] }) })}'`);
+  assert.equal(run("correctness", "--via", "codex", "--context", ctx, "--model", "openai/gpt-5.5")[0].model, "openai/gpt-5.5");
+  assert.equal(run("tests", "--via", "claude", "--context", ctx, "--model", "anthropic/opus")[0].model, "anthropic/opus");
+  assert.deepEqual(readFileSync(seen, "utf8").trim().split("\n"), ["gpt-5.5", "opus"]);
+
   stub(bin, "claude", "echo '{\"result\": \"I could not review this.\"}'");
   assert.throws(
     () => execFileSync("node", [join(SCRIPTS, "agent-review.mjs"), "lens", "run", "tests", "--via", "claude", "--context", ctx], { cwd: root, env, stdio: "pipe" }),

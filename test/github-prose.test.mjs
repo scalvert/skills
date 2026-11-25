@@ -11,6 +11,11 @@ test("flags ledger IDs in text bound for GitHub", () => {
   assert.deepEqual(rules("Fixed in `F1` on purpose."), []);
 });
 
+test("flags the review's finding numbers in text bound for GitHub", () => {
+  assert.deepEqual(rules("Finding 2: the loop never ends. Same as finding #3 and candidate 1."), ["finding number: Finding 2", "finding number: finding #3", "finding number: candidate 1"]);
+  assert.deepEqual(rules("Two findings in this file, and 3 candidates."), []);
+});
+
 test("flags review details in text bound for GitHub", () => {
   const review = (text) => checkGithub(text).filter((f) => f.rule.startsWith("review detail")).map((f) => f.excerpt);
   assert.deepEqual(review("Two rounds, with reviewers on two model families."), ["model families", "Two rounds"]);

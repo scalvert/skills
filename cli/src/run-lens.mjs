@@ -94,7 +94,11 @@ export function parseFindings(text) {
   return parsed.findings;
 }
 
-function runCodex(prompt, { model, repoDir }) {
+// The plan's model IDs are provider/model; each CLI wants its own name.
+const native = (model, provider) => (model ? String(model).replace(new RegExp(`^${provider}/`), "") : model);
+
+function runCodex(prompt, { model: planned, repoDir }) {
+  const model = native(planned, "openai");
   const dir = mkdtempSync(join(tmpdir(), "lens-"));
   const schema = join(dir, "schema.json");
   const out = join(dir, "out.json");
@@ -106,7 +110,8 @@ function runCodex(prompt, { model, repoDir }) {
   return { text: readFileSync(out, "utf8"), model: `openai/${model ?? "codex-default"}` };
 }
 
-function runClaude(prompt, { model, repoDir }) {
+function runClaude(prompt, { model: planned, repoDir }) {
+  const model = native(planned, "anthropic");
   const cmd = ["-p", "--permission-mode", "plan", "--output-format", "json"];
   if (model) cmd.push("--model", model);
   cmd.push(prompt);

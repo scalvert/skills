@@ -5,7 +5,7 @@
 # Builds a small library with two branches off main:
 #   seeded  three planted bugs, with the intent stated in the commit message
 #   clean   a correct change (the control)
-# runs Claude Code with the plugin on each, and checks the ledger:
+# runs Claude Code with the plugin on each, and checks the review's history:
 #   - seeded: each planted bug is reported (file and line within 3 lines)
 #   - clean:  no blockers are reported
 #   - both:   every chosen lens ran, at least two model families reviewed or
@@ -21,7 +21,7 @@ repo="$work/repo"
 # send the fixture's ledgers to the real state directory.
 export AGENT_REVIEWS_STATE_DIR="$work/state"
 export SCALVERT_STATE_DIR="$work/state"
-export LEDGER_MODULE="$here/cli/src/review-ledger.mjs"
+export HARNESS_MODULE="$here/cli/src/harness.mjs"
 mkdir -p "$repo" "$AGENT_REVIEWS_STATE_DIR"
 cd "$repo"
 
@@ -124,7 +124,7 @@ git checkout -q main
 git update-ref refs/remotes/origin/main main
 git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
 
-prompt='Use the self-review skill on the current branch against origin/main. The repo has no GitHub remote, so use repo name "fixture/lib" for the ledger. Do not ask me questions; make reasonable choices and finish the whole skill, including the report.'
+prompt='Use the self-review skill on the current branch against origin/main. The repo has no GitHub remote, so use repo name "fixture/lib" for the review. Do not ask me questions; make reasonable choices and finish the whole skill, including the report.'
 status=0
 
 for branch in ${*:-seeded clean}; do
@@ -133,29 +133,30 @@ for branch in ${*:-seeded clean}; do
   claude -p --permission-mode acceptEdits \
     --allowedTools "Bash Read Edit Write Grep Glob Agent Task" \
     --plugin-dir "$here/plugins/claude/scalvert" "$prompt" > "$work/$branch.out" 2>&1 || true
-  ledger="$AGENT_REVIEWS_STATE_DIR/reviews/fixture/lib/$branch.json"
+  history="$AGENT_REVIEWS_STATE_DIR/v2/fixture/lib/$branch/events.jsonl"
   echo "== $branch"
-  if [ ! -f "$ledger" ]; then
-    echo "FAIL: no ledger at $ledger (see $work/$branch.out)"
+  if [ ! -f "$history" ]; then
+    echo "FAIL: no review history at $history (see $work/$branch.out)"
     status=1
     continue
   fi
-  node - "$ledger" "$branch" "$before" "$repo" <<'EOF' || status=1
-const [ledgerPath, branch, before, repo] = process.argv.slice(2);
-const { readFileSync } = await import("node:fs");
+  node - "$branch" "$before" "$repo" <<'EOF' || status=1
+const [branch, before, repo] = process.argv.slice(2);
 const { execFileSync } = await import("node:child_process");
-const l = JSON.parse(readFileSync(ledgerPath, "utf8"));
+const { loadHarness } = await import(process.env.HARNESS_MODULE);
+// The review as the harness recorded it, in the skills' view.
+const { ledger: l } = loadHarness("fixture/lib", branch);
 const reported = l.findings.filter((f) => f.reported);
-const { roundFamilies } = await import(process.env.LEDGER_MODULE);
-const families = new Set(roundFamilies(l, l.rounds.at(-1).round));
 const runs = l.rounds.at(-1).runs ?? [];
+const families = new Set(runs.map((r) => r.family));
 console.log(`runs: ${runs.map((r) => `${r.lens}@${r.model}`).join(", ") || "none"}`);
 const sev = (f) => f.decisions["finding-severity"]?.label;
 let ok = true;
 const say = (pass, msg) => { console.log(`${pass ? "PASS" : "FAIL"}: ${msg}`); ok &&= pass; };
 console.log(`findings ${l.findings.length}, reported ${reported.length}, families ${[...families].join(", ")}`);
 for (const f of reported) console.log(`  ${f.id} ${sev(f) ?? "?"} ${f.file}:${f.line} ${f.title}`);
-say(families.size >= 2, "two or more model families reviewed or verified");
+say(families.size >= 2, "two or more model families reviewed");
+say(l.rounds.at(-1).status === "reported", "the harness accepted the report");
 say(l.rounds.at(-1).lenses.every((lens) => runs.some((r) => r.lens === lens)), "every chosen lens has a recorded run");
 say(reported.every((f) => f.decisions["finding-verification"]?.probability >= 0.7), "every reported finding passed the verification gate");
 if (branch === "seeded") {

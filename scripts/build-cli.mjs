@@ -13,17 +13,24 @@ import { build } from "esbuild";
 
 const { version } = JSON.parse(readFileSync("package.json", "utf8"));
 
-// commander is bundled into every copy of agent-review.mjs, so every copy
-// carries its full license text, as the MIT license requires. legalComments
-// stays off because commander ships its license as a file, not as comments.
-const commander = JSON.parse(readFileSync("node_modules/commander/package.json", "utf8"));
-const commanderLicense = readFileSync("node_modules/commander/LICENSE", "utf8").trim();
+// commander and the review harness (agent-review) are bundled into every copy
+// of agent-review.mjs, so every copy carries their full license text, as the
+// MIT license requires. legalComments stays off because both ship their
+// license as a file, not as comments.
+const notice = (dir, url) => {
+  const pkg = JSON.parse(readFileSync(`node_modules/${dir}/package.json`, "utf8"));
+  const license = readFileSync(`node_modules/${dir}/LICENSE`, "utf8").trim();
+  return [
+    "/*",
+    ` * This file includes ${pkg.name} ${pkg.version} (${url}), under this license:`,
+    " *",
+    ...license.split("\n").map((line) => (line ? ` * ${line}` : " *")),
+    " */",
+  ].join("\n");
+};
 const commanderNotice = [
-  "/*",
-  ` * This file includes commander ${commander.version} (https://github.com/tj/commander.js), under this license:`,
-  " *",
-  ...commanderLicense.split("\n").map((line) => (line ? ` * ${line}` : " *")),
-  " */",
+  notice("commander", "https://github.com/tj/commander.js"),
+  notice("agent-review", "https://github.com/scalvert/agent-review"),
 ].join("\n");
 
 const out = "shared/scalvert/scripts";
