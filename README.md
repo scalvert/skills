@@ -28,6 +28,31 @@ Assess whether a release, milestone, merge or package is ready. A panel of speci
 
 Challenge a position, decision or draft before you commit, send or ship it. Expert personas (distinguished engineer, system designer, political realist, skeptic) take turns pressure-testing the position with sourced claims, and the conversation stays steerable. Formerly `council-discussion`.
 
+## Workflow skills
+
+Each of these covers a job that otherwise gets explained again in every session. None of them sends, posts, merges, releases or deploys without the repo's rules allowing it or you approving it.
+
+| Skill | What it does |
+|---|---|
+| `resume-work` | Rebuilds where the work stands from git, pull requests, CI and the plan, then reports what is done, what waits on you and the one next step. Changes nothing. |
+| `verify-end-to-end` | Runs the real flow the way a user would and inspects the result. A dry run, a fixture or a mock is not proof. Reports the evidence for each claim and what stayed unverified. |
+| `land-pull-request` | Takes your pull request, or a stack, to merged: rebase, review, every thread resolved including bot comments, CI green, title and labels, the repo's merge method, then restack. |
+| `clear-pr-queue` | Works through every open pull request in a repo: lands yours, handles dependency updates, reviews other people's, and proposes closing stale ones. |
+| `prepare-release` | Checks changelog labels and titles, proposes the version and pre-release stage, runs the checks and a dry run, and gives you the release command. Never releases. |
+| `apply-repo-standards` | Brings a repo in line with your other repos by copying from them: toolchain, tests, lint, CI, release setup and docs, one area per pull request. |
+| `match-design` | Takes a screenshot of the build, lists every difference from the mockup with measurements, fixes them with existing components and tokens, and looks again before it says anything matches. |
+| `apply-change-list` | Turns a client's document of changes into a checklist, applies only what is listed, shows a preview, and deploys only when you say so. |
+| `check-claims` | Checks each factual claim in a thread or document against primary evidence, and says "cannot verify" instead of guessing. |
+| `draft-reply` | Drafts a reply in your voice after checking the facts, formatted for where it will go, as a plain text file and on the clipboard. Never sends. |
+| `write-rfc` | Writes or revises an RFC in the structure you already use: problem and decision first, exact names and versions, one source of truth. |
+| `reconcile-tickets` | Compares tickets with merged pull requests and the plan, proposes what to close, update or create, and reports progress as a count you can check. |
+| `encode-lesson` | Turns a correction into the smallest change that stops the mistake from recurring, preferring a check or a script over another written rule. |
+| `find-past-session` | Searches your local Claude Code, Codex and Cursor sessions for what you typed, and prints the command that reopens each match. |
+
+```sh
+node <skill>/scripts/find-session.mjs trusted publishing --days 60 --repo my-cli
+```
+
 ## Install
 
 Claude Code, inside a session:

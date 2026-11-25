@@ -2,5 +2,7 @@
   "code-review": ["agent-review.mjs", "lenses"],
   "self-review": ["agent-review.mjs", "lenses"],
   "address-review-comments": ["agent-review.mjs"],
-  "write-clearly": ["agent-review.mjs"]
+  "write-clearly": ["agent-review.mjs"],
+  "land-pull-request": ["agent-review.mjs"],
+  "clear-pr-queue": ["agent-review.mjs"]
 }
