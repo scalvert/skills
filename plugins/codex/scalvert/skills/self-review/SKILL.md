@@ -156,7 +156,7 @@ For each reported finding that triage marked `agent-fixable`:
 2. Add or update a test when the finding is about behavior.
 3. Run the repo's checks from `AGENTS.md` (build, tests, lint).
 
-Put all of these fixes in one commit, separate from the work it reviews, titled `fix: address self-review findings`. List the findings by title in the body, not by number. If the checks fail and the fix is not clear, revert that fix and move the finding to the needs-judgment list.
+Put all of these fixes in one commit, separate from the work it reviews. Write its message in the repo's commit style about what the fixes change, for example `fix: reject agent files Copilot can't load`, with one line per fix in the body. Do not mention the review or list finding numbers. If the checks fail and the fix is not clear, revert that fix and move the finding to the needs-judgment list.
 
 Then record each fixed finding:
 
@@ -210,7 +210,7 @@ Rules for the prose:
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.
 - Leave out the dropped findings. They stay in the review's history.
 
-Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report. A finding number is a flag to fix only in the draft comments. The report is for this conversation, and keeps its numbers.
+Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report. A finding number or a review detail is a flag to fix only in the draft comments. The report is for this conversation, and keeps its numbers, its reviewer counts and its model families.
 
 
 Add a **Needs your judgment** section after **Smaller items**. For each needs-judgment finding, give the choice to make and the option you recommend, with one line on why.
@@ -236,7 +236,7 @@ When the branch has no PR yet, draft three sections for its description, from wh
 - **Risk:** what could break, and how someone would notice.
 - **How to revert:** the one step that undoes the change, such as a revert, a flag, or a config value.
 
-Draft only. Opening the PR follows the repo's rules below.
+Leave the review itself out of the description. Draft only. Opening the PR follows the repo's rules below.
 
 ### Before anything leaves this machine
 
@@ -251,6 +251,12 @@ node <skill>/scripts/agent-review.mjs policy check -- <the exact command>
 - `deny`: do not do it. Tell the user which rule denies it.
 
 A request earlier in the conversation to "review" something is not approval to post the review.
+
+Everything that leaves this machine (commit messages, PR titles and descriptions, comments and replies) is about the change: what it does, why, and how it was tested. Leave out how it was reviewed. No review rounds, reviewer or verifier counts, lenses, models or model families, ledger IDs, or "self-review". That stays in this conversation. The check below catches the common phrasings, not every one, so read each text yourself too. Check each of those texts before it goes out:
+
+```sh
+node <skill>/scripts/agent-review.mjs prose --github <file>
+```
 
 ### Merging
 

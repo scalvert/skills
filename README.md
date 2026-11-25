@@ -18,7 +18,7 @@ Work through a PR's unresolved review threads. Each claim is verified against th
 
 ### `write-clearly`
 
-Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, a review's finding numbers and internal keys ("finding 2", F2), unbalanced backticks and code blocks with no language.
+Write or rewrite prose that is plain and reads as if a person wrote it. Includes `agent-review prose`, which flags dashes, emoji, title-case headings and phrasing that reads as generated. The review skills run it on their reports. `agent-review prose --github` also checks text bound for GitHub: it flags code outside backticks, a review's finding numbers and internal keys ("finding 2", F2), details of how a review ran ("two review rounds", "found by 3 reviewers", "reviewed with <model>", model families, "self-review findings"), unbalanced backticks and code blocks with no language. Text in backticks is exempt, so a PR can still name the `self-review` skill.
 
 ### `assess-release-readiness`
 
@@ -27,6 +27,14 @@ Assess whether a release, milestone, merge or package is ready. A panel of speci
 ### `debate-a-decision`
 
 Challenge a position, decision or draft before you commit, send or ship it. Expert personas (distinguished engineer, system designer, political realist, skeptic) take turns pressure-testing the position with sourced claims, and the conversation stays steerable. Formerly `council-discussion`.
+
+### `split-plan`
+
+Decide before coding whether a plan, ticket or goal should become several pull requests. Returns a green, yellow or red verdict, the review surfaces, and an ordered stack in which each pull request stands alone. A red verdict stops the implementation until you choose.
+
+### `split-branch`
+
+The same check for a branch that already has commits. Reads the diff against the base, counts hand-written lines apart from generated ones, and names the files and hunks for each pull request. Read-only: it never moves commits or opens a pull request.
 
 ## Install
 

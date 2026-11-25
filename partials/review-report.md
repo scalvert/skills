@@ -44,5 +44,5 @@ Rules for the prose:
 - Cite the `REVIEW.md` rule or axiom ID when a finding rests on one.
 - Leave out the dropped findings. They stay in the review's history.
 
-Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report. A finding number is a flag to fix only in the draft comments. The report is for this conversation, and keeps its numbers.
+Save the report and draft comments to a file and run `node <skill>/scripts/agent-review.mjs prose --github <file>`. Fix each flag, or keep it on purpose (for example, a quoted error message), before you show the report. A finding number or a review detail is a flag to fix only in the draft comments. The report is for this conversation, and keeps its numbers, its reviewer counts and its model families.
 
