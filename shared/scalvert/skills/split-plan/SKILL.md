@@ -12,7 +12,7 @@ Judge a plan before any code exists. Splitting is cheap at this point and costly
 
 **Plan or goal:** `$ARGUMENTS`
 
-If the input is empty or the literal "$ARGUMENTS", ask for the plan, a ticket link or a one-line goal, and stop.
+If the input is empty or the literal "$ARGUMENTS", use the plan, ticket or goal in the current conversation. If the conversation has none, ask for the plan, a ticket link or a one-line goal, and stop.
 
 ## Steps
 

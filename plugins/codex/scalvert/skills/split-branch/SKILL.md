@@ -14,7 +14,7 @@ This skill reads. It does not move commits, change branches or open a pull reque
 
 **Base ref:** `$ARGUMENTS`
 
-When no base is given, find it in this order:
+If the input is empty or the literal "$ARGUMENTS", no base is given. When no base is given, find it in this order:
 
 1. The branch's upstream, when it tracks a branch other than its own remote copy.
 2. The remote's default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`.
@@ -88,7 +88,13 @@ Line count alone does not decide it. Weigh:
 
 Leave out a section that has nothing in it. A green verdict needs only the verdict and the diff summary.
 
-For "How to split it", use the tool the repo already uses. With no stacking tool, give plain git: a new branch from the base for each part, then `git cherry-pick` for whole commits or `git checkout <branch> -- <path>` for whole files. Name the commits and paths. Do not run the commands.
+For "How to split it", use the tool the repo already uses. With no stacking tool, give plain git. Name the commits, paths and hunks. Do not run the commands.
+
+- Start a part that depends on no other part on a new branch from the base. Start a dependent part on a new branch from the part it depends on, and open its pull request against that part's branch.
+- Bring in whole commits with `git cherry-pick <commit>` and whole files with `git checkout <branch> -- <path>`.
+- When parts share a file, bring in only this part's hunks with `git restore -p --source <branch> -- <path>`, then stage them with `git add <path>`.
+- For a deleted file, use `git rm <path>`. For a renamed file, bring in the new path and remove the old one with `git rm <old-path>`.
+- End each part with `git diff --stat <parent>...HEAD`, where the parent is the base or the part it depends on. The files and hunks must match that part of the recommended split.
 
 ## Verdicts
 
