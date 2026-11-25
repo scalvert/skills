@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -221,6 +221,42 @@ test("ledger dispose: only a person clears a v1 blocker, should-fix, unrated or 
   run(["dispose", "--id", "F2", "--as", "intended", "--actor", "human:steve"]);
   const r = cli(["ledger", "dispose", ...key, "--id", "F3", "--as", "wrong"], { env: { ...env, AGENT_REVIEW_ACTOR: "human:steve" } });
   assert.equal(r.status, 0, "the actor can come from AGENT_REVIEW_ACTOR");
+  // An explicit --actor wins over AGENT_REVIEW_ACTOR, in both directions.
+  const refused = cli(["ledger", "dispose", ...key, "--id", "F5", "--as", "wrong", "--actor", "agent:test"], { env: { ...env, AGENT_REVIEW_ACTOR: "human:steve" } });
+  assert.notEqual(refused.status, 0, "--actor agent: is refused even when the env names a person");
+  assert.match(refused.stderr, /only a person can mark/);
+  const allowed = cli(["ledger", "dispose", ...key, "--id", "F5", "--as", "wrong", "--actor", "human:steve"], { env: { ...env, AGENT_REVIEW_ACTOR: "agent:wrapper" } });
+  assert.equal(allowed.status, 0, allowed.stderr);
   const saved = JSON.parse(readFileSync(cli(["ledger", "path", ...key], { env }).stdout.trim(), "utf8"));
-  assert.deepEqual(saved.findings.map((f) => f.disposition?.actor ?? null), ["agent:test", "human:steve", "human:steve", "agent:test", null]);
+  assert.deepEqual(saved.findings.map((f) => f.disposition?.actor ?? null), ["agent:test", "human:steve", "human:steve", "agent:test", "human:steve"]);
+});
+
+test("plan verifier --exclude picks a second verifier, not the first one again", () => {
+  const root = mkdtempSync(join(tmpdir(), "cli-verifier-"));
+  const repo = join(root, "repo");
+  const git = (...a) => execFileSync("git", a, { cwd: repo, encoding: "utf8" });
+  execFileSync("git", ["init", "-q", "-b", "main", repo]);
+  git("config", "user.email", "t@example.com");
+  git("config", "user.name", "t");
+  writeFileSync(join(repo, "a.js"), "1\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "base");
+  git("checkout", "-q", "-b", "feature");
+  writeFileSync(join(repo, "a.js"), "2\n");
+  git("commit", "-qam", "change a");
+  const config = join(root, "config.json");
+  writeFileSync(config, JSON.stringify({ hosts: { tau: { strong: ["glean/CLAUDE_5_5_OPUS", "glean/GPT6_1_SOL"], tiebreak: ["glean/GROK_4_7"] } } }));
+  const env = { ...process.env, AGENT_REVIEWS_CONFIG: config };
+  const ctx = join(root, "ctx");
+  const pinned = cli(["pin", "--base", "main", "--host", "tau", "--out", ctx], { cwd: repo, env });
+  assert.equal(pinned.status, 0, pinned.stderr);
+  const verifier = (...extra) => {
+    const r = cli(["plan", "verifier", "--context", ctx, "--author", "glean/GPT6_1_SOL", ...extra], { env });
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(r.stdout).model;
+  };
+  const first = verifier();
+  assert.equal(first, "glean/CLAUDE_5_5_OPUS");
+  const second = verifier("--exclude", first);
+  assert.equal(second, "glean/GROK_4_7", "another family than the author, and not the first verifier");
 });
