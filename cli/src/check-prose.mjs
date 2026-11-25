@@ -351,6 +351,41 @@ function notCode(token, kind) {
   return false;
 }
 
+// Phrases that describe how a review ran rather than the code. Commit
+// messages, PR descriptions and comments are about the change; how many
+// reviewers or rounds ran, and on which models, belongs in the conversation.
+// A pattern with a context only counts when its sentence also matches the
+// context: "two rounds" of retries and "2 reviewers" required before a merge
+// describe the change.
+const COUNT = String.raw`(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)`;
+const REVIEW_WORD = /\b(?:review(?:ed|ers?)?|self-review(?:ed)?|verifiers?)\b/i;
+const PROCESS_CUE = /\b(?:found|flagged|confirmed|caught|checked|verified|reviewed|agreed|disagreed|ran|panel|independent)\b/i;
+const MODEL = String.raw`(?:Claude|Opus|Sonnet|Haiku|GPT(?:[-.\w]*\w)?|Gemini|Grok|Codex|OpenAI|Anthropic)\b`;
+const REVIEW_DETAILS = [
+  { re: /\bmodel famil(?:y|ies)\b/gi },
+  // "self-review" alone names the skill. These say that one happened.
+  { re: /\bself-reviewed\b|\bself-review (?:findings?|feedback|pass(?:es)?)\b/gi },
+  {
+    re: /(?<=\b(?:in|after|from|during|before|via|through|ran|did)\s+(?:(?:a|an|the|another|one|this|that|my|our|its|their)\s+)?)self-reviews?(?=\s*(?:[.,;:!?)]|$))/gi,
+  },
+  { re: /\b(?:review|self-review) rounds?\b|\brounds? of (?:self-)?review\b/gi },
+  { re: new RegExp(String.raw`\b${COUNT} (?:self-)?review rounds\b`, "gi") },
+  { re: new RegExp(String.raw`\b${COUNT} rounds\b`, "gi"), context: REVIEW_WORD },
+  { re: new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers?|verifiers?|lens(?:es)?)\b`, "gi"), context: PROCESS_CUE },
+  { re: new RegExp(String.raw`\b(?:re-reviewed|reviewed|verified|cross-checked|checked|audited) (?:with|by|on|using) (?:the )?${MODEL}`, "gi") },
+  { re: /\bpanels? of reviewers\b|\breviewer panels?\b/gi },
+  { re: /\b(?:verifier|reviewer) subagents?\b/gi },
+  { re: /\bthrough the [\w-]+ lens\b/gi },
+];
+
+// The sentence of the line that holds line[s, e].
+function sentenceAround(line, s, e) {
+  let start = 0;
+  for (const m of line.slice(0, s).matchAll(/[.!?](?=\s)/g)) start = m.index + 1;
+  const end = line.slice(e).search(/[.!?](?=\s|$)/);
+  return line.slice(start, end < 0 ? line.length : e + end);
+}
+
 // Checks text that will be posted to GitHub: review comments, thread
 // replies, PR descriptions. On top of the prose rules it flags:
 //
@@ -358,6 +393,9 @@ function notCode(token, kind) {
 //   finding number         finding 2, candidate 3: numbers from the review
 //                          in this conversation, which a reader on GitHub
 //                          never saw
+//   review detail          how the review ran (rounds, reviewer counts, models,
+//                          model families, "self-review findings"): process,
+//                          not the change. Link labels are checked too.
 //   escaped backtick       \` renders as a literal backtick, not code; this is
 //                          what a body inlined in a shell string turns into
 //   unformatted code       code outside backticks (calls, paths, flags, identifiers)
@@ -388,10 +426,27 @@ export function checkGithub(text) {
   // Reference-link definitions ([vc]: #...) never render.
   const html = (line) =>
     /^\s{0,3}\[[^\]]+\]:\s/.test(line) ? "" : line.replace(/<!--.*?-->|<\/?[A-Za-z][^<>]*>/g, (m) => " ".repeat(m.length));
+  // Review details are prose, so a link label can carry one.
+  const labeled = maskExempt(text).map(html);
   maskExempt(text, { links: true }).map(html).forEach((line, i) => {
     const n = i + 1;
+    const prose = labeled[i];
     for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
     for (const m of line.matchAll(/\b(?:finding|candidate)s?\s+#?\d+\b/gi)) add(n, "finding number", m[0]);
+    // The patterns overlap ("two review rounds" matches two of them), so
+    // spans that intersect are one phrase and reported once.
+    const details = REVIEW_DETAILS.flatMap(({ re, context }) =>
+      [...prose.matchAll(re)]
+        .map((m) => [m.index, m.index + m[0].length])
+        .filter(([s, e]) => !context || context.test(sentenceAround(prose, s, e))),
+    );
+    const phrases = [];
+    for (const [s, e] of details.sort((a, b) => a[0] - b[0])) {
+      const last = phrases.at(-1);
+      if (last && s < last[1]) last[1] = Math.max(last[1], e);
+      else phrases.push([s, e]);
+    }
+    for (const [s, e] of phrases) add(n, "review detail (describe the change, not how it was reviewed)", prose.slice(s, e));
     // Patterns run from widest to narrowest. A match inside one already
     // reported (repoDir inside opts.repoDir) is the same code, reported once.
     const covered = [];
