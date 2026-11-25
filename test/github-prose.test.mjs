@@ -18,9 +18,17 @@ test("flags the review's finding numbers in text bound for GitHub", () => {
 
 test("flags review details in text bound for GitHub", () => {
   const review = (text) => checkGithub(text).filter((f) => f.rule.startsWith("review detail")).map((f) => f.excerpt);
-  assert.deepEqual(review("Two rounds, with reviewers on two model families."), ["model families", "Two rounds"]);
+  assert.deepEqual(review("Two rounds, with reviewers on two model families."), ["Two rounds", "model families"]);
   assert.deepEqual(review("fix: address self-review findings"), ["self-review"]);
-  assert.deepEqual(review("Found by 3 reviewers in the second review round."), ["review round", "3 reviewers"]);
+  assert.deepEqual(review("Found by 3 reviewers in the second review round."), ["3 reviewers", "review round"]);
+  assert.deepEqual(review("Found by one reviewer."), ["one reviewer"]);
+  assert.deepEqual(review("One verifier confirmed it, and 1 lens flagged it."), ["One verifier", "1 lens"]);
+  // Overlapping patterns describe one phrase, so it is reported once.
+  assert.deepEqual(review("Ran two review rounds."), ["two review rounds"]);
+  assert.deepEqual(review("Two self-review rounds found it."), ["self-review rounds"]);
+  assert.deepEqual(review("Ran three rounds of self-review."), ["three rounds of self-review"]);
+  // Separate occurrences on one line stay separate.
+  assert.deepEqual(review("Two rounds, then a self-review."), ["Two rounds", "self-review"]);
   assert.deepEqual(review("Adds the `self-review` skill and fixes the round-trip test."), []);
 });
 

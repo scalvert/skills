@@ -360,7 +360,7 @@ const REVIEW_DETAILS = [
   /\bself-review(?:ed|s)?\b/gi,
   /\b(?:review|self-review) rounds?\b|\brounds? of (?:self-)?review\b/gi,
   new RegExp(String.raw`\b${COUNT} (?:review )?rounds\b`, "gi"),
-  new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers|verifiers|lenses)\b`, "gi"),
+  new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers?|verifiers?|lens(?:es)?)\b`, "gi"),
 ];
 
 // Checks text that will be posted to GitHub: review comments, thread
@@ -406,9 +406,16 @@ export function checkGithub(text) {
     const n = i + 1;
     for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
     for (const m of line.matchAll(/\b(?:finding|candidate)s?\s+#?\d+\b/gi)) add(n, "finding number", m[0]);
-    for (const re of REVIEW_DETAILS) {
-      for (const m of line.matchAll(re)) add(n, "review detail (describe the change, not how it was reviewed)", m[0]);
+    // The patterns overlap ("two review rounds" matches two of them), so
+    // spans that intersect are one phrase and reported once.
+    const details = REVIEW_DETAILS.flatMap((re) => [...line.matchAll(re)].map((m) => [m.index, m.index + m[0].length]));
+    const phrases = [];
+    for (const [s, e] of details.sort((a, b) => a[0] - b[0])) {
+      const last = phrases.at(-1);
+      if (last && s < last[1]) last[1] = Math.max(last[1], e);
+      else phrases.push([s, e]);
     }
+    for (const [s, e] of phrases) add(n, "review detail (describe the change, not how it was reviewed)", line.slice(s, e));
     // Patterns run from widest to narrowest. A match inside one already
     // reported (repoDir inside opts.repoDir) is the same code, reported once.
     const covered = [];

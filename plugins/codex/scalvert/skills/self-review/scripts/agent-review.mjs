@@ -3830,7 +3830,7 @@ var REVIEW_DETAILS = [
   /\bself-review(?:ed|s)?\b/gi,
   /\b(?:review|self-review) rounds?\b|\brounds? of (?:self-)?review\b/gi,
   new RegExp(String.raw`\b${COUNT} (?:review )?rounds\b`, "gi"),
-  new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers|verifiers|lenses)\b`, "gi")
+  new RegExp(String.raw`\b${COUNT} (?:independent )?(?:reviewers?|verifiers?|lens(?:es)?)\b`, "gi")
 ];
 function checkGithub(text) {
   const findings = check(text);
@@ -3858,9 +3858,14 @@ function checkGithub(text) {
     const n = i + 1;
     for (const m of line.matchAll(/\bF\d+\b/g)) add(n, "finding ID", m[0]);
     for (const m of line.matchAll(/\b(?:finding|candidate)s?\s+#?\d+\b/gi)) add(n, "finding number", m[0]);
-    for (const re of REVIEW_DETAILS) {
-      for (const m of line.matchAll(re)) add(n, "review detail (describe the change, not how it was reviewed)", m[0]);
+    const details = REVIEW_DETAILS.flatMap((re) => [...line.matchAll(re)].map((m) => [m.index, m.index + m[0].length]));
+    const phrases = [];
+    for (const [s, e] of details.sort((a, b) => a[0] - b[0])) {
+      const last = phrases.at(-1);
+      if (last && s < last[1]) last[1] = Math.max(last[1], e);
+      else phrases.push([s, e]);
     }
+    for (const [s, e] of phrases) add(n, "review detail (describe the change, not how it was reviewed)", line.slice(s, e));
     const covered = [];
     for (const { kind, re } of CODE_PATTERNS) {
       for (const m of line.matchAll(re)) {
@@ -7995,7 +8000,7 @@ function buildProgram(state = { exitCode: 0 }) {
   const threads = program2.command("threads").description("Read-only helpers for answering PR review threads.");
   threads.command("list").description("Unresolved review threads, oldest first.").requiredOption("--pr <number>", "pull request").option("--repo <owner/repo>", "repository (default: the current one)").option("--all", "include resolved threads").action((o) => print(listThreads(o)));
   threads.command("owner").description("The commit that last changed a line, and the open PR that contains it.").requiredOption("--path <file>", "file").requiredOption("--line <n>", "line").option("--repo <owner/repo>", "repository (default: the current one)").action((o) => print(owner(o)));
-  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding numbers and IDs, code outside backticks, broken Markdown").action(async (files, o) => {
+  program2.command("prose [files...]").description("Check prose for the write-clearly rules. Reads stdin when no files are given. Exits 1 when anything is flagged.").option("--json", "print findings as JSON").option("--github", "also check text bound for GitHub: finding numbers and IDs, review details (rounds, reviewer counts, model families, self-review), code outside backticks, broken Markdown").action(async (files, o) => {
     const inputs = files.length ? files.map((f) => [f, readFileSync9(f, "utf8")]) : [["<stdin>", await readStdin()]];
     const run4 = o.github ? checkGithub : check;
     const all = inputs.flatMap(([file, text]) => run4(text).map((f) => ({ file, ...f })));
