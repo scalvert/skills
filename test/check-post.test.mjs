@@ -1,6 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { checkPost, splitPosts, FOLD } from "../shared/scalvert/skills/write-linkedin-post/scripts/check-post.mjs";
+
+const scriptsDir = fileURLToPath(new URL("../shared/scalvert/skills/write-linkedin-post/scripts", import.meta.url));
+const fence = "Example:\n\n```js\nconsole.log(1);\n```";
+
+function run(script, input) {
+  return spawnSync(process.execPath, [script], { input, encoding: "utf8" });
+}
 
 const clean = [
   "Your setup page is already a procedure. Mark it up, and the build turns it into a skill an agent can follow.",
@@ -38,6 +50,39 @@ test("a long hook, many hashtags, stock openers, and bait are warnings", () => {
 test("code names written as plain words aren't flagged as italics or headings", () => {
   const r = checkPost("It reads docs_fetch and SKILL.md, then the #1 result.");
   assert.deepEqual(r.errors, []);
+});
+
+test("single-asterisk italics and code fences are errors", () => {
+  assert.match(checkPost("Use *this* now").errors.join("\n"), /italic Markdown \(\*text\*\)/);
+  assert.match(checkPost(fence).errors.join("\n"), /code fence/);
+  assert.deepEqual(checkPost("5 * 3 * 2 is 30.").errors, []);
+});
+
+test("the CLI exits 1 for single-asterisk italics and code fences on stdin", () => {
+  for (const [input, what] of [["Use *this* now", /italic Markdown/], [fence, /code fence/]]) {
+    const r = run(join(scriptsDir, "check-post.mjs"), input);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, what);
+  }
+});
+
+test("the CLI still checks when run through a symlinked folder", () => {
+  const dir = mkdtempSync(join(tmpdir(), "check-post-"));
+  try {
+    const link = join(dir, "scripts");
+    symlinkSync(scriptsDir, link);
+    const r = run(join(link, "check-post.mjs"), "**Bad** post");
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /error: bold Markdown/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a ```js line inside a ```text block stays in the post", () => {
+  const md = "```text\nExample:\n\n```js\nconsole.log(1);\n```\n";
+  const [post] = splitPosts(md);
+  assert.match(checkPost(post).errors.join("\n"), /code fence/);
 });
 
 test("splitPosts reads ```text blocks, or treats the whole input as one post", () => {

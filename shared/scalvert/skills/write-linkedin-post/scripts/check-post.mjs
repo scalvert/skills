@@ -6,7 +6,7 @@
 // In a Markdown file, each ```text block is one post; any other input is one post.
 // Exits 1 if any post has an error; warnings alone exit 0.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 export const LIMIT = 3000;
@@ -28,7 +28,8 @@ const BAIT = [
 
 /** Split input into posts: ```text blocks in Markdown, otherwise the whole text. */
 export function splitPosts(input) {
-  const blocks = [...input.matchAll(/^```text[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1].trim());
+  // Only a bare ``` line closes the block, so a ```js line inside a post stays in the post.
+  const blocks = [...input.matchAll(/^```text[^\n]*\n([\s\S]*?)^```[ \t]*$/gm)].map((m) => m[1].trim());
   return blocks.length ? blocks : [input.trim()];
 }
 
@@ -45,6 +46,8 @@ export function checkPost(post) {
   const markdown = [
     [/\*\*[^*\n]+\*\*|__[^_\n]+__/, "bold Markdown (**text**)"],
     [/(^|\s)_[^_\n]+_(?=\s|[.,!?]|$)/m, "italic Markdown (_text_)"],
+    [/(?<![*\w])\*(?=[^\s*])[^*\n]+(?<=[^\s*])\*(?![*\w])/, "italic Markdown (*text*)"],
+    [/^[ \t]*```/m, "a Markdown code fence (```)"],
     [/`[^`\n]+`/, "backticks"],
     [/^#{1,6}\s/m, "a Markdown heading"],
     [/\[[^\]\n]+\]\([^)\n]+\)/, "a Markdown link ([text](url))"],
@@ -64,7 +67,8 @@ export function checkPost(post) {
   return { length, fold: [...post].slice(0, FOLD).join(""), urls, errors, warnings };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Node resolves the module URL through symlinks but leaves argv[1] as typed, so resolve both.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const file = process.argv[2];
   const input = file ? readFileSync(file, "utf8") : readFileSync(0, "utf8");
   let failed = false;

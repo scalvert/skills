@@ -70,7 +70,7 @@ In a Markdown file, each fenced block tagged `text` is one post. Any other file 
 - over 3,000 characters;
 - a hook that runs past the fold;
 - Markdown that LinkedIn won't render;
-- Unicode bold letters and dashes;
+- Unicode bold or italic letters, and dashes;
 - emoji, which are fine only if the author uses them;
 - more than three hashtags;
 - stock openers and engagement bait.

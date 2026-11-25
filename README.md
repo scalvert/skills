@@ -22,7 +22,7 @@ Write or rewrite prose that is plain and reads as if a person wrote it. Includes
 
 ### `write-linkedin-post`
 
-Draft LinkedIn posts, or a series of them, to share a project, release, video or article. The hook comes before the "see more" fold, the text is plain because LinkedIn renders no Markdown, every claim has a source, and media is uploaded natively. Includes `check-post.mjs`, which flags posts over 3,000 characters, hooks that run past the fold, Markdown and Unicode bold that LinkedIn shows as typed, emoji, dashes, hashtag piles, stock openers and engagement bait. Never posts anything.
+Draft LinkedIn posts, or a series of them, to share a project, release, video or article. The hook comes before the "see more" fold, the text is plain because LinkedIn renders no Markdown, every claim has a source, and media is uploaded natively. Includes `check-post.mjs`, which flags posts over 3,000 characters, hooks that run past the fold, Markdown and Unicode bold or italic letters that LinkedIn shows as typed, emoji, dashes, hashtag piles, stock openers and engagement bait. Never posts anything.
 
 ### `assess-release-readiness`
 
